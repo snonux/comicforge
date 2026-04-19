@@ -2,11 +2,14 @@ package image
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/sys/unix"
 )
 
 // DownloadOptions configures image download behavior.
@@ -55,22 +58,6 @@ func (d *Downloader) DownloadImage(ctx context.Context, result *SearchResult, ou
 		return fmt.Errorf("search result is required")
 	}
 
-	dir := filepath.Dir(outputPath)
-	if d.options != nil && d.options.CreateDir && dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create output dir %q: %w", dir, err)
-		}
-	}
-	if err := ensureNoSymlinkAncestors(outputPath); err != nil {
-		return fmt.Errorf("validate output path %q: %w", outputPath, err)
-	}
-
-	if d.options != nil && !d.options.OverwriteExisting {
-		if _, err := os.Stat(outputPath); err == nil {
-			return fmt.Errorf("output file exists: %s", outputPath)
-		}
-	}
-
 	reader, err := d.provider.Download(ctx, result.URL)
 	if err != nil {
 		return fmt.Errorf("download %q: %w", result.URL, err)
@@ -79,10 +66,11 @@ func (d *Downloader) DownloadImage(ctx context.Context, result *SearchResult, ou
 		_ = reader.Close()
 	}()
 
-	file, err := os.Create(outputPath)
+	file, parentFD, finalName, err := d.openSecureOutputFile(outputPath)
 	if err != nil {
 		return fmt.Errorf("create output file %q: %w", outputPath, err)
 	}
+	defer unix.Close(parentFD)
 	defer func() {
 		if closeErr := file.Close(); err == nil && closeErr != nil {
 			err = fmt.Errorf("close output file %q: %w", outputPath, closeErr)
@@ -92,20 +80,20 @@ func (d *Downloader) DownloadImage(ctx context.Context, result *SearchResult, ou
 	if d.options != nil && d.options.MaxSizeBytes > 0 {
 		written, copyErr := io.CopyN(file, reader, d.options.MaxSizeBytes)
 		if copyErr != nil && copyErr != io.EOF {
-			_ = os.Remove(outputPath)
+			_ = unix.Unlinkat(parentFD, finalName, 0)
 			return fmt.Errorf("write output file %q: %w", outputPath, copyErr)
 		}
 
 		if written == d.options.MaxSizeBytes {
 			var probe [1]byte
 			if n, probeErr := reader.Read(probe[:]); n > 0 || probeErr != io.EOF {
-				_ = os.Remove(outputPath)
+				_ = unix.Unlinkat(parentFD, finalName, 0)
 				return fmt.Errorf("image exceeds max size %d bytes", d.options.MaxSizeBytes)
 			}
 		}
 	} else {
 		if _, err = io.Copy(file, reader); err != nil {
-			_ = os.Remove(outputPath)
+			_ = unix.Unlinkat(parentFD, finalName, 0)
 			return fmt.Errorf("write output file %q: %w", outputPath, err)
 		}
 	}
@@ -115,8 +103,8 @@ func (d *Downloader) DownloadImage(ctx context.Context, result *SearchResult, ou
 	}
 
 	if attribution := strings.TrimSpace(result.Attribution); attribution != "" {
-		attrPath := strings.TrimSuffix(outputPath, filepath.Ext(outputPath)) + "_attribution.txt"
-		if err := os.WriteFile(attrPath, []byte(attribution), 0o644); err != nil {
+		attrRelPath := strings.TrimSuffix(finalName, filepath.Ext(finalName)) + "_attribution.txt"
+		if err := d.writeSecureRelativeFile(outputPath, attrRelPath, []byte(attribution), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to save attribution: %v\n", err)
 		}
 	}
@@ -153,11 +141,7 @@ func (d *Downloader) DownloadBestMatchWithOptions(ctx context.Context, opts *Sea
 
 	for i, result := range results {
 		filename := d.generateFileName(opts.Query, &result, i)
-		outputDir := "./images"
-		if d.options != nil && d.options.OutputDir != "" {
-			outputDir = d.options.OutputDir
-		}
-		outputPath, err := joinWithinBaseDir(outputDir, filename)
+		outputPath, err := d.resolveOutputPath(filename)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: refusing unsafe output path %q: %v\n", filename, err)
 			continue
@@ -206,7 +190,12 @@ func (d *Downloader) generateFileName(word string, result *SearchResult, index i
 	return filename
 }
 
-func joinWithinBaseDir(baseDir, name string) (string, error) {
+func (d *Downloader) resolveOutputPath(name string) (string, error) {
+	baseDir := "./images"
+	if d != nil && d.options != nil && d.options.OutputDir != "" {
+		baseDir = d.options.OutputDir
+	}
+
 	if strings.TrimSpace(baseDir) == "" {
 		baseDir = "."
 	}
@@ -232,48 +221,174 @@ func joinWithinBaseDir(baseDir, name string) (string, error) {
 	return fullPath, nil
 }
 
-func ensureNoSymlinkAncestors(path string) error {
-	absPath, err := filepath.Abs(path)
+func (d *Downloader) openSecureOutputFile(outputPath string) (*os.File, int, string, error) {
+	baseDir := "./images"
+	if d != nil && d.options != nil && d.options.OutputDir != "" {
+		baseDir = d.options.OutputDir
+	}
+
+	baseAbs, err := filepath.Abs(baseDir)
 	if err != nil {
-		return fmt.Errorf("resolve output path: %w", err)
+		return nil, 0, "", fmt.Errorf("resolve base dir: %w", err)
+	}
+	targetAbs, err := filepath.Abs(outputPath)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("resolve output path: %w", err)
+	}
+	relPath, err := filepath.Rel(baseAbs, targetAbs)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("relativize output path: %w", err)
+	}
+	if relPath == "." || relPath == ".." || strings.HasPrefix(relPath, ".."+string(os.PathSeparator)) {
+		return nil, 0, "", fmt.Errorf("path escapes base dir")
 	}
 
-	absPath = filepath.Clean(absPath)
-	dir := filepath.Dir(absPath)
-	root := filepath.VolumeName(absPath) + string(os.PathSeparator)
-	if filepath.VolumeName(absPath) == "" {
-		root = string(os.PathSeparator)
+	relPath = filepath.Clean(relPath)
+	parentRel := filepath.Dir(relPath)
+	finalName := filepath.Base(relPath)
+
+	parentFD, err := openDirPathNoFollow(baseAbs, parentRel, d.options != nil && d.options.CreateDir)
+	if err != nil {
+		return nil, 0, "", err
 	}
 
-	for {
-		if dir == root || dir == "." || dir == string(os.PathSeparator) {
-			break
-		}
-
-		if info, err := os.Lstat(dir); err == nil {
-			if info.Mode()&os.ModeSymlink != 0 {
-				return fmt.Errorf("path component %q is a symlink", dir)
-			}
-		} else if !os.IsNotExist(err) {
-			return fmt.Errorf("stat path component %q: %w", dir, err)
-		}
-
-		next := filepath.Dir(dir)
-		if next == dir {
-			break
-		}
-		dir = next
+	flags := unix.O_WRONLY | unix.O_CREAT | unix.O_CLOEXEC | unix.O_NOFOLLOW
+	if d.options != nil && d.options.OverwriteExisting {
+		flags |= unix.O_TRUNC
+	} else {
+		flags |= unix.O_EXCL
 	}
 
-	if info, err := os.Lstat(absPath); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("output path %q is a symlink", absPath)
-		}
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("stat output path %q: %w", absPath, err)
+	fd, err := unix.Openat(parentFD, finalName, flags, 0o644)
+	if err != nil {
+		_ = unix.Close(parentFD)
+		return nil, 0, "", fmt.Errorf("open output file: %w", err)
 	}
 
+	return os.NewFile(uintptr(fd), targetAbs), parentFD, finalName, nil
+}
+
+func (d *Downloader) writeSecureRelativeFile(outputPath, relPath string, content []byte, perm os.FileMode) error {
+	file, parentFD, finalName, err := d.openSecureRelativeFile(outputPath, relPath, perm)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(parentFD)
+	defer func() {
+		_ = file.Close()
+	}()
+
+	if _, err := file.Write(content); err != nil {
+		_ = unix.Unlinkat(parentFD, finalName, 0)
+		return fmt.Errorf("write attribution file: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		_ = unix.Unlinkat(parentFD, finalName, 0)
+		return fmt.Errorf("sync attribution file: %w", err)
+	}
 	return nil
+}
+
+func (d *Downloader) openSecureRelativeFile(outputPath, relPath string, perm os.FileMode) (*os.File, int, string, error) {
+	baseDir := "./images"
+	if d != nil && d.options != nil && d.options.OutputDir != "" {
+		baseDir = d.options.OutputDir
+	}
+
+	baseAbs, err := filepath.Abs(baseDir)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("resolve base dir: %w", err)
+	}
+	targetAbs, err := filepath.Abs(outputPath)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("resolve output path: %w", err)
+	}
+	baseRelPath, err := filepath.Rel(baseAbs, targetAbs)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("relativize output path: %w", err)
+	}
+	if baseRelPath == "." || baseRelPath == ".." || strings.HasPrefix(baseRelPath, ".."+string(os.PathSeparator)) {
+		return nil, 0, "", fmt.Errorf("path escapes base dir")
+	}
+
+	parentRel := filepath.Dir(filepath.Clean(baseRelPath))
+	parentFD, err := openDirPathNoFollow(baseAbs, parentRel, true)
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	flags := unix.O_WRONLY | unix.O_CREAT | unix.O_CLOEXEC | unix.O_NOFOLLOW | unix.O_TRUNC
+	fd, err := unix.Openat(parentFD, relPath, flags, uint32(perm.Perm()))
+	if err != nil {
+		_ = unix.Close(parentFD)
+		return nil, 0, "", fmt.Errorf("open attribution file: %w", err)
+	}
+
+	return os.NewFile(uintptr(fd), targetAbs), parentFD, relPath, nil
+}
+
+func openDirPathNoFollow(baseAbs, relPath string, createDirs bool) (int, error) {
+	dirFD, err := openPathDirNoFollow(baseAbs, createDirs)
+	if err != nil {
+		return 0, err
+	}
+
+	relPath = filepath.Clean(relPath)
+	if relPath == "." {
+		return dirFD, nil
+	}
+
+	parts := strings.Split(relPath, string(os.PathSeparator))
+	for _, part := range parts {
+		if part == "" || part == "." {
+			continue
+		}
+		if createDirs {
+			if err := unix.Mkdirat(dirFD, part, 0o755); err != nil && !errors.Is(err, unix.EEXIST) {
+				_ = unix.Close(dirFD)
+				return 0, fmt.Errorf("create dir %q: %w", part, err)
+			}
+		}
+
+		nextFD, err := unix.Openat(dirFD, part, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+		if err != nil {
+			_ = unix.Close(dirFD)
+			return 0, fmt.Errorf("open dir %q: %w", part, err)
+		}
+		_ = unix.Close(dirFD)
+		dirFD = nextFD
+	}
+
+	return dirFD, nil
+}
+
+func openPathDirNoFollow(absPath string, createDirs bool) (int, error) {
+	absPath = filepath.Clean(absPath)
+	if absPath == string(os.PathSeparator) {
+		return unix.Open(absPath, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	}
+
+	parentAbs := filepath.Dir(absPath)
+	leaf := filepath.Base(absPath)
+	parentFD, err := openPathDirNoFollow(parentAbs, createDirs)
+	if err != nil {
+		return 0, err
+	}
+
+	if createDirs {
+		if err := unix.Mkdirat(parentFD, leaf, 0o755); err != nil && !errors.Is(err, unix.EEXIST) {
+			_ = unix.Close(parentFD)
+			return 0, fmt.Errorf("create dir %q: %w", leaf, err)
+		}
+	}
+
+	dirFD, err := unix.Openat(parentFD, leaf, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	_ = unix.Close(parentFD)
+	if err != nil {
+		return 0, fmt.Errorf("open dir %q: %w", leaf, err)
+	}
+
+	return dirFD, nil
 }
 
 func sanitizeFileName(name string) string {
