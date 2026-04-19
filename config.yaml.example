@@ -1,0 +1,61 @@
+# ComicForge configuration example.
+#
+# Copy this file to config.yaml and adjust the values you want to override.
+# Command-line flags always take precedence over config values.
+
+provider:
+  # Supported today: gemini.
+  # Future providers can be added here when ComicForge grows new backends.
+  text: gemini
+  image: gemini
+  tts: gemini
+
+api:
+  # Required for Gemini-backed providers.
+  google_api_key: ""
+
+models:
+  text: gemini-2.5-flash
+  image: gemini-3.1-flash-image-preview
+  image_text: gemini-2.5-flash
+  tts: gemini-2.5-flash-preview-tts
+
+comic:
+  story_pages: 5
+  gallery_pages: 5
+  panels_per_page: 4
+  aspect_ratio: "16:9"
+  prompt_max_chars: 900
+  page_max_retries: 5
+  page_retry_base_seconds: 15
+
+language:
+  input: Vocabulary
+  output: Story
+  # Language used for story and narration prompts.
+  story_language: Bulgarian
+  script: Latin
+
+story:
+  genres:
+    - a warm slice-of-life story
+    - a heartfelt family drama
+    - an exciting science-fiction adventure
+  realistic_weight: 0.4
+
+styles:
+  comic:
+    - classic comic book with bold ink outlines
+    - graphic novel with dramatic shadows
+  realistic:
+    - ultra-realistic DSLR photography, cinematic 35mm lens
+    - cinematic realism with natural light
+
+narration:
+  voices:
+    - Charon
+    - Fenrir
+  chunk_words: 100
+
+# Directory that ComicForge uses for prompt templates.
+prompts_dir: ./prompts

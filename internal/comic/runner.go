@@ -32,6 +32,7 @@ type RunnerConfig struct {
 	Theme                 string
 	Language              string
 	Script                string
+	NarratorVoice         string
 	Slug                  string
 	NarrateEnabled        bool
 	UltraRealistic        *bool
@@ -88,6 +89,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		MainProvider:       cfg.MainTTSProvider,
 		ConclusionProvider: cfg.ConclusionTTSProvider,
 		Prompts:            cfg.Prompts,
+		VoiceName:          cfg.NarratorVoice,
 		Language:           cfg.Language,
 		Script:             cfg.Script,
 	})

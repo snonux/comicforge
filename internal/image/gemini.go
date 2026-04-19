@@ -12,6 +12,7 @@ import (
 	"image/png"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -163,6 +164,47 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 	result.Attribution = c.buildAttribution(&result, prompt)
 
 	return []SearchResult{result}, nil
+}
+
+// IsAvailable reports whether the provider was initialized successfully.
+func (c *GeminiProvider) IsAvailable() error {
+	return c.ensureReady()
+}
+
+// GenerateImage renders the first generated image to outputFile.
+func (c *GeminiProvider) GenerateImage(ctx context.Context, prompt, outputFile string) error {
+	if c == nil {
+		return fmt.Errorf("image provider is nil")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(prompt) == "" {
+		return fmt.Errorf("prompt is required")
+	}
+	if strings.TrimSpace(outputFile) == "" {
+		return fmt.Errorf("output file is required")
+	}
+	results, err := c.Search(ctx, &SearchOptions{Query: prompt})
+	if err != nil {
+		return err
+	}
+	if len(results) == 0 {
+		return fmt.Errorf("no image results returned")
+	}
+	rc, err := c.Download(ctx, results[0].URL)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return fmt.Errorf("read image data: %w", err)
+	}
+	if err := os.WriteFile(outputFile, data, 0o644); err != nil {
+		return fmt.Errorf("write image: %w", err)
+	}
+	return nil
 }
 
 // Download returns the image bytes for a data URI or a remote URL.

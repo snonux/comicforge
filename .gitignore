@@ -1,7 +1,6 @@
-comicforge
+/comicforge
 comics/
 *.pdf
 *.mp3
 .idea/
 .vscode/
-
