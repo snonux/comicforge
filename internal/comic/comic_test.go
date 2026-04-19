@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSlugify(t *testing.T) {
@@ -118,6 +119,26 @@ func TestGeneratorGenerateFull(t *testing.T) {
 	}
 }
 
+func TestDrawComicPagesReturnsErrorWhenRenderFails(t *testing.T) {
+	originalSleep := sleep
+	sleep = func(time.Duration) {}
+	t.Cleanup(func() {
+		sleep = originalSleep
+	})
+
+	artist := NewArtist(&ArtistConfig{
+		ImageProvider:  failingImageProvider{},
+		Prompts:        fakePromptRenderer{},
+		OutputDir:      t.TempDir(),
+		UltraRealistic: false,
+	})
+
+	_, err := artist.DrawComicPages(context.Background(), "story", "bible", "slug", []WordEntry{{Word: "ябълка"}}, nil)
+	if err == nil {
+		t.Fatal("DrawComicPages() error = nil, want render failure")
+	}
+}
+
 func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	t.Parallel()
 
@@ -165,6 +186,69 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	}
 }
 
+func TestRunnerPropagatesRenderFailures(t *testing.T) {
+	originalSleep := sleep
+	sleep = func(time.Duration) {}
+	t.Cleanup(func() {
+		sleep = originalSleep
+	})
+
+	runner := NewRunner(&RunnerConfig{
+		TextProvider:          fakeTextProvider{text: strings.Join([]string{"story", storyBibleSeparator, "bible", storyTitleSeparator, "Title", storyPanelSeparator, "P1-A: a", "P1-B: b", "P1-C: c", "P1-D: d", "P2-A: e", "P2-B: f", "P2-C: g", "P2-D: h", "P3-A: i", "P3-B: j", "P3-C: k", "P3-D: l", "P4-A: m", "P4-B: n", "P4-C: o", "P4-D: p", "P5-A: q", "P5-B: r", "P5-C: s", "P5-D: t"}, "\n")},
+		ImageProvider:         failingImageProvider{},
+		MainTTSProvider:       fakeTTSProvider{},
+		ConclusionTTSProvider: fakeTTSProvider{},
+		Prompts:               fakePromptRenderer{},
+		OutputDir:             t.TempDir(),
+		Slug:                  "forced-slug",
+		NarrateEnabled:        false,
+	})
+	runner.assemblePDF = func(string, string, []string) (string, error) {
+		t.Fatal("assemblePDF should not be called on render failure")
+		return "", nil
+	}
+
+	vocabFile := filepath.Join(t.TempDir(), "vocab.txt")
+	if err := os.WriteFile(vocabFile, []byte("ябълка = apple\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runner.Run(context.Background(), vocabFile); err == nil {
+		t.Fatal("Runner.Run() error = nil, want render failure")
+	}
+}
+
+func TestConvertToStereoFallsBackToCopyWhenFFmpegMissing(t *testing.T) {
+	originalLookPath := lookPath
+	lookPath = func(string) (string, error) {
+		return "", errors.New("missing ffmpeg")
+	}
+	t.Cleanup(func() {
+		lookPath = originalLookPath
+	})
+
+	tmpDir := t.TempDir()
+	inputFile := filepath.Join(tmpDir, "input.mp3")
+	outputFile := filepath.Join(tmpDir, "nested", "output.mp3")
+	if err := os.MkdirAll(filepath.Dir(outputFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(inputFile, []byte("audio-bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := convertToStereo(inputFile, outputFile); err != nil {
+		t.Fatalf("convertToStereo() error = %v", err)
+	}
+	got, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "audio-bytes" {
+		t.Fatalf("convertToStereo() copied %q, want %q", got, "audio-bytes")
+	}
+}
+
 type fakePromptRenderer struct{}
 
 func (fakePromptRenderer) RenderPrompt(name string, data any) (string, error) {
@@ -199,6 +283,14 @@ func (f fakeImageProvider) GenerateImage(_ context.Context, _ string, outputFile
 		f.t.Fatal(err)
 	}
 	return nil
+}
+
+type failingImageProvider struct{}
+
+func (failingImageProvider) Name() string       { return "failing-image" }
+func (failingImageProvider) IsAvailable() error { return nil }
+func (failingImageProvider) GenerateImage(_ context.Context, _ string, _ string) error {
+	return errors.New("image render failed")
 }
 
 type fakeTTSProvider struct{}

@@ -44,6 +44,8 @@ type Artist struct {
 	initErr        error
 }
 
+var sleep = time.Sleep
+
 // NewArtist creates an Artist.
 func NewArtist(cfg *ArtistConfig) *Artist {
 	a := &Artist{
@@ -105,7 +107,9 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	}
 
 	var paths []string
-	if p, err := a.renderPage(ctx, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page"); err == nil && p != "" {
+	if p, err := a.renderPage(ctx, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page"); err != nil {
+		return nil, err
+	} else if p != "" {
 		paths = append(paths, p)
 	}
 
@@ -113,7 +117,9 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	for i, section := range sections {
 		pageNum := i + 1
 		data := a.storyPagePromptData(section, pageNum, style, resolvedBible, entries, panelScript)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum)); err == nil && p != "" {
+		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum)); err != nil {
+			return nil, err
+		} else if p != "" {
 			paths = append(paths, p)
 		}
 	}
@@ -121,12 +127,16 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	for i := 0; i < a.galleryPages; i++ {
 		galleryNum := i + 1
 		data := a.galleryPromptData(style, resolvedBible, galleryNum)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages)); err == nil && p != "" {
+		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages)); err != nil {
+			return nil, err
+		} else if p != "" {
 			paths = append(paths, p)
 		}
 	}
 
-	if p, err := a.renderPage(ctx, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover"); err == nil && p != "" {
+	if p, err := a.renderPage(ctx, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover"); err != nil {
+		return nil, err
+	} else if p != "" {
 		paths = append(paths, p)
 	}
 	return paths, nil
@@ -170,7 +180,7 @@ func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, labe
 		if attempt < attempts {
 			pause := pageRetryBase * time.Duration(attempt)
 			fmt.Printf("  Warning: %s attempt %d/%d failed (%v), retrying in %s...\n", label, attempt, attempts, err, pause)
-			time.Sleep(pause)
+			sleep(pause)
 			continue
 		}
 		return fmt.Errorf("%s failed after %d attempts: %w", label, attempts, err)

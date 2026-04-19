@@ -144,7 +144,7 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 
 	paths, err := r.artist.DrawComicPages(ctx, result.StoryText, result.Bible, slug, entries, result.PanelScript)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: comic page generation failed: %v\n", err)
+		return fmt.Errorf("comic page generation failed: %w", err)
 	}
 	for _, path := range paths {
 		fmt.Printf("Comic page saved: %s\n", path)

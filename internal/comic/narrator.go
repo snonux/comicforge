@@ -11,6 +11,8 @@ import (
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
 
+var lookPath = exec.LookPath
+
 // NarratorConfig configures narration generation.
 type NarratorConfig struct {
 	TextProvider       provider.TextProvider
@@ -260,7 +262,7 @@ func splitIntoNarrationChunks(text string, targetWords int) []string {
 }
 
 func mixAmbientMusic(narrationFile, outputFile, tmpDir string) error {
-	ffmpegPath, err := exec.LookPath("ffmpeg")
+	ffmpegPath, err := lookPath("ffmpeg")
 	if err != nil {
 		return fmt.Errorf("ffmpeg not found")
 	}
@@ -308,7 +310,7 @@ func generateAmbientPad(ffmpegPath, outputFile string) error {
 }
 
 func concatenateMP3s(chunkPaths []string, outputFile, tmpDir string) error {
-	ffmpegPath, err := exec.LookPath("ffmpeg")
+	ffmpegPath, err := lookPath("ffmpeg")
 	if err != nil {
 		return fmt.Errorf("ffmpeg not found — required for multi-chunk narration: %w", err)
 	}
@@ -338,10 +340,10 @@ func concatenateMP3s(chunkPaths []string, outputFile, tmpDir string) error {
 }
 
 func convertToStereo(inputFile, outputFile string) error {
-	ffmpegPath, err := exec.LookPath("ffmpeg")
+	ffmpegPath, err := lookPath("ffmpeg")
 	if err != nil {
 		fmt.Println("    Warning: ffmpeg not found, narration will be mono")
-		return os.Rename(inputFile, outputFile)
+		return copyFile(inputFile, outputFile)
 	}
 
 	cmd := exec.Command(ffmpegPath,
