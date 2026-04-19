@@ -189,3 +189,37 @@ func TestDownloadImageRejectsNilResult(t *testing.T) {
 		t.Fatal("expected error for nil result")
 	}
 }
+
+func TestDownloadImageRejectsSymlinkAncestor(t *testing.T) {
+	t.Parallel()
+
+	baseDir := t.TempDir()
+	outsideDir := t.TempDir()
+	linkDir := filepath.Join(baseDir, "link")
+	if err := os.Symlink(outsideDir, linkDir); err != nil {
+		t.Fatalf("Symlink() error = %v", err)
+	}
+
+	provider := &mockDownloaderProvider{payload: "image-bytes"}
+	d := NewDownloader(provider, &DownloadOptions{
+		OutputDir:         baseDir,
+		CreateDir:         true,
+		OverwriteExisting: true,
+	})
+
+	outputPath := filepath.Join(linkDir, "escape.png")
+	err := d.DownloadImage(context.Background(), &SearchResult{
+		URL:         "https://example.com/image.png",
+		Source:      Gemini,
+		Attribution: "safe attribution",
+	}, outputPath)
+	if err == nil {
+		t.Fatal("expected error for symlink ancestor")
+	}
+	if !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("DownloadImage() error = %v, want symlink rejection", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(outsideDir, "escape.png")); !os.IsNotExist(statErr) {
+		t.Fatalf("unexpected file write outside output dir: %v", statErr)
+	}
+}

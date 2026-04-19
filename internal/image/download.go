@@ -61,6 +61,9 @@ func (d *Downloader) DownloadImage(ctx context.Context, result *SearchResult, ou
 			return fmt.Errorf("create output dir %q: %w", dir, err)
 		}
 	}
+	if err := ensureNoSymlinkAncestors(outputPath); err != nil {
+		return fmt.Errorf("validate output path %q: %w", outputPath, err)
+	}
 
 	if d.options != nil && !d.options.OverwriteExisting {
 		if _, err := os.Stat(outputPath); err == nil {
@@ -227,6 +230,50 @@ func joinWithinBaseDir(baseDir, name string) (string, error) {
 	}
 
 	return fullPath, nil
+}
+
+func ensureNoSymlinkAncestors(path string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve output path: %w", err)
+	}
+
+	absPath = filepath.Clean(absPath)
+	dir := filepath.Dir(absPath)
+	root := filepath.VolumeName(absPath) + string(os.PathSeparator)
+	if filepath.VolumeName(absPath) == "" {
+		root = string(os.PathSeparator)
+	}
+
+	for {
+		if dir == root || dir == "." || dir == string(os.PathSeparator) {
+			break
+		}
+
+		if info, err := os.Lstat(dir); err == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return fmt.Errorf("path component %q is a symlink", dir)
+			}
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("stat path component %q: %w", dir, err)
+		}
+
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+
+	if info, err := os.Lstat(absPath); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("output path %q is a symlink", absPath)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat output path %q: %w", absPath, err)
+	}
+
+	return nil
 }
 
 func sanitizeFileName(name string) string {
