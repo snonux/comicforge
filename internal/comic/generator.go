@@ -79,6 +79,12 @@ func (g *Generator) Generate(ctx context.Context, entries []WordEntry) (string, 
 	if text == "" {
 		return "", fmt.Errorf("no story content returned")
 	}
+	if err := validateTextScript("story text", text, g.script); err != nil {
+		return "", err
+	}
+	if err := validateNoPromptLeakage("story text", text); err != nil {
+		return "", err
+	}
 	return text, nil
 }
 
@@ -101,7 +107,11 @@ func (g *Generator) GenerateFull(ctx context.Context, entries []WordEntry) (Gene
 	if text == "" {
 		return GenerateResult{}, fmt.Errorf("no content returned")
 	}
-	return parseGenerateResult(text), nil
+	result := parseGenerateResult(text)
+	if err := validateGeneratedResult(result, g.script); err != nil {
+		return GenerateResult{}, err
+	}
+	return result, nil
 }
 
 func (g *Generator) ready() error {
@@ -138,4 +148,36 @@ func (g *Generator) renderStoryPrompt(templateName string, entries []WordEntry) 
 		return "", err
 	}
 	return systemPrompt + "\n\n" + userPrompt, nil
+}
+
+func validateGeneratedResult(result GenerateResult, script string) error {
+	if err := validateTextScript("story text", result.StoryText, script); err != nil {
+		return err
+	}
+	if err := validateNoPromptLeakage("story text", result.StoryText); err != nil {
+		return err
+	}
+	if err := validateTextScript("character bible", result.Bible, script); err != nil {
+		return err
+	}
+	if err := validateNoPromptLeakage("character bible", result.Bible); err != nil {
+		return err
+	}
+	if err := validateTextScript("comic title", result.Title, script); err != nil {
+		return err
+	}
+	if err := validateNoPromptLeakage("comic title", result.Title); err != nil {
+		return err
+	}
+	for pageIdx, page := range result.PanelScript {
+		for panelIdx, panel := range page {
+			if err := validateTextScript(fmt.Sprintf("panel script P%d-%c", pageIdx+1, 'A'+panelIdx), panel, script); err != nil {
+				return err
+			}
+			if err := validateNoPromptLeakage(fmt.Sprintf("panel script P%d-%c", pageIdx+1, 'A'+panelIdx), panel); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -88,7 +88,7 @@ func TestRenderPromptFallsBackToEmbeddedTemplate(t *testing.T) {
 	got, err := cfg.RenderPrompt("story_prompt.md", map[string]any{
 		"Language": "Bulgarian",
 		"Genre":    "a mystery with a surprising twist",
-		"Words":    "1. ябълка (apple)\n2. книга (book)\n",
+		"Words":    "- ябълка\n- книга\n",
 	})
 	if err != nil {
 		t.Fatalf("RenderPrompt() error = %v", err)
@@ -145,9 +145,9 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"Script":                  "Cyrillic",
 		"Genre":                   "a mystery with a surprising twist",
 		"Style":                   "cinematic realism",
-		"Words":                   "1. ябълка (apple)\n2. книга (book)\n",
-		"Bible":                   "Mira: young adult, brown hair, blue eyes, red coat.\n",
-		"Subtitle":                "Sample Subtitle",
+		"Words":                   "- ябълка\n- книга\n",
+		"Bible":                   "Мира: млада жена, кафява коса, сини очи, червено палто.\n",
+		"Subtitle":                "КомиксФордж Приключения",
 		"StoryText":               "A short story teaser.",
 		"RenderingRequirement":    "ULTRA-REALISTIC RENDERING",
 		"RenderingRequirementEnd": "FINAL LOCK — PHOTOREALISM",
@@ -157,8 +157,8 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"PageNum":                 1,
 		"TotalPages":              5,
 		"PanelLayout":             "MANDATORY PANEL LAYOUT — divide the image into exactly 4 panels in a 2×2 grid.\n",
-		"BlurbBox":                "a rectangular text box with a short blurb",
-		"SeriesTitle":             "ComicForge Adventures",
+		"BlurbBox":                "правоъгълно текстово поле с кратък текст",
+		"SeriesTitle":             "КомиксФордж Приключения",
 		"Pose":                    "extreme close-up portrait",
 	}
 

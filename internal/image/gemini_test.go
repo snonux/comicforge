@@ -107,6 +107,34 @@ func TestGeminiProvider_Search_CustomPromptSkipsTextGeneration(t *testing.T) {
 	}
 }
 
+func TestGeminiProvider_GenerateImage_UsesCustomPrompt(t *testing.T) {
+	originalText := geminiGenerateText
+	originalImage := geminiGenerateImage
+	t.Cleanup(func() {
+		geminiGenerateText = originalText
+		geminiGenerateImage = originalImage
+	})
+
+	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+		t.Fatal("unexpected text generation for comic prompt")
+		return "", nil
+	}
+
+	var gotPrompt string
+	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+		gotPrompt = prompt
+		return mustJPEGBytes(t), "image/jpeg", nil
+	}
+
+	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	if err := client.GenerateImage(context.Background(), "Art style: comic. FULL-BLEED SINGLE ILLUSTRATION.", t.TempDir()+"/out.png"); err != nil {
+		t.Fatalf("GenerateImage() unexpected error: %v", err)
+	}
+	if gotPrompt != "Art style: comic. FULL-BLEED SINGLE ILLUSTRATION." {
+		t.Fatalf("GenerateImage() prompt = %q, want custom prompt", gotPrompt)
+	}
+}
+
 func TestGeminiProvider_Search_GeneratedPromptFlow(t *testing.T) {
 	originalText := geminiGenerateText
 	originalImage := geminiGenerateImage

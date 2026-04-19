@@ -206,7 +206,12 @@ func (n *Narrator) buildTeaser(ctx context.Context, templateName, storyText stri
 		fmt.Printf("    Warning: teaser generation failed: %v\n", err)
 		return ""
 	}
-	return strings.TrimSpace(text)
+	teaser := strings.TrimSpace(text)
+	if err := validateTextScript("narration teaser", teaser, n.script); err != nil {
+		fmt.Printf("    Warning: teaser validation failed: %v\n", err)
+		return ""
+	}
+	return teaser
 }
 
 func (n *Narrator) narrateChunkWith(ctx context.Context, provider provider.TTSProvider, text, outputFile string) error {

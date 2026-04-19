@@ -126,8 +126,8 @@ func DefaultConfig() *Config {
 		Language: LanguageConfig{
 			Input:  "Vocabulary",
 			Output: "Story",
-			Story:  "Story",
-			Script: "Latin",
+			Story:  "Bulgarian",
+			Script: "Cyrillic",
 		},
 		Story: StoryConfig{
 			Genres: []string{

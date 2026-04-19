@@ -234,18 +234,14 @@ func buildWordList(entries []WordEntry, header string) string {
 	var sb strings.Builder
 	sb.WriteString(header)
 	if header != "" {
-		sb.WriteString("Words to include:\n")
+		sb.WriteString("Required words:\n")
 	}
-	for i, entry := range entries {
+	for _, entry := range entries {
 		word := strings.TrimSpace(entry.Word)
 		if word == "" {
 			word = strings.TrimSpace(entry.Translation)
 		}
-		if entry.Translation != "" && entry.Word != "" {
-			sb.WriteString(fmt.Sprintf("%d. %s (%s)\n", i+1, entry.Word, entry.Translation))
-			continue
-		}
-		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, word))
+		sb.WriteString(fmt.Sprintf("- %s\n", word))
 	}
 	return sb.String()
 }

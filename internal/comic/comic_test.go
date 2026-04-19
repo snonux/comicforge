@@ -79,32 +79,32 @@ func TestGeneratorGenerateFull(t *testing.T) {
 	t.Parallel()
 
 	text := strings.Join([]string{
-		"story",
+		"история",
 		storyBibleSeparator,
-		"bible",
+		"библия",
 		storyTitleSeparator,
-		"Title",
+		"Заглавие",
 		storyPanelSeparator,
-		"P1-A: a",
-		"P1-B: b",
-		"P1-C: c",
-		"P1-D: d",
-		"P2-A: e",
-		"P2-B: f",
-		"P2-C: g",
-		"P2-D: h",
-		"P3-A: i",
-		"P3-B: j",
-		"P3-C: k",
-		"P3-D: l",
-		"P4-A: m",
-		"P4-B: n",
-		"P4-C: o",
-		"P4-D: p",
-		"P5-A: q",
-		"P5-B: r",
-		"P5-C: s",
-		"P5-D: t",
+		"P1-A: а",
+		"P1-B: б",
+		"P1-C: в",
+		"P1-D: г",
+		"P2-A: д",
+		"P2-B: е",
+		"P2-C: ж",
+		"P2-D: з",
+		"P3-A: и",
+		"P3-B: й",
+		"P3-C: к",
+		"P3-D: л",
+		"P4-A: м",
+		"P4-B: н",
+		"P4-C: о",
+		"P4-D: п",
+		"P5-A: р",
+		"P5-B: с",
+		"P5-C: т",
+		"P5-D: у",
 	}, "\n")
 	generator := NewGenerator(&GeneratorConfig{
 		TextProvider: fakeTextProvider{text: text},
@@ -114,7 +114,7 @@ func TestGeneratorGenerateFull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateFull() error = %v", err)
 	}
-	if got.Title != "Title" || got.StoryText != "story" || got.Bible != "bible" {
+	if got.Title != "Заглавие" || got.StoryText != "история" || got.Bible != "библия" {
 		t.Fatalf("GenerateFull() = %#v", got)
 	}
 }
@@ -144,19 +144,24 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	img := fakeImageProvider{t: t}
-	genText := fakeTextProvider{text: strings.Join([]string{
-		"story",
-		storyBibleSeparator,
-		"bible",
-		storyTitleSeparator,
-		"Title",
-		storyPanelSeparator,
-		"P1-A: a", "P1-B: b", "P1-C: c", "P1-D: d",
-		"P2-A: e", "P2-B: f", "P2-C: g", "P2-D: h",
-		"P3-A: i", "P3-B: j", "P3-C: k", "P3-D: l",
-		"P4-A: m", "P4-B: n", "P4-C: o", "P4-D: p",
-		"P5-A: q", "P5-B: r", "P5-C: s", "P5-D: t",
-	}, "\n")}
+	genText := &scriptedTextProvider{responses: []string{
+		strings.Join([]string{
+			"история",
+			storyBibleSeparator,
+			"библия",
+			storyTitleSeparator,
+			"Заглавие",
+			storyPanelSeparator,
+			"P1-A: а", "P1-B: б", "P1-C: в", "P1-D: г",
+			"P2-A: д", "P2-B: е", "P2-C: ж", "P2-D: з",
+			"P3-A: и", "P3-B: й", "P3-C: к", "P3-D: л",
+			"P4-A: м", "P4-B: н", "P4-C: о", "P4-D: п",
+			"P5-A: р", "P5-B: с", "P5-C: т", "P5-D: у",
+		}, "\n"),
+		"Кратко рекламно описание.",
+		"Пъстра уводна реплика за разказа.",
+		"Топъл заключителен епилог за историята.",
+	}}
 	narr := fakeTTSProvider{}
 	runner := NewRunner(&RunnerConfig{
 		TextProvider:          genText,
@@ -194,7 +199,10 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 	})
 
 	runner := NewRunner(&RunnerConfig{
-		TextProvider:          fakeTextProvider{text: strings.Join([]string{"story", storyBibleSeparator, "bible", storyTitleSeparator, "Title", storyPanelSeparator, "P1-A: a", "P1-B: b", "P1-C: c", "P1-D: d", "P2-A: e", "P2-B: f", "P2-C: g", "P2-D: h", "P3-A: i", "P3-B: j", "P3-C: k", "P3-D: l", "P4-A: m", "P4-B: n", "P4-C: o", "P4-D: p", "P5-A: q", "P5-B: r", "P5-C: s", "P5-D: t"}, "\n")},
+		TextProvider: &scriptedTextProvider{responses: []string{
+			strings.Join([]string{"история", storyBibleSeparator, "библия", storyTitleSeparator, "Заглавие", storyPanelSeparator, "P1-A: а", "P1-B: б", "P1-C: в", "P1-D: г", "P2-A: д", "P2-B: е", "P2-C: ж", "P2-D: з", "P3-A: и", "P3-B: й", "P3-C: к", "P3-D: л", "P4-A: м", "P4-B: н", "P4-C: о", "P4-D: п", "P5-A: р", "P5-B: с", "P5-C: т", "P5-D: у"}, "\n"),
+			"Кратко рекламно описание.",
+		}},
 		ImageProvider:         failingImageProvider{},
 		MainTTSProvider:       fakeTTSProvider{},
 		ConclusionTTSProvider: fakeTTSProvider{},
@@ -272,6 +280,25 @@ func (f fakeTextProvider) Name() string       { return "fake-text" }
 func (f fakeTextProvider) IsAvailable() error { return nil }
 func (f fakeTextProvider) GenerateText(_ context.Context, _ string) (string, error) {
 	return f.text, nil
+}
+
+type scriptedTextProvider struct {
+	responses []string
+	index     int
+}
+
+func (p *scriptedTextProvider) Name() string       { return "scripted-text" }
+func (p *scriptedTextProvider) IsAvailable() error { return nil }
+func (p *scriptedTextProvider) GenerateText(_ context.Context, _ string) (string, error) {
+	if len(p.responses) == 0 {
+		return "", nil
+	}
+	if p.index >= len(p.responses) {
+		return p.responses[len(p.responses)-1], nil
+	}
+	out := p.responses[p.index]
+	p.index++
+	return out, nil
 }
 
 type fakeImageProvider struct{ t *testing.T }

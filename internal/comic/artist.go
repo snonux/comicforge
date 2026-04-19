@@ -199,6 +199,8 @@ func (a *Artist) resolveHelperTexts(ctx context.Context, storyText, prebuiltBibl
 	}
 	systemPrompt, err := a.prompts.RenderPrompt(blurbSystemTemplate, map[string]any{
 		"StoryText": storyText,
+		"Language":  a.language,
+		"Script":    a.script,
 	})
 	if err != nil {
 		return "", "", fmt.Errorf("render blurb prompt: %w", err)
@@ -212,6 +214,12 @@ func (a *Artist) resolveHelperTexts(ctx context.Context, storyText, prebuiltBibl
 		return bible, blurb, nil
 	}
 	blurb = strings.TrimSpace(text)
+	if err := validateTextScript("back-cover blurb", blurb, a.script); err != nil {
+		return "", "", fmt.Errorf("generate back-cover blurb: %w", err)
+	}
+	if err := validateNoPromptLeakage("back-cover blurb", blurb); err != nil {
+		return "", "", fmt.Errorf("generate back-cover blurb: %w", err)
+	}
 	if blurb != "" {
 		fmt.Printf("  Back-cover blurb ready (%d chars)\n", len(blurb))
 	}
@@ -224,7 +232,7 @@ func (a *Artist) coverPromptData(storyText, style, bible string) map[string]any 
 		"Script":                  a.script,
 		"Style":                   style,
 		"Bible":                   bible,
-		"Subtitle":                "ComicForge Adventures",
+		"Subtitle":                localizedBrandName(a.language, a.script),
 		"StoryText":               storyText,
 		"RenderingRequirement":    a.renderingRequirement(),
 		"RenderingRequirementEnd": a.renderingRequirementEnd(),
@@ -265,7 +273,7 @@ func (a *Artist) backPromptData(storyText, style, bible, blurb string) map[strin
 		"Style":                   style,
 		"Bible":                   bible,
 		"BlurbBox":                blurbBoxInstruction(blurb),
-		"SeriesTitle":             "ComicForge Adventures",
+		"SeriesTitle":             localizedBrandName(a.language, a.script),
 		"StoryText":               storyText,
 		"RenderingRequirement":    a.renderingRequirement(),
 		"RenderingRequirementEnd": a.renderingRequirementEnd(),

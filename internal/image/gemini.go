@@ -185,7 +185,7 @@ func (c *GeminiProvider) GenerateImage(ctx context.Context, prompt, outputFile s
 	if strings.TrimSpace(outputFile) == "" {
 		return fmt.Errorf("output file is required")
 	}
-	results, err := c.Search(ctx, &SearchOptions{Query: prompt})
+	results, err := c.Search(ctx, &SearchOptions{CustomPrompt: prompt})
 	if err != nil {
 		return err
 	}
