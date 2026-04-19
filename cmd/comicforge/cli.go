@@ -134,9 +134,12 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 	if err != nil {
 		return fmt.Errorf("build image provider: %w", err)
 	}
-	mainTTSProvider, err := deps.newTTSProvider(cfg, voice)
-	if err != nil {
-		return fmt.Errorf("build TTS provider: %w", err)
+	var mainTTSProvider provider.TTSProvider
+	if flags.narrateEnabled {
+		mainTTSProvider, err = deps.newTTSProvider(cfg, voice)
+		if err != nil {
+			return fmt.Errorf("build TTS provider: %w", err)
+		}
 	}
 
 	runner := deps.newRunner(&comic.RunnerConfig{

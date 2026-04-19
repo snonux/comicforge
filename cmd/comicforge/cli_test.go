@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -247,6 +248,72 @@ func TestRootCommandRejectsConflictingUltraFlags(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "only one of --ultra-realistic and --no-ultra-realistic may be set") {
 		t.Fatalf("ExecuteContext() error = %v, want conflict error", err)
+	}
+}
+
+func TestRootCommandProviderFlagsDefaultToGemini(t *testing.T) {
+	cmd := newRootCommand()
+	for _, flagName := range []string{"text-provider", "image-provider", "tts-provider"} {
+		flag := cmd.Flags().Lookup(flagName)
+		if flag == nil {
+			t.Fatalf("flag %q not found", flagName)
+		}
+		if got, want := flag.DefValue, provider.Gemini; got != want {
+			t.Fatalf("%s default = %q, want %q", flagName, got, want)
+		}
+	}
+}
+
+func TestRootCommandSkipsTTSProviderWhenNarrationDisabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	vocabPath := filepath.Join(tmpDir, "vocab.txt")
+	if err := os.WriteFile(vocabPath, []byte("ябълка = apple\n"), 0o644); err != nil {
+		t.Fatalf("write vocab: %v", err)
+	}
+
+	var ttsCalled bool
+	var gotRunnerCfg *comic.RunnerConfig
+	runner := &recordingRunner{}
+
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(string) (*config.Config, error) {
+			return config.DefaultConfig(), nil
+		},
+		newTextProvider: func(cfg *config.Config) (provider.TextProvider, error) {
+			return noopProvider{}, nil
+		},
+		newImageProvider: func(cfg *config.Config) (provider.ImageProvider, error) {
+			return noopProvider{}, nil
+		},
+		newTTSProvider: func(*config.Config, string) (provider.TTSProvider, error) {
+			ttsCalled = true
+			return nil, fmt.Errorf("tts provider should not be resolved when narration is disabled")
+		},
+		newRunner: func(cfg *comic.RunnerConfig) comic.StoryRunner {
+			gotRunnerCfg = cfg
+			runner.cfg = cfg
+			return runner
+		},
+	})
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--vocab", vocabPath})
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext() error = %v\noutput:\n%s", err, buf.String())
+	}
+	if ttsCalled {
+		t.Fatal("newTTSProvider was called, want narration-disabled path to skip TTS setup")
+	}
+	if gotRunnerCfg == nil {
+		t.Fatal("runner config was not captured")
+	}
+	if gotRunnerCfg.MainTTSProvider != nil || gotRunnerCfg.ConclusionTTSProvider != nil {
+		t.Fatalf("runner TTS providers = %#v / %#v, want nil / nil", gotRunnerCfg.MainTTSProvider, gotRunnerCfg.ConclusionTTSProvider)
+	}
+	if runner.runs != 1 {
+		t.Fatalf("runner.runs = %d, want 1", runner.runs)
 	}
 }
 
