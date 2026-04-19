@@ -81,6 +81,43 @@ func TestRenderPrompt(t *testing.T) {
 	}
 }
 
+func TestRenderPromptFallsBackToEmbeddedTemplate(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.PromptsDir = t.TempDir()
+
+	got, err := cfg.RenderPrompt("story_prompt.md", map[string]any{
+		"Language": "Bulgarian",
+		"Genre":    "a mystery with a surprising twist",
+		"Words":    "1. ябълка (apple)\n2. книга (book)\n",
+	})
+	if err != nil {
+		t.Fatalf("RenderPrompt() error = %v", err)
+	}
+	if !strings.Contains(got, "Write a ~250-word story in Bulgarian") {
+		t.Fatalf("RenderPrompt() = %q, want embedded story prompt", got)
+	}
+}
+
+func TestRenderPromptPrefersExternalTemplate(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := DefaultConfig()
+	cfg.PromptsDir = tmpDir
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "story_prompt.md"), []byte("external {{.Word}}"), 0o644); err != nil {
+		t.Fatalf("write prompt: %v", err)
+	}
+
+	got, err := cfg.RenderPrompt("story_prompt.md", map[string]any{
+		"Word": "override",
+	})
+	if err != nil {
+		t.Fatalf("RenderPrompt() error = %v", err)
+	}
+	if got != "external override" {
+		t.Fatalf("RenderPrompt() = %q, want %q", got, "external override")
+	}
+}
+
 func TestRenderPromptMissingKeyReturnsError(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := DefaultConfig()
@@ -96,6 +133,74 @@ func TestRenderPromptMissingKeyReturnsError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "render prompt") {
 		t.Fatalf("RenderPrompt() error = %v, want wrapped render error", err)
+	}
+}
+
+func TestEmbeddedPromptTemplatesRender(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.PromptsDir = t.TempDir()
+
+	data := map[string]any{
+		"Language":                "Bulgarian",
+		"Script":                  "Cyrillic",
+		"Genre":                   "a mystery with a surprising twist",
+		"Style":                   "cinematic realism",
+		"Words":                   "1. ябълка (apple)\n2. книга (book)\n",
+		"Bible":                   "Mira: young adult, brown hair, blue eyes, red coat.\n",
+		"Subtitle":                "Sample Subtitle",
+		"StoryText":               "A short story teaser.",
+		"RenderingRequirement":    "ULTRA-REALISTIC RENDERING",
+		"RenderingRequirementEnd": "FINAL LOCK — PHOTOREALISM",
+		"StoryBibleSeparator":     "---CHARACTER GUIDE---",
+		"StoryTitleSeparator":     "---COMIC TITLE---",
+		"StoryPanelSeparator":     "---PANEL SCRIPT---",
+		"PageNum":                 1,
+		"TotalPages":              5,
+		"PanelLayout":             "MANDATORY PANEL LAYOUT — divide the image into exactly 4 panels in a 2×2 grid.\n",
+		"BlurbBox":                "a rectangular text box with a short blurb",
+		"SeriesTitle":             "ComicForge Adventures",
+		"Pose":                    "extreme close-up portrait",
+	}
+
+	for _, name := range []string{
+		"story_system.md",
+		"story_prompt.md",
+		"story_full_prompt.md",
+		"bible_system.md",
+		"blurb_system.md",
+		"cover_prompt.md",
+		"story_page_prompt.md",
+		"gallery_page_prompt.md",
+		"back_cover_prompt.md",
+		"panel_script_prompt.md",
+		"narrator_cinematic.md",
+		"narrator_intro_system.md",
+		"narrator_conclusion_system.md",
+		"rendering_requirement.md",
+		"rendering_requirement_end.md",
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := cfg.RenderPrompt(name, data)
+			if err != nil {
+				t.Fatalf("RenderPrompt() error = %v", err)
+			}
+			if strings.TrimSpace(got) == "" {
+				t.Fatal("RenderPrompt() = empty string, want rendered prompt")
+			}
+		})
+	}
+}
+
+func TestRenderPromptMissingTemplateReturnsError(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.PromptsDir = t.TempDir()
+
+	_, err := cfg.RenderPrompt("missing_prompt.md", map[string]any{})
+	if err == nil {
+		t.Fatal("RenderPrompt() error = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "read embedded prompt") {
+		t.Fatalf("RenderPrompt() error = %v, want embedded read error", err)
 	}
 }
 
