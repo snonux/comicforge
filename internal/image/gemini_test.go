@@ -188,6 +188,12 @@ func TestGeminiProvider_Search_GeneratedPromptFlow(t *testing.T) {
 	if !strings.Contains(gotPrompt, "Scene: A bright apple sits centered on a wooden table.") {
 		t.Fatalf("Prompt = %q, want generated scene in prompt", gotPrompt)
 	}
+	if result.Attribution == "" {
+		t.Fatal("expected result attribution to be populated")
+	}
+	if got := client.GetAttribution(&result); got != result.Attribution {
+		t.Fatalf("GetAttribution() = %q, want result attribution %q", got, result.Attribution)
+	}
 
 	reader, err := client.Download(context.Background(), result.URL)
 	if err != nil {

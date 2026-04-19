@@ -51,25 +51,28 @@ func TestSearchError(t *testing.T) {
 func TestRegistryNewFromConfig(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry()
-	registry.Register(Gemini, func() (ImageProvider, error) {
-		return fakeProvider{name: Gemini}, nil
+	registry := NewRegistry[fakeConfig]()
+	registry.Register(Gemini, func(cfg fakeConfig) (ImageProvider, error) {
+		return fakeProvider{name: cfg.name, token: cfg.token}, nil
 	})
 
-	provider, err := registry.NewFromConfig(fakeConfig{name: Gemini})
+	provider, err := registry.NewFromConfig(fakeConfig{name: Gemini, token: "secret"})
 	if err != nil {
 		t.Fatalf("NewFromConfig() error = %v", err)
 	}
 	if got, want := provider.Name(), Gemini; got != want {
 		t.Fatalf("provider.Name() = %q, want %q", got, want)
 	}
+	if got, want := provider.(fakeProvider).token, "secret"; got != want {
+		t.Fatalf("provider token = %q, want %q", got, want)
+	}
 }
 
 func TestRegistryUnknownProvider(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry()
-	_, err := registry.New("missing")
+	registry := NewRegistry[fakeConfig]()
+	_, err := registry.New("missing", fakeConfig{})
 	if err == nil {
 		t.Fatal("expected unknown provider error")
 	}
@@ -79,13 +82,15 @@ func TestRegistryUnknownProvider(t *testing.T) {
 }
 
 type fakeConfig struct {
-	name string
+	name  string
+	token string
 }
 
 func (f fakeConfig) ImageProviderName() string { return f.name }
 
 type fakeProvider struct {
-	name string
+	name  string
+	token string
 }
 
 func (f fakeProvider) Name() string { return f.name }

@@ -111,7 +111,7 @@ func (d *Downloader) DownloadImage(ctx context.Context, result *SearchResult, ou
 		return fmt.Errorf("sync output file %q: %w", outputPath, err)
 	}
 
-	if attribution := d.provider.GetAttribution(result); attribution != "" {
+	if attribution := strings.TrimSpace(result.Attribution); attribution != "" {
 		attrPath := strings.TrimSuffix(outputPath, filepath.Ext(outputPath)) + "_attribution.txt"
 		if err := os.WriteFile(attrPath, []byte(attribution), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to save attribution: %v\n", err)
@@ -154,7 +154,11 @@ func (d *Downloader) DownloadBestMatchWithOptions(ctx context.Context, opts *Sea
 		if d.options != nil && d.options.OutputDir != "" {
 			outputDir = d.options.OutputDir
 		}
-		outputPath := filepath.Join(outputDir, filename)
+		outputPath, err := joinWithinBaseDir(outputDir, filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: refusing unsafe output path %q: %v\n", filename, err)
+			continue
+		}
 
 		if err := d.DownloadImage(ctx, &result, outputPath); err == nil {
 			return &result, outputPath, nil
@@ -177,8 +181,8 @@ func (d *Downloader) generateFileName(word string, result *SearchResult, index i
 
 	filename = strings.ReplaceAll(filename, "{word}", sanitizeFileName(word))
 	if result != nil {
-		filename = strings.ReplaceAll(filename, "{source}", result.Source)
-		filename = strings.ReplaceAll(filename, "{id}", result.ID)
+		filename = strings.ReplaceAll(filename, "{source}", sanitizeFileName(result.Source))
+		filename = strings.ReplaceAll(filename, "{id}", sanitizeFileName(result.ID))
 	}
 	filename = strings.ReplaceAll(filename, "{index}", fmt.Sprintf("%d", index))
 
@@ -197,6 +201,32 @@ func (d *Downloader) generateFileName(word string, result *SearchResult, index i
 	}
 
 	return filename
+}
+
+func joinWithinBaseDir(baseDir, name string) (string, error) {
+	if strings.TrimSpace(baseDir) == "" {
+		baseDir = "."
+	}
+
+	cleanBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve base dir: %w", err)
+	}
+
+	fullPath, err := filepath.Abs(filepath.Join(cleanBase, name))
+	if err != nil {
+		return "", fmt.Errorf("resolve output path: %w", err)
+	}
+
+	rel, err := filepath.Rel(cleanBase, fullPath)
+	if err != nil {
+		return "", fmt.Errorf("relativize output path: %w", err)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes base dir")
+	}
+
+	return fullPath, nil
 }
 
 func sanitizeFileName(name string) string {
