@@ -11,8 +11,6 @@ import (
 )
 
 func TestLoadReturnsDefaultsWhenConfigMissing(t *testing.T) {
-	t.Parallel()
-
 	cfg, err := Load("")
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -63,8 +61,6 @@ comic:
 }
 
 func TestRenderPrompt(t *testing.T) {
-	t.Parallel()
-
 	tmpDir := t.TempDir()
 	cfg := DefaultConfig()
 	cfg.PromptsDir = tmpDir
@@ -86,8 +82,6 @@ func TestRenderPrompt(t *testing.T) {
 }
 
 func TestRenderPromptMissingKeyReturnsError(t *testing.T) {
-	t.Parallel()
-
 	tmpDir := t.TempDir()
 	cfg := DefaultConfig()
 	cfg.PromptsDir = tmpDir
@@ -106,8 +100,6 @@ func TestRenderPromptMissingKeyReturnsError(t *testing.T) {
 }
 
 func TestLoadRejectsUnknownProvider(t *testing.T) {
-	t.Parallel()
-
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
@@ -127,8 +119,6 @@ provider:
 }
 
 func TestHomeDirReturnsFallbackWhenResolutionFails(t *testing.T) {
-	t.Parallel()
-
 	oldUserHomeDir := userHomeDir
 	t.Cleanup(func() {
 		userHomeDir = oldUserHomeDir

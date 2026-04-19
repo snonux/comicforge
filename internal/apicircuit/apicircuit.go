@@ -1,14 +1,25 @@
-// Package apicircuit wraps outbound Gemini API calls with sony/gobreaker
-// circuit breakers so repeated failures do not pile up unbounded work.
+// Package apicircuit wraps outbound API calls with circuit breakers so repeated
+// failures against any provider do not pile up unbounded work.
 package apicircuit
 
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/sony/gobreaker"
+)
+
+const (
+	// CapabilityText identifies text-generation traffic.
+	CapabilityText Capability = "text"
+	// CapabilityImage identifies image-generation traffic.
+	CapabilityImage Capability = "image"
+	// CapabilityTTS identifies text-to-speech traffic.
+	CapabilityTTS Capability = "tts"
 )
 
 const (
@@ -24,12 +35,22 @@ const (
 	breakerTripAfterConsecutiveFailures uint32 = 5
 )
 
-var (
-	geminiTTSOnce      sync.Once
-	geminiTTSBreaker   *gobreaker.CircuitBreaker
-	geminiImageOnce    sync.Once
-	geminiImageBreaker *gobreaker.CircuitBreaker
-)
+// Capability identifies the class of API call protected by a circuit breaker.
+type Capability string
+
+// Registry stores lazily-created circuit breakers keyed by provider and capability.
+type Registry struct {
+	mu       sync.Mutex
+	breakers map[string]*gobreaker.CircuitBreaker
+}
+
+// NewRegistry creates an empty breaker registry.
+func NewRegistry() *Registry {
+	return &Registry{breakers: make(map[string]*gobreaker.CircuitBreaker)}
+}
+
+// DefaultRegistry is used by package-level helpers.
+var DefaultRegistry = NewRegistry()
 
 // isSuccessful counts only real API outcomes: nil is success; context.Canceled is
 // treated as success so user abort does not trip the breaker. Timeouts and
@@ -57,18 +78,36 @@ func newBreaker(name string) *gobreaker.CircuitBreaker {
 	})
 }
 
-func geminiBreaker(name string, slot **gobreaker.CircuitBreaker, once *sync.Once) *gobreaker.CircuitBreaker {
-	once.Do(func() {
-		*slot = newBreaker(name)
-	})
-
-	return *slot
+func breakerKey(providerName string, capability Capability) string {
+	return NormalizeName(providerName) + ":" + NormalizeName(string(capability))
 }
 
-func runValue[T any](cb *gobreaker.CircuitBreaker, fn func() (T, error)) (T, error) {
-	var zero T
+func (r *Registry) breaker(providerName string, capability Capability) *gobreaker.CircuitBreaker {
+	key := breakerKey(providerName, capability)
 
-	v, err := cb.Execute(func() (interface{}, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.breakers == nil {
+		r.breakers = make(map[string]*gobreaker.CircuitBreaker)
+	}
+	if breaker := r.breakers[key]; breaker != nil {
+		return breaker
+	}
+
+	breaker := newBreaker(key)
+	r.breakers[key] = breaker
+	return breaker
+}
+
+// Execute runs fn through the breaker for providerName and capability.
+func Execute[T any](r *Registry, providerName string, capability Capability, fn func() (T, error)) (T, error) {
+	var zero T
+	if r == nil {
+		r = DefaultRegistry
+	}
+
+	v, err := r.breaker(providerName, capability).Execute(func() (interface{}, error) {
 		return fn()
 	})
 	if err != nil {
@@ -78,15 +117,15 @@ func runValue[T any](cb *gobreaker.CircuitBreaker, fn func() (T, error)) (T, err
 		return zero, nil
 	}
 
-	return v.(T), nil
+	result, ok := v.(T)
+	if !ok {
+		return zero, fmt.Errorf("unexpected breaker result type for %s", breakerKey(providerName, capability))
+	}
+
+	return result, nil
 }
 
-// GeminiTTS runs one Gemini TTS GenerateContent call through its circuit breaker.
-func GeminiTTS[T any](fn func() (T, error)) (T, error) {
-	return runValue(geminiBreaker("gemini-tts", &geminiTTSBreaker, &geminiTTSOnce), fn)
-}
-
-// GeminiImage runs one Gemini image-generation call through its circuit breaker.
-func GeminiImage[T any](fn func() (T, error)) (T, error) {
-	return runValue(geminiBreaker("gemini-image", &geminiImageBreaker, &geminiImageOnce), fn)
+// NormalizeName returns a canonical lower-case name for breaker keys.
+func NormalizeName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }

@@ -6,25 +6,28 @@ import (
 	"testing"
 )
 
-func TestGeminiTTS_Success(t *testing.T) {
+func TestExecute_Success(t *testing.T) {
 	t.Parallel()
 
-	v, err := GeminiTTS(func() (string, error) {
+	v, err := Execute(NewRegistry(), "gemini", CapabilityText, func() (string, error) {
 		return "ok", nil
 	})
 	if err != nil || v != "ok" {
-		t.Fatalf("GeminiTTS() = %q, %v; want ok, nil", v, err)
+		t.Fatalf("Execute() = %q, %v; want ok, nil", v, err)
 	}
 }
 
-func TestGeminiImage_Success(t *testing.T) {
+func TestExecute_ContextCanceled(t *testing.T) {
 	t.Parallel()
 
-	v, err := GeminiImage(func() (int, error) {
-		return 42, nil
+	_, err := Execute(NewRegistry(), "gemini", CapabilityText, func() (string, error) {
+		return "", context.Canceled
 	})
-	if err != nil || v != 42 {
-		t.Fatalf("GeminiImage() = %d, %v; want 42, nil", v, err)
+	if err == nil {
+		t.Fatal("expected cancellation to be returned")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
 	}
 }
 
