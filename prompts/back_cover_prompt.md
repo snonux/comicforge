@@ -1,15 +1,15 @@
-{{if .Language}}MANDATORY LANGUAGE RULE: This is a {{.Language}} comic book. All visible text (blurb box, labels, banners) MUST be in {{.Script}} script. English text anywhere on the back cover is STRICTLY FORBIDDEN.
+{{if .Language}}Български комикс. Всички видими надписи, ленти и етикети на задната корица са на {{.Script}}. Без латиница на задната корица.
 
-{{end}}Art style: {{.Style}}.{{.RenderingRequirement}}
-TRADITIONAL COMIC BOOK BACK COVER — {{if .RenderingRequirement}}single full-bleed image (photoreal — like a physical back-cover photo shoot){{else}}single full-bleed illustration{{end}}, landscape 16:9 format.
-NO panel grid. NO speech bubbles.
-{{if .Bible}}CHARACTER & SETTING REFERENCE (back cover — follow exactly, do NOT change clothing):
+{{end}}Стил: {{.Style}}.{{.RenderingRequirement}}
+ТРАДИЦИОННА ЗАДНА КО РИЦА НА КОМИКС — {{if .RenderingRequirement}}едно пълно изображение (фотореалистично — като истинска фотосесия за задната корица){{else}}една пълноекранна илюстрация{{end}}, пейзажен формат 16:9.
+Без панелна решетка. Без балони за реплики.
+{{if .Bible}}РЕФЕРЕНЦИЯ ЗА ПЕРСОНАЖИТЕ И СРЕДАТА (задна корица — следвай точно, без промяна на дрехите):
 {{.Bible}}
 
-{{end}}Layout rules (must follow exactly):
-  • MAIN ART: a calm, warm, resolved scene filling the upper 60% of the cover — EXACTLY the named characters from the story (as described in the reference above) in a peaceful or triumphant ending moment, with the full story setting behind them. The scene must look PHOTOGRAPHED (live-action), not drawn. Do NOT invent new characters or use generic stand-ins.
-  • BLURB BOX: {{.BlurbBox}}
-  • BOTTOM STRIP: barcode box bottom-left (black-and-white barcode graphic), series title '{{.SeriesTitle}}' bottom-right — classic comic book back-cover production design.
-IMPORTANT: only the characters named in the reference may appear on this back cover. Same age, same face, same clothing, same animals as in the interior pages. LANGUAGE REMINDER: all text in {{.Script}} script — see rule at top. Story ending hint:
+{{end}}Правила за композицията:
+  • ОСНОВНА СЦЕНА: спокойно, топло и завършено изображение в горните 60% на корицата — ТОЧНО описаните герои от историята в мирен или триумфален финален момент, с цялата среда зад тях. Сцената трябва да изглежда ФОТОГРАФСКА, не рисувана.
+  • ТЕКСТОВО ПОЛЕ: {{.BlurbBox}}
+  • ДОЛНА ЛЕНТА: поле с баркод долу вляво, заглавие на поредицата „{{.SeriesTitle}}“ долу вдясно — класическо комиксово оформление.
+ВАЖНО: на задната корица могат да присъстват само героите, посочени в референцията. Същата възраст, лице и дрехи като в страниците. Всички надписи са на {{.Script}}. Подсказка за финала на историята:
 
 {{.StoryText}}{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}

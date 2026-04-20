@@ -82,7 +82,6 @@ var (
 	}
 
 	comicStyles = []string{
-		"ultra realistic comic strip with photographic detail and dramatic lighting",
 		"classic American comic book with bold ink outlines, halftone dots, and primary colors",
 		"Japanese manga with clean linework, expressive eyes, and speed lines",
 		"retro 1960s pop art in the style of Roy Lichtenstein with thick outlines and Ben-Day dots",

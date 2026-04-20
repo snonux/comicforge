@@ -1,22 +1,22 @@
-{{if .Language}}MANDATORY LANGUAGE RULE: This is a {{.Language}} comic book. Every word of text inside speech bubbles, thought bubbles, caption boxes, and panel labels MUST be written in {{.Script}} script (for example: "Hello! What are you doing? Hurry up!"). English text anywhere in the panels is STRICTLY FORBIDDEN — use ONLY {{.Language}}.
+{{if .Language}}Български комикс: всички реплики, мисли, надписи и етикети в панелите трябва да са изцяло на {{.Script}}. Без латиница в самите панели.
 
 {{end}}{{.Words}}
-Art style: {{.Style}}.{{.RenderingRequirement}}
-Comic book story page {{.PageNum}} of {{.TotalPages}}.
-{{if .Bible}}CHARACTER & SETTING REFERENCE (story page {{.PageNum}} of {{.TotalPages}} — follow exactly, do NOT change clothing):
+Стил: {{.Style}}.{{.RenderingRequirement}}
+Комиксова страница {{.PageNum}} от {{.TotalPages}}.
+{{if .Bible}}РЕФЕРЕНЦИЯ ЗА ПЕРСОНАЖИТЕ И СРЕДАТА (страница {{.PageNum}} от {{.TotalPages}} — следвай точно, без промяна на дрехите):
 {{.Bible}}
 
-{{end}}{{.PanelLayout}}Each panel is separated by a thin black gutter line. All 4 panels must be clearly distinct scenes — NOT one continuous image. The full image area must be covered by the 4 panels with no empty space.
-MANDATORY SPEECH BUBBLES — this is a comic book; characters MUST speak:
-  • At least 3 of the 4 panels MUST contain a speech bubble or thought bubble.
-  • If the panel description includes quoted dialogue, render it EXACTLY inside a speech bubble.
-  • Speech bubbles have a white background, black outline, and a tail pointing to the speaker.
-  • Thought bubbles use a cloud shape with small circles leading to the thinker.
-  • ALL bubble text is in {{.Script}} script — never Roman letters.
-VARIETY MANDATE — every panel MUST differ from the others in at least 3 of these dimensions: camera angle (close-up, medium shot, wide shot, bird's-eye, low angle), character pose or action, location or background detail, lighting or time-of-day, and foreground objects. Repeating the same angle or composition across panels is FORBIDDEN.
-{{.RenderingRequirement}}STRICT CONSISTENCY RULES — apply to every single panel:
-  • Human characters: identical face, AGE APPEARANCE, hair colour/style, and clothing to the reference — a child must never look older or younger as defined.
-  • Animal characters: identical breed, fur colour/pattern, markings, and eye colour — NEVER substitute a different animal or a generic version of the species.
-  • Clothing changes only if this page's description explicitly describes a change.
-  • LANGUAGE: all speech, thought, and caption text — {{.Script}} ONLY.
+{{end}}{{.PanelLayout}}Всеки панел е разделен с тънка черна линия. И 4-те панела трябва да са ясно различни сцени, а не едно непрекъснато изображение. Цялата площ трябва да бъде запълнена, без празни полета.
+ЗАДЪЛЖИТЕЛНИ БАЛОНИ С РЕПЛИКИ — това е комикс; героите трябва да говорят:
+  • Най-малко 3 от 4-те панела на всяка страница трябва да имат балон с реплика или мисъл.
+  • Ако описанието на панела включва цитирана реплика, изобрази я точно в балона.
+  • Балоните за реплики са бели с черен контур и опашка към говорещия.
+  • Балоните за мисли са облакоподобни с малки кръгчета към мислещия.
+  • Всички текстове в балоните са само на {{.Script}}.
+ВАРИАТИВНОСТ — всеки панел трябва да се различава от останалите поне по 3 от следните измерения: ъгъл на камерата (крупен, среден, общ, от птичи поглед, нисък), поза или действие на героя, място или детайл от фона, осветление или време на деня, и предмети на преден план. Повтарянето на една и съща композиция е забранено.
+{{.RenderingRequirement}}СТРОГИ ПРАВИЛА ЗА КОНСИСТЕНТНОСТ — за всеки панел:
+  • Човешките герои: идентични лице, възрастово внушение, прическа и облекло спрямо референцията.
+  • Животните: идентична порода, козина/шарка и цвят на очите — без замяна с друго животно.
+  • Смяна на дрехи само ако изрично е описана в сцената.
+  • Всички реплики, мисли и надписи са само на {{.Script}}.
 {{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}

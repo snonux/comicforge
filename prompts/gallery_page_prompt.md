@@ -1,14 +1,13 @@
-Art style: {{.Style}}.{{.RenderingRequirement}}
-FULL-BLEED SINGLE {{if .RenderingRequirement}}PHOTOGRAPH — must look 100% like a real camera shot (no illustration style){{else}}ILLUSTRATION{{end}} — landscape 16:9 format, ONE image only, NO grid, NO panels.
-DO NOT split the image into multiple panels or sections. The ENTIRE canvas is ONE single scene.
-NO text of any kind. NO title. NO labels. NO speech bubbles. NO panel borders. NO UI elements.
-This is a text-free character gallery page. If ultra-realistic mode: pure cinematic photography only — not painted or comic art.
-{{if .Bible}}CHARACTER & SETTING REFERENCE (gallery page — follow exactly, do NOT change clothing):
+Стил: {{.Style}}.{{.RenderingRequirement}}
+ПЪЛЕН КАДЪР {{if .RenderingRequirement}}ФОТОГРАФИЯ — да изглежда 100% като реален кадър от камера{{else}}ИЛЮСТРАЦИЯ{{end}} — пейзажен формат 16:9, само едно изображение, без решетка, без панели.
+Не разделяй изображението на няколко панела или секции. Цялото поле трябва да е една единствена сцена.
+Без текст от какъвто и да е вид. Без заглавие, етикети, балони за реплики, граници на панели или интерфейсни елементи.
+{{if .Bible}}РЕФЕРЕНЦИЯ ЗА ПЕРСОНАЖИТЕ И СРЕДАТА (галериен кадър — следвай точно, без да сменяш дрехите):
 {{.Bible}}
 
 {{end}}
 
-Composition: {{.Pose}}
+Композиция: {{.Pose}}
 
-The subject MUST be EXACTLY the main character(s) described in the reference above — same faces, same genders, same ages, same clothing. Include the companion animal if naturally present. Do NOT invent new characters or change any character's gender. Do NOT add any text overlays.
-Background: the story's setting rendered with full cinematic atmosphere and colour mood.{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}
+Героите трябва да са ТОЧНО описаните персонажи — същите лица, пол, възраст и дрехи. Ако има естествен спътник-животно, включи го. Не измисляй нови персонажи и не променяй пола им. Не добавяй текстови наслагвания.
+Фон: средата на историята, предадена с пълна кинематографична атмосфера и цветово настроение.{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}

@@ -173,6 +173,12 @@ func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, labe
 	for attempt := 1; attempt <= attempts; attempt++ {
 		callCtx, cancel := withTimeout(ctx, helperTimeout)
 		err := a.imageProvider.GenerateImage(callCtx, prompt, outputFile)
+		if err == nil {
+			if leakErr := validateImagePromptLeakageFn(callCtx, outputFile, label); leakErr != nil {
+				_ = os.Remove(outputFile)
+				err = leakErr
+			}
+		}
 		cancel()
 		if err == nil {
 			return nil
@@ -311,10 +317,10 @@ func buildPanelLayout(section string, pagePanels []string) string {
 	labels := [4]string{"TOP-LEFT", "TOP-RIGHT", "BOTTOM-LEFT", "BOTTOM-RIGHT"}
 	if len(pagePanels) == 4 && pagePanels[0] != "" && pagePanels[1] != "" && pagePanels[2] != "" && pagePanels[3] != "" {
 		var sb strings.Builder
-		sb.WriteString("MANDATORY PANEL LAYOUT — divide the image into exactly 4 panels in a 2×2 grid.\n")
-		sb.WriteString("Draw each panel EXACTLY as described below — these are the precise scenes to illustrate:\n")
+		sb.WriteString("ЗАДЪЛЖИТЕЛНО ОФОРМЛЕНИЕ НА ПАНЕЛИТЕ — раздели изображението точно на 4 панела в решетка 2×2.\n")
+		sb.WriteString("Оформи всеки панел ТОЧНО както е описано по-долу:\n")
 		for i, label := range labels {
-			sb.WriteString(fmt.Sprintf("  • %s panel: %s\n", label, pagePanels[i]))
+			sb.WriteString(fmt.Sprintf("  • %s панел: %s\n", label, pagePanels[i]))
 		}
 		return sb.String()
 	}
@@ -327,19 +333,19 @@ func buildPanelLayout(section string, pagePanels []string) string {
 		}
 		excerpt += "…"
 	}
-	return "MANDATORY PANEL LAYOUT — divide the image into exactly 4 panels in a 2×2 grid:\n" +
-		"  • TOP-LEFT panel: scene 1 from the excerpt\n" +
-		"  • TOP-RIGHT panel: scene 2 from the excerpt\n" +
-		"  • BOTTOM-LEFT panel: scene 3 from the excerpt\n" +
-		"  • BOTTOM-RIGHT panel: scene 4 from the excerpt\n" +
-		"Story excerpt (ALL panels must illustrate THIS excerpt only):\n\n" + excerpt + "\n"
+	return "ЗАДЪЛЖИТЕЛНО ОФОРМЛЕНИЕ НА ПАНЕЛИТЕ — раздели изображението точно на 4 панела в решетка 2×2:\n" +
+		"  • TOP-LEFT панел: сцена 1 от откъса\n" +
+		"  • TOP-RIGHT панел: сцена 2 от откъса\n" +
+		"  • BOTTOM-LEFT панел: сцена 3 от откъса\n" +
+		"  • BOTTOM-RIGHT панел: сцена 4 от откъса\n" +
+		"Откъс от историята (всички панели трябва да илюстрират САМО този откъс):\n\n" + excerpt + "\n"
 }
 
 func blurbBoxInstruction(blurb string) string {
 	if strings.TrimSpace(blurb) == "" {
-		return "a rectangular text box (white or cream background, thin black border) near the bottom, styled like a classic back-cover synopsis box"
+		return "правоъгълно текстово поле (бял или кремав фон, тънка черна рамка) близо до дъното, в стил на класически синопсис на задната корица"
 	}
-	return fmt.Sprintf("a rectangular text box (white or cream background, thin black border) near the bottom displaying this blurb text in italic type:\n    %q", blurb)
+	return fmt.Sprintf("правоъгълно текстово поле (бял или кремав фон, тънка черна рамка) близо до дъното, което показва този текст в курсив:\n    %q", blurb)
 }
 
 func errorsJoin(errs ...error) error {

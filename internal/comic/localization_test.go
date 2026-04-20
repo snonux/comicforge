@@ -1,6 +1,9 @@
 package comic
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLocalizedBrandName(t *testing.T) {
 	t.Parallel()
@@ -38,5 +41,26 @@ func TestValidateNoPromptLeakage(t *testing.T) {
 	}
 	if err := validateNoPromptLeakage("story", "Words to include:\n- ябълка"); err == nil {
 		t.Fatal("validateNoPromptLeakage() error = nil, want prompt leakage rejection")
+	}
+}
+
+func TestFindImageLeakMarker(t *testing.T) {
+	t.Parallel()
+
+	if marker, ok := findImageLeakMarker("calm text"); ok || marker != "" {
+		t.Fatalf("findImageLeakMarker() = %q, %v, want no match", marker, ok)
+	}
+	if marker, ok := findImageLeakMarker("mandatory language rule"); !ok || marker != "mandatory language rule" {
+		t.Fatalf("findImageLeakMarker() = %q, %v, want mandatory language rule match", marker, ok)
+	}
+}
+
+func TestComicStylesStayComic(t *testing.T) {
+	t.Parallel()
+
+	for _, style := range comicStyles {
+		if strings.Contains(strings.ToLower(style), "ultra realistic") || strings.Contains(strings.ToLower(style), "photograph") {
+			t.Fatalf("comicStyles contains hybrid or photorealistic style: %q", style)
+		}
 	}
 }

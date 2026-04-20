@@ -1,1 +1,1 @@
-FINAL LOCK — PHOTOREALISM: Entire image = camera-captured realism. If anything looks illustrated rather than photographed, the output is wrong. Do not drift toward comic art between panels or on gallery pages.
+КРАЕН ЗАКЛЮЧИТЕЛЕН РЕЖИМ — ФОТОРЕАЛИЗЪМ: цялото изображение трябва да изглежда като заснето с камера. Ако нещо изглежда рисувано, резултатът е грешен. Не допускай комиксов вид между панелите или в галерийните кадри.

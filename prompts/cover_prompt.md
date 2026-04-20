@@ -1,19 +1,19 @@
-{{if .Language}}MANDATORY LANGUAGE RULE: This is a {{.Language}} comic book. All text on the cover (cover lines, banners, labels) MUST be in {{.Script}} script. The masthead title must also be rendered in a striking comic-book font.
+{{if .Language}}Български комикс. Всички надписи на корицата са на {{.Script}}, включително основното заглавие.
 
-{{end}}Art style: {{.Style}}.{{.RenderingRequirement}}
-TRADITIONAL COMIC BOOK FRONT COVER — {{if .RenderingRequirement}}single full-bleed image (photoreal — like a physical comic book cover photo shoot){{else}}single full-bleed illustration{{end}}, landscape 16:9 format.
-NO panel grid. NO speech bubbles.
-{{if .Bible}}CHARACTER & SETTING REFERENCE (cover — follow exactly, do NOT change clothing):
+{{end}}Стил: {{.Style}}.{{.RenderingRequirement}}
+ТРАДИЦИОННА ПРЕДНА КО РИКА НА КОМИКС — {{if .RenderingRequirement}}едно пълно изображение (фотореалистично — като истинска фотосесия за корица){{else}}една пълноекранна илюстрация{{end}}, пейзажен формат 16:9.
+Без панелна решетка. Без балони за реплики.
+{{if .Bible}}РЕФЕРЕНЦИЯ ЗА ПЕРСОНАЖИТЕ И СРЕДАТА (корица — следвай точно, без промяна на дрехите):
 {{.Bible}}
 
-{{end}}MANDATORY MASTHEAD — the most important visual element on this cover:
-  • Invent a DRAMATIC, STORY-SPECIFIC comic book title that fits the characters and theme of the story teaser below (e.g. for a space story: 'ГАЛАКТИЧЕСКИ ГЕРОИ', for a mystery: 'ТАЙНАТА НА ГОРАТА'). The title must be in HUGE, dominant lettering across the very top of the cover — bold comic-book masthead font, thick outlines, bright contrasting colours (yellow, red, or white on dark), taking up the top 20% of the image. This title MUST be legible and unmissable.
-  • Directly below the main title, add a smaller subtitle banner: '{{.Subtitle}}' in a contrasting accent colour.
-  • Add a bold comic-book LOGO BUG (small circular or star-shaped badge) in the top-left corner — e.g. a planet, rocket, magnifying glass, sword — matching the story theme. The logo should feel like a real publisher imprint.
-Remaining layout rules:
-  • MAIN ART: below the masthead, a dramatic {{if .RenderingRequirement}}photographed cinematic scene{{else}}illustration{{end}} of EXACTLY the named characters from the story (as described in the reference above) — same faces, same ages, same clothing, same animals. Do NOT invent new characters or use generic stand-ins.
-  • COVER LINES: 2–3 short {{.Language}} teaser phrases in bold display type (e.g. 'A GREAT ADVENTURE!' or 'THE MYSTERY UNFOLDS!')
-  • BOTTOM STRIP: price box bottom-left, issue number bottom-right — classic Silver-Age / Bronze-Age comic production design.
-IMPORTANT: only the characters named in the reference may appear on this cover. Same age, same face, same clothing as in the interior pages. LANGUAGE REMINDER: all cover text in {{.Script}} script — see rule at top. Story teaser:
+{{end}}ОСНОВНО ЗАГЛАВИЕ — най-важният визуален елемент на корицата:
+  • Измисли ДРАМАТИЧНО, СПЕЦИФИЧНО ЗА ИСТОРИЯТА комиксово заглавие, което подхожда на героите и темата на откъса по-долу (например за космическа история: „ГАЛАКТИЧЕСКИ ГЕРОИ“, за мистерия: „ТАЙНАТА НА ГОРАТА“). Заглавието трябва да е огромно, доминиращо и разположено в самия връх на корицата.
+  • Под основното заглавие добави по-малка лента с подзаглавие „{{.Subtitle}}“ в контрастен цвят.
+  • Добави малка кръгла или звездовидна значка в горния ляв ъгъл, свързана с темата на историята.
+Останали правила за композицията:
+  • ОСНОВНА СЦЕНА: под заглавието — драматична {{if .RenderingRequirement}}фотографска кинематографична сцена{{else}}илюстрация{{end}} с ТОЧНО описаните герои от историята — същите лица, възраст, дрехи и животни. Не измисляй нови персонажи и не използвай заместители.
+  • КОРОВИ ФРАЗИ: 2–3 кратки фрази на {{.Language}} в удебелен дисплей шрифт.
+  • ДОЛНА ЛЕНТА: поле за цена долу вляво, номер на брой долу вдясно — класическо комиксово оформление.
+ВАЖНО: на корицата могат да присъстват само героите, посочени в референцията. Същата възраст, лице и дрехи като в страниците. Всички надписи са на {{.Script}}. Откъс от историята:
 
 {{.StoryText}}{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}

@@ -47,7 +47,7 @@ func TestBuildPanelLayoutUsesFallbackExcerpt(t *testing.T) {
 	t.Parallel()
 
 	got := buildPanelLayout("one two three four five", nil)
-	if !strings.Contains(got, "Story excerpt") {
+	if !strings.Contains(got, "Откъс от историята") {
 		t.Fatalf("buildPanelLayout() = %q", got)
 	}
 }
@@ -142,6 +142,12 @@ func TestDrawComicPagesReturnsErrorWhenRenderFails(t *testing.T) {
 func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	t.Parallel()
 
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string) error { return nil }
+	t.Cleanup(func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	})
+
 	tmpDir := t.TempDir()
 	img := fakeImageProvider{t: t}
 	genText := &scriptedTextProvider{responses: []string{
@@ -194,8 +200,11 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 func TestRunnerPropagatesRenderFailures(t *testing.T) {
 	originalSleep := sleep
 	sleep = func(time.Duration) {}
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string) error { return nil }
 	t.Cleanup(func() {
 		sleep = originalSleep
+		validateImagePromptLeakageFn = originalLeakValidation
 	})
 
 	runner := NewRunner(&RunnerConfig{
@@ -223,6 +232,49 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 
 	if err := runner.Run(context.Background(), vocabFile); err == nil {
 		t.Fatal("Runner.Run() error = nil, want render failure")
+	}
+}
+
+func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string) error { return nil }
+	t.Cleanup(func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	})
+
+	renderer := &recordingPromptRenderer{}
+	artist := NewArtist(&ArtistConfig{
+		ImageProvider:  fakeImageProvider{t: t},
+		Prompts:        renderer,
+		OutputDir:      t.TempDir(),
+		UltraRealistic: false,
+	})
+
+	if _, err := artist.DrawComicPages(context.Background(), "история", "библия", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
+		t.Fatalf("DrawComicPages() error = %v", err)
+	}
+
+	var style string
+	var promptCount int
+	for _, call := range renderer.calls {
+		if !isImagePromptTemplate(call.name) {
+			continue
+		}
+		promptCount++
+		gotStyle, ok := call.data["Style"].(string)
+		if !ok || gotStyle == "" {
+			t.Fatalf("image prompt %q missing style: %#v", call.name, call.data)
+		}
+		if style == "" {
+			style = gotStyle
+			continue
+		}
+		if gotStyle != style {
+			t.Fatalf("image prompt styles diverged: first=%q later=%q in %q", style, gotStyle, call.name)
+		}
+	}
+	if promptCount == 0 {
+		t.Fatal("no image prompts recorded")
 	}
 }
 
@@ -271,6 +323,48 @@ func (fakePromptRenderer) RenderPrompt(name string, data any) (string, error) {
 		return "teaser prompt", nil
 	default:
 		return "", errors.New("unexpected template")
+	}
+}
+
+type recordingPromptRenderer struct {
+	calls []recordedPromptCall
+}
+
+type recordedPromptCall struct {
+	name string
+	data map[string]any
+}
+
+func (r *recordingPromptRenderer) RenderPrompt(name string, data any) (string, error) {
+	if m, ok := data.(map[string]any); ok {
+		copyData := make(map[string]any, len(m))
+		for k, v := range m {
+			copyData[k] = v
+		}
+		r.calls = append(r.calls, recordedPromptCall{name: name, data: copyData})
+	} else {
+		r.calls = append(r.calls, recordedPromptCall{name: name})
+	}
+	switch name {
+	case storySystemPromptTemplate:
+		return "system prompt", nil
+	case storyPromptTemplate, storyFullPromptTemplate:
+		return "prompt", nil
+	case coverPromptTemplate, storyPagePromptTemplate, galleryPagePromptTemplate, backCoverPromptTemplate:
+		return "image prompt", nil
+	case blurbSystemTemplate, introSystemTemplate, conclusionSystemTemplate:
+		return "teaser prompt", nil
+	default:
+		return "", errors.New("unexpected template")
+	}
+}
+
+func isImagePromptTemplate(name string) bool {
+	switch name {
+	case coverPromptTemplate, storyPagePromptTemplate, galleryPagePromptTemplate, backCoverPromptTemplate:
+		return true
+	default:
+		return false
 	}
 }
 
