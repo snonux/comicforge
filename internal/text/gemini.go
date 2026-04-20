@@ -45,7 +45,7 @@ func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 	}
 	g.model = defaultOr(cfg.Model, DefaultModel)
 	if strings.TrimSpace(cfg.APIKey) == "" {
-		g.err = fmt.Errorf("Google API key is required for text generation")
+		g.err = fmt.Errorf("google API key is required for text generation")
 		return g
 	}
 	client, err := newGeminiClient(context.Background(), &genai.ClientConfig{

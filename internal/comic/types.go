@@ -27,18 +27,7 @@ const (
 )
 
 const (
-	storyGeminiModel = "gemini-2.5-flash"
-
 	storyTimeout = 120 * time.Second
-
-	// 8192 tokens for story-only generation (thinking + visible story).
-	storyMaxTokens = int32(8192)
-
-	// 16384 total for the combined story+bible call, with thinking capped.
-	storyFullMaxTokens = int32(16384)
-
-	// Caps the internal chain-of-thought so visible output is still produced.
-	storyFullThinkingBudget = int32(8192)
 
 	storyBibleSeparator = "---CHARACTER GUIDE---"
 	storyTitleSeparator = "---COMIC TITLE---"
@@ -240,7 +229,7 @@ func buildWordList(entries []WordEntry, header string) string {
 		if word == "" {
 			word = strings.TrimSpace(entry.Translation)
 		}
-		sb.WriteString(fmt.Sprintf("- %s\n", word))
+		fmt.Fprintf(&sb, "- %s\n", word)
 	}
 	return sb.String()
 }

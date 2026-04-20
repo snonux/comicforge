@@ -70,7 +70,9 @@ func (d *Downloader) DownloadImage(ctx context.Context, result *SearchResult, ou
 	if err != nil {
 		return fmt.Errorf("create output file %q: %w", outputPath, err)
 	}
-	defer unix.Close(parentFD)
+	defer func() {
+		_ = unix.Close(parentFD)
+	}()
 	defer func() {
 		if closeErr := file.Close(); err == nil && closeErr != nil {
 			err = fmt.Errorf("close output file %q: %w", outputPath, closeErr)
@@ -273,7 +275,9 @@ func (d *Downloader) writeSecureRelativeFile(outputPath, relPath string, content
 	if err != nil {
 		return err
 	}
-	defer unix.Close(parentFD)
+	defer func() {
+		_ = unix.Close(parentFD)
+	}()
 	defer func() {
 		_ = file.Close()
 	}()

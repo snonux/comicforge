@@ -206,10 +206,10 @@ func (r *Runner) saveVocabularyFile(storyText string, entries []vocab.WordEntry,
 			word = strings.TrimSpace(entry.Translation)
 		}
 		if entry.Translation != "" && entry.Word != "" {
-			sb.WriteString(fmt.Sprintf("  %s - %s\n", entry.Word, entry.Translation))
+			fmt.Fprintf(&sb, "  %s - %s\n", entry.Word, entry.Translation)
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("  %s\n", word))
+		fmt.Fprintf(&sb, "  %s\n", word)
 	}
 	sb.WriteString("\n# Story Text\n\n")
 	sb.WriteString(strings.TrimSpace(storyText))
@@ -269,12 +269,16 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() {
+		_ = in.Close()
+	}()
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		_ = out.Close()
+	}()
 	_, err = io.Copy(out, in)
 	return err
 }

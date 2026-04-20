@@ -365,7 +365,7 @@ func buildPanelLayout(section string, pagePanels []string) string {
 			if panel == "" {
 				continue
 			}
-			sb.WriteString(fmt.Sprintf("Панел %d: %s\n", i+1, panel))
+			fmt.Fprintf(&sb, "Панел %d: %s\n", i+1, panel)
 		}
 		return sb.String()
 	}

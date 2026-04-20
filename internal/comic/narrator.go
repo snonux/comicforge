@@ -75,7 +75,9 @@ func (n *Narrator) Narrate(ctx context.Context, storyText, outputFile string) er
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	var allPaths []string
 	if introPath, ok := n.narrateIntro(ctx, storyText, tmpDir); ok {
@@ -325,7 +327,7 @@ func concatenateMP3s(chunkPaths []string, outputFile, tmpDir string) error {
 	listPath := filepath.Join(tmpDir, "concat_list.txt")
 	var sb strings.Builder
 	for _, path := range chunkPaths {
-		sb.WriteString(fmt.Sprintf("file '%s'\n", path))
+		fmt.Fprintf(&sb, "file '%s'\n", path)
 	}
 	if err := os.WriteFile(listPath, []byte(sb.String()), 0o600); err != nil {
 		return fmt.Errorf("write concat list: %w", err)

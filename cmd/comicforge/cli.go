@@ -77,7 +77,7 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if flags.version {
-				fmt.Fprintln(cmd.OutOrStdout(), version.Version)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), version.Version)
 				return nil
 			}
 			if strings.TrimSpace(flags.vocab) == "" {

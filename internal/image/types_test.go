@@ -53,7 +53,7 @@ func TestRegistryNewFromConfig(t *testing.T) {
 
 	registry := NewRegistry[fakeConfig]()
 	registry.Register(Gemini, func(cfg fakeConfig) (ImageProvider, error) {
-		return fakeProvider{name: cfg.name, token: cfg.token}, nil
+		return fakeProvider(cfg), nil
 	})
 
 	provider, err := registry.NewFromConfig(fakeConfig{name: Gemini, token: "secret"})

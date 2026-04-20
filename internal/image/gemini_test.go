@@ -16,10 +16,7 @@ import (
 func TestNewGeminiProvider(t *testing.T) {
 	t.Parallel()
 
-	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
-	if client == nil {
-		t.Fatal("expected client")
-	}
+	client := mustNewGeminiProvider(t, &GeminiConfig{APIKey: "test-key"})
 	if client.config == nil {
 		t.Fatal("expected normalized config")
 	}
@@ -32,6 +29,16 @@ func TestNewGeminiProvider(t *testing.T) {
 	if client.Name() != Gemini {
 		t.Fatalf("Name() = %q, want %q", client.Name(), Gemini)
 	}
+}
+
+func mustNewGeminiProvider(t *testing.T, cfg *GeminiConfig) *GeminiProvider {
+	t.Helper()
+
+	client := NewGeminiProvider(cfg)
+	if client == nil {
+		t.Fatal("expected client")
+	}
+	return client
 }
 
 func TestGeminiProvider_NoAPIKey(t *testing.T) {

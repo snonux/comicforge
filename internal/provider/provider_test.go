@@ -76,11 +76,3 @@ func (f fakeTextProvider) IsAvailable() error { return nil }
 func (f fakeTextProvider) GenerateText(_ context.Context, _ string) (string, error) {
 	return "", nil
 }
-
-type fakeTTSProvider struct{}
-
-func (fakeTTSProvider) Name() string       { return "missing" }
-func (fakeTTSProvider) IsAvailable() error { return nil }
-func (fakeTTSProvider) GenerateAudio(_ context.Context, _ string, _ string) error {
-	return nil
-}

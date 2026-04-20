@@ -9,6 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	version "codeberg.org/snonux/comicforge/internal"
 	"codeberg.org/snonux/comicforge/internal/comic"
 	"codeberg.org/snonux/comicforge/internal/config"
@@ -254,10 +257,7 @@ func TestRootCommandRejectsConflictingUltraFlags(t *testing.T) {
 func TestRootCommandProviderFlagsDefaultToGemini(t *testing.T) {
 	cmd := newRootCommand()
 	for _, flagName := range []string{"text-provider", "image-provider", "tts-provider"} {
-		flag := cmd.Flags().Lookup(flagName)
-		if flag == nil {
-			t.Fatalf("flag %q not found", flagName)
-		}
+		flag := mustLookupFlag(t, cmd, flagName)
 		if got, want := flag.DefValue, provider.Gemini; got != want {
 			t.Fatalf("%s default = %q, want %q", flagName, got, want)
 		}
@@ -315,6 +315,16 @@ func TestRootCommandSkipsTTSProviderWhenNarrationDisabled(t *testing.T) {
 	if runner.runs != 1 {
 		t.Fatalf("runner.runs = %d, want 1", runner.runs)
 	}
+}
+
+func mustLookupFlag(t *testing.T, cmd *cobra.Command, name string) *pflag.Flag {
+	t.Helper()
+
+	flag := cmd.Flags().Lookup(name)
+	if flag == nil {
+		t.Fatalf("flag %q not found", name)
+	}
+	return flag
 }
 
 type recordingRunner struct {

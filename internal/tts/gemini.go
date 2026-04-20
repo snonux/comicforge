@@ -43,7 +43,7 @@ func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 	g.model = defaultOr(cfg.Model, DefaultModel)
 	g.voice = cfg.Voice
 	if strings.TrimSpace(cfg.APIKey) == "" {
-		g.err = fmt.Errorf("Google API key is required for TTS")
+		g.err = fmt.Errorf("google API key is required for TTS")
 		return g
 	}
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{

@@ -207,7 +207,9 @@ func (c *GeminiProvider) GenerateImageWithReferences(ctx context.Context, prompt
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer func() {
+		_ = rc.Close()
+	}()
 	data, err := io.ReadAll(rc)
 	if err != nil {
 		return fmt.Errorf("read image data: %w", err)
