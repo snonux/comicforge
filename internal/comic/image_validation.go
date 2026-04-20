@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -31,9 +32,16 @@ var imageLeakMarkers = []string{
 	"no text of any kind",
 }
 
+var englishLeakWords = []string{
+	"page", "comic", "photograph", "photography", "panel", "panels",
+	"cover", "title", "subtitle", "blurb", "story", "gallery",
+	"rendering", "language", "mandatory", "speech", "bubble", "caption",
+	"close-up", "medium-long", "ultra-realistic", "illustration", "text",
+}
+
 var validateImagePromptLeakageFn = validateImagePromptLeakage
 
-func validateImagePromptLeakage(ctx context.Context, outputFile, label string) error {
+func validateImagePromptLeakage(ctx context.Context, outputFile, label, script string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -53,7 +61,12 @@ func validateImagePromptLeakage(ctx context.Context, outputFile, label string) e
 
 	ocr := strings.ToLower(out.String())
 	if marker, ok := findImageLeakMarker(ocr); ok {
-		return fmt.Errorf("%s contains prompt leakage marker %q", label, marker)
+		return fmt.Errorf("%s contains prompt leakage marker %q (ocr=%q)", label, marker, compactOCRSnippet(ocr))
+	}
+	if strings.EqualFold(script, "Cyrillic") {
+		if word, ok := findEnglishLeakWord(ocr); ok {
+			return fmt.Errorf("%s contains English leakage word %q despite %s script (ocr=%q)", label, word, script, compactOCRSnippet(ocr))
+		}
 	}
 	return nil
 }
@@ -65,4 +78,23 @@ func findImageLeakMarker(text string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func findEnglishLeakWord(text string) (string, bool) {
+	for _, word := range englishLeakWords {
+		pattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(word) + `\b`)
+		if pattern.MatchString(text) {
+			return word, true
+		}
+	}
+	return "", false
+}
+
+func compactOCRSnippet(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.Join(strings.Fields(text), " ")
+	if len(text) > 240 {
+		text = text[:240] + "..."
+	}
+	return text
 }

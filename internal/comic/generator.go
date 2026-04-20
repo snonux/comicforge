@@ -128,7 +128,9 @@ func (g *Generator) renderStoryPrompt(templateName string, entries []WordEntry) 
 	genre := resolveGenre(g.theme, g.genres)
 	data := map[string]any{
 		"Language":            g.language,
+		"LanguageName":        localizedLanguageName(g.language, g.script),
 		"Script":              g.script,
+		"ScriptName":          localizedScriptName(g.script),
 		"Genre":               genre,
 		"Words":               buildWordList(entries, ""),
 		"StoryBibleSeparator": storyBibleSeparator,
@@ -137,8 +139,10 @@ func (g *Generator) renderStoryPrompt(templateName string, entries []WordEntry) 
 	}
 
 	systemPrompt, err := g.prompts.RenderPrompt(storySystemPromptTemplate, map[string]any{
-		"Language": g.language,
-		"Script":   g.script,
+		"Language":     g.language,
+		"LanguageName": localizedLanguageName(g.language, g.script),
+		"Script":       g.script,
+		"ScriptName":   localizedScriptName(g.script),
 	})
 	if err != nil {
 		return "", err
@@ -152,32 +156,41 @@ func (g *Generator) renderStoryPrompt(templateName string, entries []WordEntry) 
 
 func validateGeneratedResult(result GenerateResult, script string) error {
 	if err := validateTextScript("story text", result.StoryText, script); err != nil {
-		return err
+		return fmt.Errorf("%w (story=%q)", err, compactTextSnippet(result.StoryText))
 	}
 	if err := validateNoPromptLeakage("story text", result.StoryText); err != nil {
-		return err
+		return fmt.Errorf("%w (story=%q)", err, compactTextSnippet(result.StoryText))
 	}
 	if err := validateTextScript("character bible", result.Bible, script); err != nil {
-		return err
+		return fmt.Errorf("%w (bible=%q)", err, compactTextSnippet(result.Bible))
 	}
 	if err := validateNoPromptLeakage("character bible", result.Bible); err != nil {
-		return err
+		return fmt.Errorf("%w (bible=%q)", err, compactTextSnippet(result.Bible))
 	}
 	if err := validateTextScript("comic title", result.Title, script); err != nil {
-		return err
+		return fmt.Errorf("%w (title=%q)", err, compactTextSnippet(result.Title))
 	}
 	if err := validateNoPromptLeakage("comic title", result.Title); err != nil {
-		return err
+		return fmt.Errorf("%w (title=%q)", err, compactTextSnippet(result.Title))
 	}
 	for pageIdx, page := range result.PanelScript {
 		for panelIdx, panel := range page {
 			if err := validateTextScript(fmt.Sprintf("panel script P%d-%c", pageIdx+1, 'A'+panelIdx), panel, script); err != nil {
-				return err
+				return fmt.Errorf("%w (panel=%q)", err, compactTextSnippet(panel))
 			}
 			if err := validateNoPromptLeakage(fmt.Sprintf("panel script P%d-%c", pageIdx+1, 'A'+panelIdx), panel); err != nil {
-				return err
+				return fmt.Errorf("%w (panel=%q)", err, compactTextSnippet(panel))
 			}
 		}
 	}
 	return nil
+}
+
+func compactTextSnippet(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.Join(strings.Fields(text), " ")
+	if len(text) > 220 {
+		text = text[:220] + "..."
+	}
+	return text
 }

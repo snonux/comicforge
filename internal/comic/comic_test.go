@@ -143,7 +143,7 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	t.Parallel()
 
 	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string) error { return nil }
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
 	t.Cleanup(func() {
 		validateImagePromptLeakageFn = originalLeakValidation
 	})
@@ -201,7 +201,7 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 	originalSleep := sleep
 	sleep = func(time.Duration) {}
 	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string) error { return nil }
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
 	t.Cleanup(func() {
 		sleep = originalSleep
 		validateImagePromptLeakageFn = originalLeakValidation
@@ -237,7 +237,7 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 
 func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
 	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string) error { return nil }
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
 	t.Cleanup(func() {
 		validateImagePromptLeakageFn = originalLeakValidation
 	})
@@ -275,6 +275,38 @@ func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
 	}
 	if promptCount == 0 {
 		t.Fatal("no image prompts recorded")
+	}
+}
+
+func TestDrawComicPagesChainsReferenceImages(t *testing.T) {
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
+	t.Cleanup(func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	})
+
+	provider := &refTrackingImageProvider{t: t}
+	artist := NewArtist(&ArtistConfig{
+		ImageProvider:  provider,
+		Prompts:        fakePromptRenderer{},
+		OutputDir:      t.TempDir(),
+		UltraRealistic: false,
+	})
+
+	if _, err := artist.DrawComicPages(context.Background(), "история", "библия", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
+		t.Fatalf("DrawComicPages() error = %v", err)
+	}
+	if len(provider.referenceCounts) < 3 {
+		t.Fatalf("referenceCounts = %v, want multiple page generations", provider.referenceCounts)
+	}
+	if provider.referenceCounts[0] != 0 {
+		t.Fatalf("cover refs = %d, want 0", provider.referenceCounts[0])
+	}
+	if provider.referenceCounts[1] != 1 {
+		t.Fatalf("first story page refs = %d, want 1", provider.referenceCounts[1])
+	}
+	if provider.referenceCounts[2] < 1 {
+		t.Fatalf("second page refs = %d, want chained references", provider.referenceCounts[2])
 	}
 }
 
@@ -402,6 +434,24 @@ func (f fakeImageProvider) IsAvailable() error { return nil }
 func (f fakeImageProvider) GenerateImage(_ context.Context, _ string, outputFile string) error {
 	if err := os.WriteFile(outputFile, []byte("png"), 0o644); err != nil {
 		f.t.Fatal(err)
+	}
+	return nil
+}
+
+type refTrackingImageProvider struct {
+	t               *testing.T
+	referenceCounts []int
+}
+
+func (p *refTrackingImageProvider) Name() string       { return "ref-tracking-image" }
+func (p *refTrackingImageProvider) IsAvailable() error { return nil }
+func (p *refTrackingImageProvider) GenerateImage(ctx context.Context, prompt, outputFile string) error {
+	return p.GenerateImageWithReferences(ctx, prompt, outputFile, nil)
+}
+func (p *refTrackingImageProvider) GenerateImageWithReferences(_ context.Context, _ string, outputFile string, refs [][]byte) error {
+	p.referenceCounts = append(p.referenceCounts, len(refs))
+	if err := os.WriteFile(outputFile, []byte("png"), 0o644); err != nil {
+		p.t.Fatal(err)
 	}
 	return nil
 }

@@ -55,6 +55,17 @@ func TestFindImageLeakMarker(t *testing.T) {
 	}
 }
 
+func TestFindEnglishLeakWord(t *testing.T) {
+	t.Parallel()
+
+	if word, ok := findEnglishLeakWord("спокойна сцена"); ok || word != "" {
+		t.Fatalf("findEnglishLeakWord() = %q, %v, want no match", word, ok)
+	}
+	if word, ok := findEnglishLeakWord("page 1 of 5"); !ok || word != "page" {
+		t.Fatalf("findEnglishLeakWord() = %q, %v, want page match", word, ok)
+	}
+}
+
 func TestComicStylesStayComic(t *testing.T) {
 	t.Parallel()
 
@@ -62,5 +73,28 @@ func TestComicStylesStayComic(t *testing.T) {
 		if strings.Contains(strings.ToLower(style), "ultra realistic") || strings.Contains(strings.ToLower(style), "photograph") {
 			t.Fatalf("comicStyles contains hybrid or photorealistic style: %q", style)
 		}
+	}
+}
+
+func TestContainsLatinLetters(t *testing.T) {
+	t.Parallel()
+
+	if containsLatinLetters("Здравей") {
+		t.Fatal("containsLatinLetters() = true for Cyrillic text")
+	}
+	if !containsLatinLetters("Page 4 of 5") {
+		t.Fatal("containsLatinLetters() = false for Latin text")
+	}
+}
+
+func TestLocalizedStylePrompt(t *testing.T) {
+	t.Parallel()
+
+	got := localizedStylePrompt("classic American comic book with bold ink outlines, halftone dots, and primary colors", "Bulgarian", "Cyrillic")
+	if containsLatinLetters(got) {
+		t.Fatalf("localizedStylePrompt() = %q, want no Latin letters", got)
+	}
+	if got == "" {
+		t.Fatal("localizedStylePrompt() returned empty string")
 	}
 }

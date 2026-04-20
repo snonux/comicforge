@@ -94,11 +94,11 @@ var (
 	}
 
 	galleryPoses = []string{
-		"extreme close-up portrait: face and shoulders filling the entire frame, dramatic three-quarter lighting, intense gaze directly at the viewer, fine detail on eyes and expression",
-		"dynamic action pose: full body, low-angle shot looking up at the main character against the sky or setting backdrop, confident stance, hair and clothing caught in motion",
-		"atmospheric mid-shot: waist-up, the main character silhouetted or lit by the ambient environment (bioluminescence, sunset, neon glow), looking off into the distance with a sense of wonder or resolve",
-		"profile close-up: side view of face and upper body, soft rim lighting tracing the jawline and hair, contemplative expression, rich background bokeh",
-		"power stance full-body: the main character seen from the front at eye level, arms relaxed but ready, environment filling the frame behind them, golden-hour or dramatic storm light",
+		"крупен план на лице и раменете, драматично три-четвъртно осветление, ясен поглед към зрителя, отчетливи очи и изражение",
+		"динамична цялостна поза, нисък ъгъл на камерата към героя на фона на небето или средата, уверена стойка, коса и дрехи в движение",
+		"атмосферен среден план, героят е осветен или очертан от светлината на средата (биолуминесценция, залез, неон), погледът е отправен в далечината с усещане за чудо или решителност",
+		"страничен близък план на лице и горна част на тялото, мек контурен блясък по челюстта и косата, замислено изражение, мек размит фон",
+		"уверена цялостна стойка, героят е заснет отпред на нивото на очите, ръцете са отпуснати но готови, средата изпълва кадъра, златна или драматична светлина",
 	}
 )
 

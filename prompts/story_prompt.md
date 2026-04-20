@@ -1,6 +1,7 @@
-Write a ~250-word story in {{.Language}} that naturally uses all of the following words.
-The story must be {{.Genre}} — do NOT write a generic fairy tale.
-Use every word naturally, but do NOT repeat the word list formatting, bullet symbols, or labels in the story text. Return ONLY the story text — no title, no header, no explanation.
+Напиши история с дължина около 250 думи на {{.LanguageName}}, която естествено използва всички следните думи.
+Историята трябва да е {{.Genre}} — не пиши безлична приказка.
+Използвай само {{.ScriptName}}. Не използвай латиница никъде в текста. Ако чуждо име или термин е нужен, транслитерирай го в {{.ScriptName}}.
+Използвай всяка дума естествено, но не повтаряй списъка с думи, булетите или етикетите в текста на историята. Върни САМО текста на историята — без заглавие, без заглавен ред, без обяснение.
 
-Words to include:
+Думи за включване:
 {{.Words}}

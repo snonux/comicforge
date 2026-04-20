@@ -190,9 +190,11 @@ func (n *Narrator) buildTeaser(ctx context.Context, templateName, storyText stri
 		return ""
 	}
 	systemPrompt, err := n.prompts.RenderPrompt(templateName, map[string]any{
-		"StoryText": storyText,
-		"Language":  n.language,
-		"Script":    n.script,
+		"StoryText":    storyText,
+		"Language":     n.language,
+		"LanguageName": localizedLanguageName(n.language, n.script),
+		"Script":       n.script,
+		"ScriptName":   localizedScriptName(n.script),
 	})
 	if err != nil {
 		fmt.Printf("    Warning: text prompt render failed: %v\n", err)

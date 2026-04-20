@@ -173,6 +173,13 @@ func (c *GeminiProvider) IsAvailable() error {
 
 // GenerateImage renders the first generated image to outputFile.
 func (c *GeminiProvider) GenerateImage(ctx context.Context, prompt, outputFile string) error {
+	return c.GenerateImageWithReferences(ctx, prompt, outputFile, nil)
+}
+
+// GenerateImageWithReferences renders the first generated image to outputFile,
+// optionally conditioning the model on prior page images so comic pages stay
+// visually consistent across the full PDF.
+func (c *GeminiProvider) GenerateImageWithReferences(ctx context.Context, prompt, outputFile string, refs [][]byte) error {
 	if c == nil {
 		return fmt.Errorf("image provider is nil")
 	}
@@ -185,7 +192,11 @@ func (c *GeminiProvider) GenerateImage(ctx context.Context, prompt, outputFile s
 	if strings.TrimSpace(outputFile) == "" {
 		return fmt.Errorf("output file is required")
 	}
-	results, err := c.Search(ctx, &SearchOptions{CustomPrompt: prompt})
+	opts := &SearchOptions{CustomPrompt: prompt}
+	if len(refs) > 0 {
+		opts.ReferenceImages = refs
+	}
+	results, err := c.Search(ctx, opts)
 	if err != nil {
 		return err
 	}

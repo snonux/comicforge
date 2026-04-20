@@ -1,12 +1,12 @@
-Write exactly 20 visual panel descriptions for the comic illustrator, one per line, in strict chronological story order.
-Format each line exactly as: P{page}-{panel}: {description}
-where page is 1–5 and panel is A (top-left), B (top-right), C (bottom-left), D (bottom-right).
-Each description is 1–2 sentences covering: WHO is in the panel, WHAT they are doing, WHERE they are, their expression or body language, and — REQUIRED for most panels — the exact {{.Language}} dialogue or thought text the character says/thinks, written in quotes.
-At least 3 of the 4 panels on every page MUST include {{.Language}} dialogue in a speech bubble or thought bubble. The dialogue must come directly from the story and be in {{.Script}} script.
-The 20 panels must retell the story from beginning to end — each page covers one story beat, each panel advances the action.
-Do NOT repeat the same scene or camera angle on consecutive panels.
-Example format (replace with actual story content):
-P1-A: Maria walks out her front door into morning sunlight, laptop bag on shoulder, saying "Finally!" in a speech bubble.
-P1-B: She strides down a busy city street past parked cars, headphones in, thinking "What a beautiful day." in a thought bubble.
-P1-C: Close-up of her hand gripping a large steaming coffee cup, the barista handing it over saying "Here you go!" in a speech bubble.
-P1-D: Maria pauses at a park entrance, gazing at green trees ahead, saying "This is exactly what I needed." in a speech bubble.
+Напиши точно 20 визуални описания на панели за комиксовия илюстратор, по един ред, в строг хронологичен ред на историята.
+Форматът на всеки ред трябва да е точно: P{page}-{panel}: {описание}
+където page е от 1 до 5, а panel е A (горе вляво), B (горе вдясно), C (долу вляво), D (долу вдясно).
+Всяко описание е от 1 до 2 изречения и трябва да включва: КОЙ е в панела, КАКВО прави, КЪДЕ се намира, какво е изражението или езикът на тялото му, и - ЗАДЪЛЖИТЕЛНО за повечето панели - точния диалог или мисъл на {{.LanguageName}}, написан в кавички.
+Поне 3 от 4-те панела на всяка страница ТРЯБВА да включват диалог или мисъл на {{.LanguageName}} в балон за реплика или мисъл. Диалогът трябва да идва директно от историята и да е на {{.ScriptName}}.
+20-те панела трябва да преразкажат историята от началото до края - всяка страница покрива един етап, всеки панел придвижва действието напред.
+Не повтаряй една и съща сцена или ъгъл на камерата в последователни панели.
+Примерен формат, замени с истинското съдържание на историята:
+P1-A: Мария излиза от входната си врата в утринната светлина, с чанта на рамо, и казва "Най-сетне!" в балон за реплика.
+P1-B: Тя върви по оживена улица покрай паркирани коли, с слушалки в ушите, и мисли "Толкова хубав ден." в балон за мисъл.
+P1-C: Крупен план на ръката ѝ, която стиска голяма пареща чаша кафе, а баристата ѝ я подава с думите "Заповядайте!" в балон за реплика.
+P1-D: Мария спира при входа на парк и поглежда към зелените дървета отпред, като казва "Точно това ми трябваше." в балон за реплика.

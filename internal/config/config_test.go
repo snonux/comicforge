@@ -86,14 +86,16 @@ func TestRenderPromptFallsBackToEmbeddedTemplate(t *testing.T) {
 	cfg.PromptsDir = t.TempDir()
 
 	got, err := cfg.RenderPrompt("story_prompt.md", map[string]any{
-		"Language": "Bulgarian",
-		"Genre":    "a mystery with a surprising twist",
-		"Words":    "- ябълка\n- книга\n",
+		"Language":     "Bulgarian",
+		"LanguageName": "български",
+		"ScriptName":   "кирилица",
+		"Genre":        "a mystery with a surprising twist",
+		"Words":        "- ябълка\n- книга\n",
 	})
 	if err != nil {
 		t.Fatalf("RenderPrompt() error = %v", err)
 	}
-	if !strings.Contains(got, "Write a ~250-word story in Bulgarian") {
+	if !strings.Contains(got, "Напиши история с дължина около 250 думи на български") {
 		t.Fatalf("RenderPrompt() = %q, want embedded story prompt", got)
 	}
 }
@@ -142,7 +144,9 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 
 	data := map[string]any{
 		"Language":                "Bulgarian",
+		"LanguageName":            "български",
 		"Script":                  "Cyrillic",
+		"ScriptName":              "кирилица",
 		"Genre":                   "a mystery with a surprising twist",
 		"Style":                   "cinematic realism",
 		"Words":                   "- ябълка\n- книга\n",

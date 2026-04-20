@@ -44,6 +44,10 @@ type Artist struct {
 	initErr        error
 }
 
+type referenceImageGenerator interface {
+	GenerateImageWithReferences(context.Context, string, string, [][]byte) error
+}
+
 var sleep = time.Sleep
 
 // NewArtist creates an Artist.
@@ -107,34 +111,44 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	}
 
 	var paths []string
-	if p, err := a.renderPage(ctx, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page"); err != nil {
+	var recentRefs [][]byte
+	if p, err := a.renderPage(ctx, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page", nil); err != nil {
 		return nil, err
 	} else if p != "" {
 		paths = append(paths, p)
+		if coverBytes, readErr := os.ReadFile(p); readErr == nil {
+			recentRefs = appendRef(recentRefs, coverBytes)
+		}
 	}
 
 	sections := splitIntoSections(storyText, a.storyPages)
 	for i, section := range sections {
 		pageNum := i + 1
 		data := a.storyPagePromptData(section, pageNum, style, resolvedBible, entries, panelScript)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum)); err != nil {
+		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum), recentRefs); err != nil {
 			return nil, err
 		} else if p != "" {
 			paths = append(paths, p)
+			if pageBytes, readErr := os.ReadFile(p); readErr == nil {
+				recentRefs = appendRef(recentRefs, pageBytes)
+			}
 		}
 	}
 
 	for i := 0; i < a.galleryPages; i++ {
 		galleryNum := i + 1
 		data := a.galleryPromptData(style, resolvedBible, galleryNum)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages)); err != nil {
+		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages), recentRefs); err != nil {
 			return nil, err
 		} else if p != "" {
 			paths = append(paths, p)
+			if galleryBytes, readErr := os.ReadFile(p); readErr == nil {
+				recentRefs = appendRef(recentRefs, galleryBytes)
+			}
 		}
 	}
 
-	if p, err := a.renderPage(ctx, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover"); err != nil {
+	if p, err := a.renderPage(ctx, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover", recentRefs); err != nil {
 		return nil, err
 	} else if p != "" {
 		paths = append(paths, p)
@@ -152,7 +166,7 @@ func (a *Artist) ready() error {
 	return nil
 }
 
-func (a *Artist) renderPage(ctx context.Context, fileName, templateName string, data map[string]any, label string) (string, error) {
+func (a *Artist) renderPage(ctx context.Context, fileName, templateName string, data map[string]any, label string, refs [][]byte) (string, error) {
 	path := filepath.Join(a.outputDir, fileName+".png")
 	if _, err := os.Stat(path); err == nil {
 		fmt.Printf("  Skipping %s (already exists)\n", filepath.Base(path))
@@ -162,19 +176,19 @@ func (a *Artist) renderPage(ctx context.Context, fileName, templateName string, 
 	if err != nil {
 		return "", fmt.Errorf("render %s prompt: %w", label, err)
 	}
-	if err := a.generateWithRetry(ctx, prompt, path, label); err != nil {
+	if err := a.generateWithRetry(ctx, prompt, path, label, refs); err != nil {
 		return "", err
 	}
 	return path, nil
 }
 
-func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, label string) error {
+func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, label string, refs [][]byte) error {
 	attempts := pageMaxRetries
 	for attempt := 1; attempt <= attempts; attempt++ {
 		callCtx, cancel := withTimeout(ctx, helperTimeout)
-		err := a.imageProvider.GenerateImage(callCtx, prompt, outputFile)
+		err := a.generateImage(callCtx, prompt, outputFile, refs)
 		if err == nil {
-			if leakErr := validateImagePromptLeakageFn(callCtx, outputFile, label); leakErr != nil {
+			if leakErr := validateImagePromptLeakageFn(callCtx, outputFile, label, a.script); leakErr != nil {
 				_ = os.Remove(outputFile)
 				err = leakErr
 			}
@@ -194,6 +208,26 @@ func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, labe
 	return nil
 }
 
+func (a *Artist) generateImage(ctx context.Context, prompt, outputFile string, refs [][]byte) error {
+	if len(refs) > 0 {
+		if withRefs, ok := a.imageProvider.(referenceImageGenerator); ok {
+			return withRefs.GenerateImageWithReferences(ctx, prompt, outputFile, refs)
+		}
+	}
+	return a.imageProvider.GenerateImage(ctx, prompt, outputFile)
+}
+
+func appendRef(refs [][]byte, imgBytes []byte) [][]byte {
+	if len(imgBytes) == 0 {
+		return refs
+	}
+	refs = append(refs, imgBytes)
+	if len(refs) > 2 {
+		refs = [][]byte{refs[0], refs[len(refs)-1]}
+	}
+	return refs
+}
+
 func (a *Artist) resolveHelperTexts(ctx context.Context, storyText, prebuiltBible string) (string, string, error) {
 	bible := strings.TrimSpace(prebuiltBible)
 	if bible != "" {
@@ -204,9 +238,11 @@ func (a *Artist) resolveHelperTexts(ctx context.Context, storyText, prebuiltBibl
 		return bible, blurb, nil
 	}
 	systemPrompt, err := a.prompts.RenderPrompt(blurbSystemTemplate, map[string]any{
-		"StoryText": storyText,
-		"Language":  a.language,
-		"Script":    a.script,
+		"StoryText":    storyText,
+		"Language":     a.language,
+		"LanguageName": localizedLanguageName(a.language, a.script),
+		"Script":       a.script,
+		"ScriptName":   localizedScriptName(a.script),
 	})
 	if err != nil {
 		return "", "", fmt.Errorf("render blurb prompt: %w", err)
@@ -235,8 +271,10 @@ func (a *Artist) resolveHelperTexts(ctx context.Context, storyText, prebuiltBibl
 func (a *Artist) coverPromptData(storyText, style, bible string) map[string]any {
 	return map[string]any{
 		"Language":                a.language,
+		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
-		"Style":                   style,
+		"ScriptName":              localizedScriptName(a.script),
+		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"Subtitle":                localizedBrandName(a.language, a.script),
 		"StoryText":               storyText,
@@ -248,8 +286,10 @@ func (a *Artist) coverPromptData(storyText, style, bible string) map[string]any 
 func (a *Artist) storyPagePromptData(section string, pageNum int, style, bible string, entries []WordEntry, panelScript [][]string) map[string]any {
 	return map[string]any{
 		"Language":                a.language,
+		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
-		"Style":                   style,
+		"ScriptName":              localizedScriptName(a.script),
+		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"Words":                   buildWordList(entries, ""),
 		"PageNum":                 pageNum,
@@ -263,8 +303,10 @@ func (a *Artist) storyPagePromptData(section string, pageNum int, style, bible s
 func (a *Artist) galleryPromptData(style, bible string, galleryNum int) map[string]any {
 	return map[string]any{
 		"Language":                a.language,
+		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
-		"Style":                   style,
+		"ScriptName":              localizedScriptName(a.script),
+		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"Pose":                    galleryPoses[(galleryNum-1)%len(galleryPoses)],
 		"RenderingRequirement":    a.renderingRequirement(),
@@ -275,8 +317,10 @@ func (a *Artist) galleryPromptData(style, bible string, galleryNum int) map[stri
 func (a *Artist) backPromptData(storyText, style, bible, blurb string) map[string]any {
 	return map[string]any{
 		"Language":                a.language,
+		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
-		"Style":                   style,
+		"ScriptName":              localizedScriptName(a.script),
+		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"BlurbBox":                blurbBoxInstruction(blurb),
 		"SeriesTitle":             localizedBrandName(a.language, a.script),
@@ -314,13 +358,14 @@ func pageScriptForPage(panelScript [][]string, idx int) []string {
 }
 
 func buildPanelLayout(section string, pagePanels []string) string {
-	labels := [4]string{"TOP-LEFT", "TOP-RIGHT", "BOTTOM-LEFT", "BOTTOM-RIGHT"}
 	if len(pagePanels) == 4 && pagePanels[0] != "" && pagePanels[1] != "" && pagePanels[2] != "" && pagePanels[3] != "" {
 		var sb strings.Builder
-		sb.WriteString("ЗАДЪЛЖИТЕЛНО ОФОРМЛЕНИЕ НА ПАНЕЛИТЕ — раздели изображението точно на 4 панела в решетка 2×2.\n")
-		sb.WriteString("Оформи всеки панел ТОЧНО както е описано по-долу:\n")
-		for i, label := range labels {
-			sb.WriteString(fmt.Sprintf("  • %s панел: %s\n", label, pagePanels[i]))
+		sb.WriteString("Раздели изображението точно на 4 различни панела в решетка 2×2. Панелите трябва да разказват сцената последователно и да останат ясно различни един от друг.\n")
+		for i, panel := range pagePanels {
+			if panel == "" {
+				continue
+			}
+			sb.WriteString(fmt.Sprintf("Панел %d: %s\n", i+1, panel))
 		}
 		return sb.String()
 	}
@@ -333,12 +378,8 @@ func buildPanelLayout(section string, pagePanels []string) string {
 		}
 		excerpt += "…"
 	}
-	return "ЗАДЪЛЖИТЕЛНО ОФОРМЛЕНИЕ НА ПАНЕЛИТЕ — раздели изображението точно на 4 панела в решетка 2×2:\n" +
-		"  • TOP-LEFT панел: сцена 1 от откъса\n" +
-		"  • TOP-RIGHT панел: сцена 2 от откъса\n" +
-		"  • BOTTOM-LEFT панел: сцена 3 от откъса\n" +
-		"  • BOTTOM-RIGHT панел: сцена 4 от откъса\n" +
-		"Откъс от историята (всички панели трябва да илюстрират САМО този откъс):\n\n" + excerpt + "\n"
+	return "Раздели изображението точно на 4 различни панела в решетка 2×2. Панелите трябва да разказват историята последователно от начало към край и да останат ясно различни.\n" +
+		"Откъс от историята:\n\n" + excerpt + "\n"
 }
 
 func blurbBoxInstruction(blurb string) string {
