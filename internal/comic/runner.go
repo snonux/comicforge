@@ -64,11 +64,13 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 	}
 
 	r.generator = NewGenerator(&GeneratorConfig{
-		TextProvider: cfg.TextProvider,
-		Prompts:      cfg.Prompts,
-		Language:     cfg.Language,
-		Script:       cfg.Script,
-		Theme:        cfg.Theme,
+		TextProvider:  cfg.TextProvider,
+		Prompts:       cfg.Prompts,
+		Language:      cfg.Language,
+		Script:        cfg.Script,
+		Theme:         cfg.Theme,
+		StoryPages:    cfg.StoryPages,
+		PanelsPerPage: cfg.PanelsPerPage,
 	})
 	r.artist = NewArtist(&ArtistConfig{
 		ImageProvider:  cfg.ImageProvider,

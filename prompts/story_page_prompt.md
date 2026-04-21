@@ -6,9 +6,9 @@ Interior story page only. Do NOT render a cover masthead, title banner, subtitle
 {{if .Bible}}CHARACTER AND SETTING REFERENCE:
 {{.Bible}}
 
-{{end}}{{.PanelLayout}}Each panel is separated by a thin black gutter line. All 4 panels must be clearly distinct scenes, not one continuous image. Fill the full image area with the 4 panels.
+{{end}}{{.PanelLayout}}Each panel is separated by a thin black gutter line. All {{.PanelsPerPage}} panels must be clearly distinct scenes, not one continuous image. Fill the full image area with the {{.PanelsPerPage}} panels.
 MANDATORY SPEECH BUBBLES — this is a comic; characters must speak:
-  • At least 3 of the 4 panels on this page must contain a speech bubble or thought bubble.
+  • At least {{.RequiredDialoguePanels}} of the {{.PanelsPerPage}} panels on this page must contain a speech bubble or thought bubble.
   • If the panel description includes quoted dialogue, render it exactly inside the bubble.
   • Speech bubbles have a white background, black outline, and a tail pointing to the speaker.
   • Thought bubbles use a cloud shape with small circles leading to the thinker.

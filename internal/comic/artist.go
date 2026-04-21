@@ -56,9 +56,9 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 		outputDir:      ".",
 		language:       "Bulgarian",
 		script:         "Cyrillic",
-		storyPages:     storyPagesInScript,
+		storyPages:     defaultStoryPagesInScript,
 		galleryPages:   5,
-		panelsPerPage:  storyPanelsPerPage,
+		panelsPerPage:  defaultStoryPanelsPerPage,
 		ultraRealistic: true,
 	}
 	if cfg == nil {
@@ -294,7 +294,11 @@ func (a *Artist) storyPagePromptData(section string, pageNum int, style, bible s
 		"Words":                   buildWordList(entries, ""),
 		"PageNum":                 pageNum,
 		"TotalPages":              a.storyPages,
-		"PanelLayout":             buildPanelLayout(section, pageScriptForPage(panelScript, pageNum-1)),
+		"PanelsPerPage":           a.panelsPerPage,
+		"RequiredDialoguePanels":  requiredDialoguePanels(a.panelsPerPage),
+		"TotalPanels":             a.storyPages * a.panelsPerPage,
+		"PanelLabelsText":         panelLabelsText(a.panelsPerPage),
+		"PanelLayout":             buildPanelLayout(section, pageScriptForPage(panelScript, pageNum-1), a.panelsPerPage),
 		"RenderingRequirement":    a.renderingRequirement(),
 		"RenderingRequirementEnd": a.renderingRequirementEnd(),
 	}
@@ -357,15 +361,17 @@ func pageScriptForPage(panelScript [][]string, idx int) []string {
 	return panelScript[idx]
 }
 
-func buildPanelLayout(section string, pagePanels []string) string {
-	if len(pagePanels) == 4 && pagePanels[0] != "" && pagePanels[1] != "" && pagePanels[2] != "" && pagePanels[3] != "" {
+func buildPanelLayout(section string, pagePanels []string, panelCount int) string {
+	panelCount = normalizePositive(panelCount, defaultStoryPanelsPerPage)
+	if len(pagePanels) == panelCount && allPanelsPresent(pagePanels) {
 		var sb strings.Builder
-		sb.WriteString("Divide the image into exactly 4 distinct panels in a 2x2 grid. The panels must tell the scene in sequence and remain visually distinct from each other.\n")
+		sb.WriteString(panelLayoutLead(panelCount))
+		sb.WriteString(" The panels must tell the scene in sequence and remain visually distinct from each other.\n")
 		for i, panel := range pagePanels {
 			if panel == "" {
 				continue
 			}
-			fmt.Fprintf(&sb, "Panel %d: %s\n", i+1, panel)
+			fmt.Fprintf(&sb, "Panel %s: %s\n", panelLabel(i), panel)
 		}
 		return sb.String()
 	}
@@ -378,8 +384,32 @@ func buildPanelLayout(section string, pagePanels []string) string {
 		}
 		excerpt += "…"
 	}
-	return "Divide the image into exactly 4 distinct panels in a 2x2 grid. The panels must tell the story in sequence from beginning to end and remain visually distinct.\n" +
+	return panelLayoutLead(panelCount) + " The panels must tell the story in sequence from beginning to end and remain visually distinct.\n" +
 		"Story excerpt:\n\n" + excerpt + "\n"
+}
+
+func allPanelsPresent(pagePanels []string) bool {
+	for _, panel := range pagePanels {
+		if strings.TrimSpace(panel) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func panelLayoutLead(panelCount int) string {
+	switch panelCount {
+	case 1:
+		return "Divide the image into exactly 1 distinct panel."
+	case 2:
+		return "Divide the image into exactly 2 distinct panels in a balanced two-panel layout."
+	case 3:
+		return "Divide the image into exactly 3 distinct panels in a balanced three-panel layout."
+	case 4:
+		return "Divide the image into exactly 4 distinct panels in a 2x2 grid."
+	default:
+		return fmt.Sprintf("Divide the image into exactly %d distinct panels in a balanced grid.", panelCount)
+	}
 }
 
 func blurbBoxInstruction(blurb string) string {

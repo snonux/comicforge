@@ -11,23 +11,27 @@ import (
 
 // GeneratorConfig configures story generation.
 type GeneratorConfig struct {
-	TextProvider provider.TextProvider
-	Prompts      PromptRenderer
-	Language     string
-	Script       string
-	Theme        string
-	Genres       []string
+	TextProvider  provider.TextProvider
+	Prompts       PromptRenderer
+	Language      string
+	Script        string
+	Theme         string
+	Genres        []string
+	StoryPages    int
+	PanelsPerPage int
 }
 
 // Generator produces the comic story text, bible, title, and panel script.
 type Generator struct {
-	textProvider provider.TextProvider
-	prompts      PromptRenderer
-	language     string
-	script       string
-	theme        string
-	genres       []string
-	initErr      error
+	textProvider  provider.TextProvider
+	prompts       PromptRenderer
+	language      string
+	script        string
+	theme         string
+	genres        []string
+	storyPages    int
+	panelsPerPage int
+	initErr       error
 }
 
 var _ = (*Generator)(nil)
@@ -35,9 +39,11 @@ var _ = (*Generator)(nil)
 // NewGenerator creates a new story generator.
 func NewGenerator(cfg *GeneratorConfig) *Generator {
 	g := &Generator{
-		language: "Bulgarian",
-		script:   "Cyrillic",
-		genres:   defaultStoryGenres,
+		language:      "Bulgarian",
+		script:        "Cyrillic",
+		genres:        defaultStoryGenres,
+		storyPages:    defaultStoryPagesInScript,
+		panelsPerPage: defaultStoryPanelsPerPage,
 	}
 	if cfg == nil {
 		g.initErr = errors.New("generator config is required")
@@ -48,6 +54,12 @@ func NewGenerator(cfg *GeneratorConfig) *Generator {
 	g.language = orDefault(cfg.Language, g.language)
 	g.script = orDefault(cfg.Script, g.script)
 	g.theme = cfg.Theme
+	if cfg.StoryPages > 0 {
+		g.storyPages = cfg.StoryPages
+	}
+	if cfg.PanelsPerPage > 0 {
+		g.panelsPerPage = cfg.PanelsPerPage
+	}
 	if len(cfg.Genres) > 0 {
 		g.genres = append([]string(nil), cfg.Genres...)
 	}
@@ -107,7 +119,7 @@ func (g *Generator) GenerateFull(ctx context.Context, entries []WordEntry) (Gene
 	if text == "" {
 		return GenerateResult{}, fmt.Errorf("no content returned")
 	}
-	result := parseGenerateResult(text)
+	result := parseGenerateResultWithDimensions(text, g.storyPages, g.panelsPerPage)
 	if err := validateGeneratedResult(result, g.script); err != nil {
 		return GenerateResult{}, err
 	}
@@ -127,15 +139,20 @@ func (g *Generator) ready() error {
 func (g *Generator) renderStoryPrompt(templateName string, entries []WordEntry) (string, error) {
 	genre := resolveGenre(g.theme, g.genres)
 	data := map[string]any{
-		"Language":            g.language,
-		"LanguageName":        localizedLanguageName(g.language, g.script),
-		"Script":              g.script,
-		"ScriptName":          localizedScriptName(g.script),
-		"Genre":               genre,
-		"Words":               buildWordList(entries, ""),
-		"StoryBibleSeparator": storyBibleSeparator,
-		"StoryTitleSeparator": storyTitleSeparator,
-		"StoryPanelSeparator": storyPanelSeparator,
+		"Language":               g.language,
+		"LanguageName":           localizedLanguageName(g.language, g.script),
+		"Script":                 g.script,
+		"ScriptName":             localizedScriptName(g.script),
+		"Genre":                  genre,
+		"Words":                  buildWordList(entries, ""),
+		"StoryPages":             g.storyPages,
+		"PanelsPerPage":          g.panelsPerPage,
+		"TotalPanels":            g.storyPages * g.panelsPerPage,
+		"PanelLabelsText":        panelLabelsText(g.panelsPerPage),
+		"RequiredDialoguePanels": requiredDialoguePanels(g.panelsPerPage),
+		"StoryBibleSeparator":    storyBibleSeparator,
+		"StoryTitleSeparator":    storyTitleSeparator,
+		"StoryPanelSeparator":    storyPanelSeparator,
 	}
 
 	systemPrompt, err := g.prompts.RenderPrompt(storySystemPromptTemplate, map[string]any{

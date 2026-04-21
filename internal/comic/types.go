@@ -33,8 +33,8 @@ const (
 	storyTitleSeparator = "---COMIC TITLE---"
 	storyPanelSeparator = "---PANEL SCRIPT---"
 
-	storyPagesInScript = 5
-	storyPanelsPerPage = 4
+	defaultStoryPagesInScript = 5
+	defaultStoryPanelsPerPage = 4
 
 	pageMaxRetries       = 5
 	pageRetryBase        = 15 * time.Second
@@ -160,6 +160,10 @@ func pickStyle(styles []string, ultraRealistic bool) string {
 }
 
 func parseGenerateResult(combined string) GenerateResult {
+	return parseGenerateResultWithDimensions(combined, defaultStoryPagesInScript, defaultStoryPanelsPerPage)
+}
+
+func parseGenerateResultWithDimensions(combined string, storyPages, panelsPerPage int) GenerateResult {
 	bibleIdx := strings.Index(combined, storyBibleSeparator)
 	if bibleIdx < 0 {
 		return GenerateResult{StoryText: strings.TrimSpace(combined)}
@@ -192,17 +196,23 @@ func parseGenerateResult(combined string) GenerateResult {
 		StoryText:   story,
 		Bible:       bible,
 		Title:       title,
-		PanelScript: parsePanelScript(panelText),
+		PanelScript: parsePanelScript(panelText, storyPages, panelsPerPage),
 	}
 }
 
-func parsePanelScript(text string) [][]string {
-	script := make([][]string, storyPagesInScript)
+func parsePanelScript(text string, storyPages, panelsPerPage int) [][]string {
+	storyPages = normalizePositive(storyPages, defaultStoryPagesInScript)
+	panelsPerPage = normalizePositive(panelsPerPage, defaultStoryPanelsPerPage)
+
+	script := make([][]string, storyPages)
 	for i := range script {
-		script[i] = make([]string, storyPanelsPerPage)
+		script[i] = make([]string, panelsPerPage)
 	}
 
-	panelIndex := map[byte]int{'A': 0, 'B': 1, 'C': 2, 'D': 3}
+	panelIndex := make(map[byte]int, panelsPerPage)
+	for i := 0; i < panelsPerPage; i++ {
+		panelIndex[byte('A'+i)] = i
+	}
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if len(line) < 7 || line[0] != 'P' || line[2] != '-' || line[4] != ':' {
@@ -210,7 +220,7 @@ func parsePanelScript(text string) [][]string {
 		}
 		page := int(line[1] - '1')
 		panel, ok := panelIndex[line[3]]
-		if !ok || page < 0 || page >= storyPagesInScript {
+		if !ok || page < 0 || page >= storyPages {
 			continue
 		}
 		script[page][panel] = strings.TrimSpace(line[5:])
@@ -246,4 +256,48 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func normalizePositive(value, fallback int) int {
+	if value > 0 {
+		return value
+	}
+	return fallback
+}
+
+func panelLabel(idx int) string {
+	if idx < 0 {
+		return ""
+	}
+	return string(rune('A' + idx))
+}
+
+func panelLabelsText(count int) string {
+	count = normalizePositive(count, defaultStoryPanelsPerPage)
+	labels := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		labels = append(labels, panelLabel(i))
+	}
+	return joinEnglishList(labels)
+}
+
+func requiredDialoguePanels(count int) int {
+	count = normalizePositive(count, defaultStoryPanelsPerPage)
+	if count <= 1 {
+		return 1
+	}
+	return (count + 1) / 2
+}
+
+func joinEnglishList(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	case 2:
+		return items[0] + " or " + items[1]
+	default:
+		return strings.Join(items[:len(items)-1], ", ") + ", or " + items[len(items)-1]
+	}
 }

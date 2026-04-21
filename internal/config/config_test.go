@@ -35,6 +35,7 @@ provider:
 prompts_dir: ./custom-prompts
 comic:
   story_pages: 7
+  panels_per_page: 2
 `)), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -54,6 +55,9 @@ comic:
 	}
 	if got, want := cfg.Comic.StoryPages, 7; got != want {
 		t.Fatalf("Comic.StoryPages = %d, want %d", got, want)
+	}
+	if got, want := cfg.Comic.PanelsPerPage, 2; got != want {
+		t.Fatalf("Comic.PanelsPerPage = %d, want %d", got, want)
 	}
 	if got, want := cfg.PromptsDir, "./custom-prompts"; got != want {
 		t.Fatalf("PromptsDir = %q, want %q", got, want)
@@ -159,8 +163,13 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"StoryTitleSeparator":     "---COMIC TITLE---",
 		"StoryPanelSeparator":     "---PANEL SCRIPT---",
 		"PageNum":                 1,
-		"TotalPages":              5,
-		"PanelLayout":             "MANDATORY PANEL LAYOUT — divide the image into exactly 4 panels in a 2×2 grid.\n",
+		"StoryPages":              7,
+		"PanelsPerPage":           2,
+		"TotalPages":              7,
+		"TotalPanels":             14,
+		"PanelLabelsText":         "A or B",
+		"RequiredDialoguePanels":  1,
+		"PanelLayout":             "MANDATORY PANEL LAYOUT — divide the image into exactly 2 distinct panels in a balanced two-panel layout.\n",
 		"BlurbBox":                "правоъгълно текстово поле с кратък текст",
 		"SeriesTitle":             "КомиксФордж Приключения",
 		"Pose":                    "extreme close-up portrait",

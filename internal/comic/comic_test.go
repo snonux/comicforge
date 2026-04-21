@@ -46,9 +46,48 @@ func TestParseGenerateResult(t *testing.T) {
 func TestBuildPanelLayoutUsesFallbackExcerpt(t *testing.T) {
 	t.Parallel()
 
-	got := buildPanelLayout("one two three four five", nil)
+	got := buildPanelLayout("one two three four five", nil, 2)
+	if !strings.Contains(got, "exactly 2 distinct panels") {
+		t.Fatalf("buildPanelLayout() = %q, want 2-panel layout instruction", got)
+	}
 	if !strings.Contains(got, "Story excerpt") {
 		t.Fatalf("buildPanelLayout() = %q", got)
+	}
+}
+
+func TestParseGenerateResultUsesConfiguredDimensions(t *testing.T) {
+	t.Parallel()
+
+	lines := []string{
+		"story text",
+		storyBibleSeparator,
+		"bible text",
+		storyTitleSeparator,
+		"My Comic",
+		storyPanelSeparator,
+		"P1-A: first",
+		"P1-B: second",
+		"P7-A: last",
+		"P7-B: end",
+		"P7-C: ignored",
+	}
+	got := parseGenerateResultWithDimensions(strings.Join(lines, "\n"), 7, 2)
+	if got.StoryText != "story text" || got.Bible != "bible text" || got.Title != "My Comic" {
+		t.Fatalf("parseGenerateResultWithDimensions() = %#v", got)
+	}
+	if got.PanelScript == nil || len(got.PanelScript) != 7 {
+		t.Fatalf("panel script pages = %d, want 7", len(got.PanelScript))
+	}
+	for i, page := range got.PanelScript {
+		if len(page) != 2 {
+			t.Fatalf("page %d panels = %d, want 2", i+1, len(page))
+		}
+	}
+	if got.PanelScript[0][0] != "first" || got.PanelScript[0][1] != "second" {
+		t.Fatalf("first page panel script = %#v", got.PanelScript[0])
+	}
+	if got.PanelScript[6][0] != "last" || got.PanelScript[6][1] != "end" {
+		t.Fatalf("last page panel script = %#v", got.PanelScript[6])
 	}
 }
 
@@ -130,6 +169,78 @@ func TestGeneratorGenerateFull(t *testing.T) {
 	}
 	if got.Title != "Заглавие" || got.StoryText != "история" || got.Bible != "библия" {
 		t.Fatalf("GenerateFull() = %#v", got)
+	}
+}
+
+func TestGeneratorGenerateFullUsesConfiguredDimensions(t *testing.T) {
+	t.Parallel()
+
+	renderer := &recordingPromptRenderer{}
+	text := strings.Join([]string{
+		"история",
+		storyBibleSeparator,
+		"библия",
+		storyTitleSeparator,
+		"Заглавие",
+		storyPanelSeparator,
+		"P1-A: а",
+		"P1-B: б",
+		"P2-A: в",
+		"P2-B: г",
+		"P3-A: д",
+		"P3-B: е",
+		"P4-A: ж",
+		"P4-B: з",
+		"P5-A: и",
+		"P5-B: й",
+		"P6-A: к",
+		"P6-B: л",
+		"P7-A: м",
+		"P7-B: н",
+	}, "\n")
+
+	generator := NewGenerator(&GeneratorConfig{
+		TextProvider:  fakeTextProvider{text: text},
+		Prompts:       renderer,
+		StoryPages:    7,
+		PanelsPerPage: 2,
+	})
+	got, err := generator.GenerateFull(context.Background(), []WordEntry{{Word: "ябълка"}})
+	if err != nil {
+		t.Fatalf("GenerateFull() error = %v", err)
+	}
+	if len(got.PanelScript) != 7 {
+		t.Fatalf("panel script pages = %d, want 7", len(got.PanelScript))
+	}
+	for i, page := range got.PanelScript {
+		if len(page) != 2 {
+			t.Fatalf("page %d panels = %d, want 2", i+1, len(page))
+		}
+	}
+	var promptData map[string]any
+	for _, call := range renderer.calls {
+		if call.name == storyFullPromptTemplate {
+			promptData = call.data
+			break
+		}
+	}
+	if promptData == nil {
+		t.Fatal("story full prompt render was not recorded")
+	}
+	if got, want := promptData["StoryPages"], 7; got != want {
+		t.Fatalf("StoryPages prompt data = %#v, want %d", got, want)
+	}
+	if got, want := promptData["PanelsPerPage"], 2; got != want {
+		t.Fatalf("PanelsPerPage prompt data = %#v, want %d", got, want)
+	}
+	if got, want := promptData["TotalPanels"], 14; got != want {
+		t.Fatalf("TotalPanels prompt data = %#v, want %d", got, want)
+	}
+	if got, want := promptData["PanelLabelsText"], "A or B"; got != want {
+		t.Fatalf("PanelLabelsText prompt data = %#v, want %q", got, want)
+	}
+	if got, want := promptData["RequiredDialoguePanels"], 1; got != want {
+		t.Fatalf("RequiredDialoguePanels prompt data = %#v, want %d", got, want)
 	}
 }
 
@@ -262,6 +373,7 @@ func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
 		Prompts:        renderer,
 		OutputDir:      t.TempDir(),
 		UltraRealistic: false,
+		PanelsPerPage:  2,
 	})
 
 	if _, err := artist.DrawComicPages(context.Background(), "история", "библия", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
@@ -289,6 +401,28 @@ func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
 	}
 	if promptCount == 0 {
 		t.Fatal("no image prompts recorded")
+	}
+	var pagePrompt map[string]any
+	for _, call := range renderer.calls {
+		if call.name == storyPagePromptTemplate {
+			pagePrompt = call.data
+			break
+		}
+	}
+	if pagePrompt == nil {
+		t.Fatal("story page prompt was not recorded")
+	}
+	if got, want := pagePrompt["PanelsPerPage"], 2; got != want {
+		t.Fatalf("PanelsPerPage prompt data = %#v, want %d", got, want)
+	}
+	if got, want := pagePrompt["RequiredDialoguePanels"], 1; got != want {
+		t.Fatalf("RequiredDialoguePanels prompt data = %#v, want %d", got, want)
+	}
+	if got, want := pagePrompt["PanelLabelsText"], "A or B"; got != want {
+		t.Fatalf("PanelLabelsText prompt data = %#v, want %q", got, want)
+	}
+	if layout, ok := pagePrompt["PanelLayout"].(string); !ok || !strings.Contains(layout, "exactly 2 distinct panels") {
+		t.Fatalf("PanelLayout prompt data = %#v, want 2-panel layout", pagePrompt["PanelLayout"])
 	}
 }
 
