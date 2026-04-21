@@ -143,6 +143,36 @@ func TestDownloadBestMatchWithOptions(t *testing.T) {
 	}
 }
 
+func TestDownloadBestMatchWithOptions_DefaultsPerPageWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	provider := &mockDownloaderProvider{
+		results: []SearchResult{
+			{
+				ID:     "1",
+				URL:    "https://example.com/image1.jpg",
+				Source: Gemini,
+			},
+		},
+		payload: "image-bytes",
+	}
+	d := NewDownloader(provider, &DownloadOptions{
+		OutputDir:         t.TempDir(),
+		CreateDir:         true,
+		OverwriteExisting: true,
+		FileNamePattern:   "{word}_{source}",
+		MaxSizeBytes:      10 * 1024 * 1024,
+	})
+
+	_, _, err := d.DownloadBestMatchWithOptions(context.Background(), &SearchOptions{Query: "ябълка"})
+	if err != nil {
+		t.Fatalf("DownloadBestMatchWithOptions() error = %v", err)
+	}
+	if got, want := provider.searchPerPages, []int{5}; len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("provider search PerPage = %v, want %v", got, want)
+	}
+}
+
 func TestDownloadBestMatchWithOptions_SanitizesUnsafeProviderFields(t *testing.T) {
 	t.Parallel()
 
