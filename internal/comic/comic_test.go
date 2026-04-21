@@ -59,7 +59,7 @@ func TestBuildPanelLayoutUsesFallbackExcerpt(t *testing.T) {
 func TestSplitIntoSectionsUsesRuneBoundaries(t *testing.T) {
 	t.Parallel()
 
-	text := strings.Repeat("Български текст за проверка на разделянето. ", 80)
+	text := strings.Repeat("a", 99) + "б" + strings.Repeat("c", 300)
 	sections := splitIntoSections(text, 4)
 	if len(sections) != 4 {
 		t.Fatalf("splitIntoSections() sections = %d, want 4", len(sections))
@@ -69,18 +69,24 @@ func TestSplitIntoSectionsUsesRuneBoundaries(t *testing.T) {
 			t.Fatalf("splitIntoSections() section %d is not valid UTF-8: %q", i, section)
 		}
 	}
+	if !strings.Contains(sections[0], "б") {
+		t.Fatalf("splitIntoSections() first section = %q, want mixed-width rune preserved", sections[0])
+	}
 }
 
 func TestBuildPanelLayoutTruncatesCyrillicOnRuneBoundaries(t *testing.T) {
 	t.Parallel()
 
-	text := strings.Repeat("абвгдежзийклмно", 70)
+	text := strings.Repeat("a", 899) + "б" + strings.Repeat("c", 100)
 	got := buildPanelLayout(text, nil, 2)
 	if !utf8.ValidString(got) {
 		t.Fatalf("buildPanelLayout() returned invalid UTF-8: %q", got)
 	}
 	if !strings.Contains(got, "…") {
 		t.Fatalf("buildPanelLayout() = %q, want truncation ellipsis", got)
+	}
+	if !strings.Contains(got, "б") {
+		t.Fatalf("buildPanelLayout() = %q, want mixed-width rune preserved", got)
 	}
 }
 
