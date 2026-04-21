@@ -71,6 +71,36 @@ func TestRegistryNewFromConfig(t *testing.T) {
 	}
 }
 
+func TestRegistryNewFromConfigNilRegistry(t *testing.T) {
+	t.Parallel()
+
+	var registry *Registry[fakeConfig]
+	_, err := registry.NewFromConfig(fakeConfig{name: Gemini})
+	if err == nil {
+		t.Fatal("expected nil registry error")
+	}
+	if !strings.Contains(err.Error(), "image registry is required") {
+		t.Fatalf("error = %v, want nil registry error", err)
+	}
+}
+
+func TestRegistrySupportsCustomConfigWithoutGeminiFields(t *testing.T) {
+	t.Parallel()
+
+	registry := NewRegistry[customConfig]()
+	registry.Register(Gemini, func(cfg customConfig) (ImageProvider, error) {
+		return fakeProvider{name: cfg.name}, nil
+	})
+
+	gotProvider, err := registry.NewFromConfig(customConfig{name: Gemini})
+	if err != nil {
+		t.Fatalf("NewFromConfig() error = %v", err)
+	}
+	if got, want := gotProvider.Name(), Gemini; got != want {
+		t.Fatalf("provider.Name() = %q, want %q", got, want)
+	}
+}
+
 func TestDefaultRegistryNewFromConfig(t *testing.T) {
 	t.Parallel()
 
@@ -132,6 +162,12 @@ func (f fakeConfig) ImageProviderName() string { return f.name }
 func (f fakeConfig) GoogleAPIKey() string      { return f.apiKey }
 func (f fakeConfig) ImageModel() string        { return f.model }
 func (f fakeConfig) ImageTextModel() string    { return f.textModel }
+
+type customConfig struct {
+	name string
+}
+
+func (f customConfig) ImageProviderName() string { return f.name }
 
 type fakeProvider struct {
 	name  string
