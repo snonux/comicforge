@@ -114,6 +114,12 @@ func (r *Registry[T, C]) Resolve(name string) (Factory[T, C], bool) {
 	return factory, ok
 }
 
+// Has reports whether a factory is registered for name.
+func (r *Registry[T, C]) Has(name string) bool {
+	_, ok := r.Resolve(name)
+	return ok
+}
+
 // New constructs a provider for name using cfg.
 func (r *Registry[T, C]) New(name string, cfg C) (T, error) {
 	var zero T

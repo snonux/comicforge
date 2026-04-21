@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -199,59 +200,46 @@ func buildTextProvider(cfg *config.Config) (provider.TextProvider, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
-	switch provider.NormalizeName(cfg.Provider.Text) {
-	case provider.Gemini:
-		p := textprovider.NewGeminiProvider(&textprovider.GeminiConfig{
-			APIKey: cfg.API.GoogleAPIKey,
-			Model:  cfg.Models.Text,
-		})
-		if err := p.IsAvailable(); err != nil {
-			return nil, err
+	p, err := textprovider.DefaultRegistry().NewFromConfig(cfg)
+	if err != nil {
+		if errors.Is(err, provider.ErrUnknownProvider) {
+			return nil, fmt.Errorf("text provider %q is not implemented", cfg.Provider.Text)
 		}
-		return p, nil
-	default:
-		return nil, fmt.Errorf("text provider %q is not implemented", cfg.Provider.Text)
+		return nil, err
 	}
+	return p, nil
 }
 
 func buildImageProvider(cfg *config.Config) (provider.ImageProvider, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
-	switch provider.NormalizeName(cfg.Provider.Image) {
-	case provider.Gemini:
-		p := image.NewGeminiProvider(&image.GeminiConfig{
-			APIKey:    cfg.API.GoogleAPIKey,
-			Model:     cfg.Models.Image,
-			TextModel: cfg.Models.ImageText,
-		})
-		if err := p.IsAvailable(); err != nil {
-			return nil, err
+	p, err := image.DefaultRegistry().NewFromConfig(cfg)
+	if err != nil {
+		if errors.Is(err, image.ErrUnknownProvider) {
+			return nil, fmt.Errorf("image provider %q is not implemented", cfg.Provider.Image)
 		}
-		return p, nil
-	default:
-		return nil, fmt.Errorf("image provider %q is not implemented", cfg.Provider.Image)
+		return nil, err
 	}
+	sharedProvider, ok := p.(provider.ImageProvider)
+	if !ok {
+		return nil, fmt.Errorf("image provider %q does not satisfy the shared provider interface", cfg.Provider.Image)
+	}
+	return sharedProvider, nil
 }
 
 func buildTTSProvider(cfg *config.Config, voice string) (provider.TTSProvider, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
-	switch provider.NormalizeName(cfg.Provider.TTS) {
-	case provider.Gemini:
-		p := tts.NewGeminiProvider(&tts.GeminiConfig{
-			APIKey: cfg.API.GoogleAPIKey,
-			Model:  cfg.Models.TTS,
-			Voice:  voice,
-		})
-		if err := p.IsAvailable(); err != nil {
-			return nil, err
+	p, err := tts.DefaultRegistry().NewFromConfig(cfg, voice)
+	if err != nil {
+		if errors.Is(err, provider.ErrUnknownProvider) {
+			return nil, fmt.Errorf("tts provider %q is not implemented", cfg.Provider.TTS)
 		}
-		return p, nil
-	default:
-		return nil, fmt.Errorf("tts provider %q is not implemented", cfg.Provider.TTS)
+		return nil, err
 	}
+	return p, nil
 }
 
 func resolveUltraRealistic(flags cliFlags) *bool {

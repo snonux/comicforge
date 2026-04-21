@@ -53,18 +53,57 @@ func TestRegistryNewFromConfig(t *testing.T) {
 
 	registry := NewRegistry[fakeConfig]()
 	registry.Register(Gemini, func(cfg fakeConfig) (ImageProvider, error) {
-		return fakeProvider(cfg), nil
+		return fakeProvider{
+			name:  cfg.name,
+			token: cfg.token,
+		}, nil
 	})
 
-	provider, err := registry.NewFromConfig(fakeConfig{name: Gemini, token: "secret"})
+	gotProvider, err := registry.NewFromConfig(fakeConfig{name: Gemini, token: "secret"})
 	if err != nil {
 		t.Fatalf("NewFromConfig() error = %v", err)
 	}
-	if got, want := provider.Name(), Gemini; got != want {
+	if got, want := gotProvider.Name(), Gemini; got != want {
 		t.Fatalf("provider.Name() = %q, want %q", got, want)
 	}
-	if got, want := provider.(fakeProvider).token, "secret"; got != want {
+	if got, want := gotProvider.(fakeProvider).token, "secret"; got != want {
 		t.Fatalf("provider token = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultRegistryNewFromConfig(t *testing.T) {
+	t.Parallel()
+
+	registry := DefaultRegistry()
+	gotProvider, err := registry.NewFromConfig(fakeConfig{
+		name:      Gemini,
+		apiKey:    "test-key",
+		model:     DefaultGeminiImageModel,
+		textModel: DefaultGeminiTextModel,
+	})
+	if err != nil {
+		t.Fatalf("NewFromConfig() error = %v", err)
+	}
+	if got, want := gotProvider.Name(), Gemini; got != want {
+		t.Fatalf("provider.Name() = %q, want %q", got, want)
+	}
+}
+
+func TestDefaultRegistryUnsupportedProvider(t *testing.T) {
+	t.Parallel()
+
+	registry := DefaultRegistry()
+	_, err := registry.NewFromConfig(fakeConfig{
+		name:      OpenAI,
+		apiKey:    "test-key",
+		model:     "unused",
+		textModel: "unused",
+	})
+	if err == nil {
+		t.Fatal("expected unsupported provider error")
+	}
+	if !strings.Contains(err.Error(), "image provider \"openai\" is not implemented") {
+		t.Fatalf("error = %v, want unsupported provider error", err)
 	}
 }
 
@@ -82,11 +121,17 @@ func TestRegistryUnknownProvider(t *testing.T) {
 }
 
 type fakeConfig struct {
-	name  string
-	token string
+	name      string
+	token     string
+	apiKey    string
+	model     string
+	textModel string
 }
 
 func (f fakeConfig) ImageProviderName() string { return f.name }
+func (f fakeConfig) GoogleAPIKey() string      { return f.apiKey }
+func (f fakeConfig) ImageModel() string        { return f.model }
+func (f fakeConfig) ImageTextModel() string    { return f.textModel }
 
 type fakeProvider struct {
 	name  string
