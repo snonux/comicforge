@@ -51,7 +51,7 @@ func TestDownloaderGenerateFileName_DataURIUsesPNG(t *testing.T) {
 		Source: Gemini,
 	}
 
-	if got := d.generateFileName("ябълка", result, 0); got != "ябълка_gemini.png" {
+	if got := newDownloadPathPolicy(d.options).generateFileName("ябълка", result, 0); got != "ябълка_gemini.png" {
 		t.Fatalf("generateFileName() = %q, want %q", got, "ябълка_gemini.png")
 	}
 }
