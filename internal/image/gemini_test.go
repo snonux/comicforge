@@ -114,6 +114,48 @@ func TestGeminiProvider_Search_CustomPromptSkipsTextGeneration(t *testing.T) {
 	}
 }
 
+func TestGeminiProvider_Search_CustomPromptIsTruncated(t *testing.T) {
+	originalText := geminiGenerateText
+	originalImage := geminiGenerateImage
+	t.Cleanup(func() {
+		geminiGenerateText = originalText
+		geminiGenerateImage = originalImage
+	})
+
+	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+		t.Fatal("unexpected text generation for truncated prompt")
+		return "", nil
+	}
+
+	var gotPrompt string
+	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+		gotPrompt = prompt
+		return mustJPEGBytes(t), "image/jpeg", nil
+	}
+
+	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	longPrompt := strings.Repeat("a", maxCustomPrompt+128)
+	results, err := client.Search(context.Background(), &SearchOptions{
+		Query:        "ябълка",
+		CustomPrompt: longPrompt,
+	})
+	if err != nil {
+		t.Fatalf("Search() unexpected error: %v", err)
+	}
+	if len(gotPrompt) != maxCustomPrompt {
+		t.Fatalf("prompt length = %d, want %d", len(gotPrompt), maxCustomPrompt)
+	}
+	if !strings.HasSuffix(gotPrompt, "...") {
+		t.Fatalf("prompt = %q, want ellipsis suffix", gotPrompt)
+	}
+	if client.LastPrompt() != gotPrompt {
+		t.Fatalf("LastPrompt() = %q, want %q", client.LastPrompt(), gotPrompt)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+}
+
 func TestGeminiProvider_GenerateImage_UsesCustomPrompt(t *testing.T) {
 	originalText := geminiGenerateText
 	originalImage := geminiGenerateImage
