@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"strings"
 	"time"
 
@@ -209,21 +210,33 @@ func parsePanelScript(text string, storyPages, panelsPerPage int) [][]string {
 		script[i] = make([]string, panelsPerPage)
 	}
 
-	panelIndex := make(map[byte]int, panelsPerPage)
+	panelIndexByLabel := make(map[string]int, panelsPerPage)
 	for i := 0; i < panelsPerPage; i++ {
-		panelIndex[byte('A'+i)] = i
+		panelIndexByLabel[panelLabel(i)] = i
 	}
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
-		if len(line) < 7 || line[0] != 'P' || line[2] != '-' || line[4] != ':' {
+		if !strings.HasPrefix(line, "P") {
 			continue
 		}
-		page := int(line[1] - '1')
-		panel, ok := panelIndex[line[3]]
-		if !ok || page < 0 || page >= storyPages {
+		pagePart, rest, ok := strings.Cut(line[1:], "-")
+		if !ok {
 			continue
 		}
-		script[page][panel] = strings.TrimSpace(line[5:])
+		panelPart, textPart, ok := strings.Cut(rest, ":")
+		if !ok {
+			continue
+		}
+		page, err := strconv.Atoi(strings.TrimSpace(pagePart))
+		if err != nil {
+			continue
+		}
+		panelPart = strings.ToUpper(strings.TrimSpace(panelPart))
+		panel, ok := panelIndexByLabel[panelPart]
+		if !ok || page <= 0 || page > storyPages {
+			continue
+		}
+		script[page-1][panel] = strings.TrimSpace(textPart)
 	}
 	return script
 }
@@ -269,7 +282,14 @@ func panelLabel(idx int) string {
 	if idx < 0 {
 		return ""
 	}
-	return string(rune('A' + idx))
+	idx++
+	var out []byte
+	for idx > 0 {
+		idx--
+		out = append([]byte{byte('A' + idx%26)}, out...)
+		idx /= 26
+	}
+	return string(out)
 }
 
 func panelLabelsText(count int) string {

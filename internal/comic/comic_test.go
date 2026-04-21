@@ -67,16 +67,16 @@ func TestParseGenerateResultUsesConfiguredDimensions(t *testing.T) {
 		storyPanelSeparator,
 		"P1-A: first",
 		"P1-B: second",
-		"P7-A: last",
-		"P7-B: end",
-		"P7-C: ignored",
+		"P10-A: last",
+		"P10-B: end",
+		"P10-C: ignored",
 	}
-	got := parseGenerateResultWithDimensions(strings.Join(lines, "\n"), 7, 2)
+	got := parseGenerateResultWithDimensions(strings.Join(lines, "\n"), 10, 2)
 	if got.StoryText != "story text" || got.Bible != "bible text" || got.Title != "My Comic" {
 		t.Fatalf("parseGenerateResultWithDimensions() = %#v", got)
 	}
-	if got.PanelScript == nil || len(got.PanelScript) != 7 {
-		t.Fatalf("panel script pages = %d, want 7", len(got.PanelScript))
+	if got.PanelScript == nil || len(got.PanelScript) != 10 {
+		t.Fatalf("panel script pages = %d, want 10", len(got.PanelScript))
 	}
 	for i, page := range got.PanelScript {
 		if len(page) != 2 {
@@ -86,8 +86,28 @@ func TestParseGenerateResultUsesConfiguredDimensions(t *testing.T) {
 	if got.PanelScript[0][0] != "first" || got.PanelScript[0][1] != "second" {
 		t.Fatalf("first page panel script = %#v", got.PanelScript[0])
 	}
-	if got.PanelScript[6][0] != "last" || got.PanelScript[6][1] != "end" {
-		t.Fatalf("last page panel script = %#v", got.PanelScript[6])
+	if got.PanelScript[9][0] != "last" || got.PanelScript[9][1] != "end" {
+		t.Fatalf("last page panel script = %#v", got.PanelScript[9])
+	}
+}
+
+func TestPanelLabelSupportsMultiLetterSequence(t *testing.T) {
+	t.Parallel()
+
+	if got, want := panelLabel(0), "A"; got != want {
+		t.Fatalf("panelLabel(0) = %q, want %q", got, want)
+	}
+	if got, want := panelLabel(25), "Z"; got != want {
+		t.Fatalf("panelLabel(25) = %q, want %q", got, want)
+	}
+	if got, want := panelLabel(26), "AA"; got != want {
+		t.Fatalf("panelLabel(26) = %q, want %q", got, want)
+	}
+	if got, want := panelLabel(27), "AB"; got != want {
+		t.Fatalf("panelLabel(27) = %q, want %q", got, want)
+	}
+	if got := panelLabelsText(28); !strings.Contains(got, "AA") || !strings.Contains(got, "AB") {
+		t.Fatalf("panelLabelsText(28) = %q, want multi-letter labels", got)
 	}
 }
 
