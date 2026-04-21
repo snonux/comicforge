@@ -360,12 +360,12 @@ func pageScriptForPage(panelScript [][]string, idx int) []string {
 func buildPanelLayout(section string, pagePanels []string) string {
 	if len(pagePanels) == 4 && pagePanels[0] != "" && pagePanels[1] != "" && pagePanels[2] != "" && pagePanels[3] != "" {
 		var sb strings.Builder
-		sb.WriteString("Раздели изображението точно на 4 различни панела в решетка 2×2. Панелите трябва да разказват сцената последователно и да останат ясно различни един от друг.\n")
+		sb.WriteString("Divide the image into exactly 4 distinct panels in a 2x2 grid. The panels must tell the scene in sequence and remain visually distinct from each other.\n")
 		for i, panel := range pagePanels {
 			if panel == "" {
 				continue
 			}
-			fmt.Fprintf(&sb, "Панел %d: %s\n", i+1, panel)
+			fmt.Fprintf(&sb, "Panel %d: %s\n", i+1, panel)
 		}
 		return sb.String()
 	}
@@ -378,15 +378,15 @@ func buildPanelLayout(section string, pagePanels []string) string {
 		}
 		excerpt += "…"
 	}
-	return "Раздели изображението точно на 4 различни панела в решетка 2×2. Панелите трябва да разказват историята последователно от начало към край и да останат ясно различни.\n" +
-		"Откъс от историята:\n\n" + excerpt + "\n"
+	return "Divide the image into exactly 4 distinct panels in a 2x2 grid. The panels must tell the story in sequence from beginning to end and remain visually distinct.\n" +
+		"Story excerpt:\n\n" + excerpt + "\n"
 }
 
 func blurbBoxInstruction(blurb string) string {
 	if strings.TrimSpace(blurb) == "" {
-		return "правоъгълно текстово поле (бял или кремав фон, тънка черна рамка) близо до дъното, в стил на класически синопсис на задната корица"
+		return "a rectangular text box near the bottom with a white or cream background and a thin black border, styled like a classic back-cover synopsis box"
 	}
-	return fmt.Sprintf("правоъгълно текстово поле (бял или кремав фон, тънка черна рамка) близо до дъното, което показва този текст в курсив:\n    %q", blurb)
+	return fmt.Sprintf("a rectangular text box near the bottom with a white or cream background and a thin black border, displaying this italic text:\n    %q", blurb)
 }
 
 func errorsJoin(errs ...error) error {

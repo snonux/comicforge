@@ -1,19 +1,19 @@
-{{if .Language}}Български комикс. Всички надписи на корицата са на {{.ScriptName}}, включително основното заглавие.
+This is a {{.LanguageName}} comic. All visible cover text, including the main title, must use {{.ScriptName}} script only.
 
-{{end}}Стил: {{.Style}}.{{.RenderingRequirement}}
-Пълна предна корица {{if .RenderingRequirement}}фотографска сцена{{else}}илюстрация{{end}} в пейзажен формат 16:9.
-Без панелна решетка. Без балони за реплики.
-{{if .Bible}}РЕФЕРЕНЦИЯ ЗА ПЕРСОНАЖИТЕ И СРЕДАТА:
+Style: {{.Style}}.{{.RenderingRequirement}}
+Full front cover {{if .RenderingRequirement}}photographic scene{{else}}illustration{{end}} in landscape 16:9 format.
+No panel grid. No speech bubbles.
+{{if .Bible}}CHARACTER AND SETTING REFERENCE:
 {{.Bible}}
 
-{{end}}ОСНОВНО ЗАГЛАВИЕ — най-важният визуален елемент на корицата:
-  • Измисли драматично, специфично за историята комиксово заглавие, което подхожда на героите и темата на откъса по-долу. Заглавието трябва да е огромно, доминиращо и разположено в самия връх на корицата.
-  • Под основното заглавие добави по-малка лента с подзаглавие „{{.Subtitle}}“ в контрастен цвят.
-  • Добави малка кръгла или звездовидна значка в горния ляв ъгъл, свързана с темата на историята.
-Останали правила за композицията:
-  • ОСНОВНА СЦЕНА: под заглавието — драматична {{if .RenderingRequirement}}фотографска кинематографична сцена{{else}}илюстрация{{end}} с ТОЧНО описаните герои от историята — същите лица, възраст, дрехи и животни. Не измисляй нови персонажи и не използвай заместители.
-  • КОРОВИ ФРАЗИ: 2–3 кратки фрази на {{.LanguageName}} в удебелен дисплей шрифт.
-  • ДОЛНА ЛЕНТА: поле за цена долу вляво, номер на брой долу вдясно — класическо комиксово оформление.
-ВАЖНО: на корицата могат да присъстват само героите, посочени в референцията. Същата възраст, лице и дрехи като в страниците. Всички надписи са на {{.ScriptName}}. Откъс от историята:
+{{end}}MAIN TITLE — the most important visual element on the cover:
+  • Invent a dramatic, story-specific comic title that fits the characters and theme of the story excerpt below. The title must be huge, dominant, and placed at the very top of the cover.
+  • Directly below the main title, add a smaller subtitle banner: "{{.Subtitle}}" in a contrasting colour.
+  • Add a small circular or star-shaped badge in the upper-left corner related to the story theme.
+Composition rules:
+  • MAIN ART: below the title, a dramatic {{if .RenderingRequirement}}photographic cinematic scene{{else}}illustration{{end}} with EXACTLY the characters described in the reference — same faces, ages, clothing, and animals. Do not invent new characters or use substitutes.
+  • COVER LINES: 2-3 short teaser phrases in {{.LanguageName}} using {{.ScriptName}} script in bold display type.
+  • BOTTOM STRIP: price box at bottom-left, issue number at bottom-right — classic comic cover layout.
+IMPORTANT: only characters named in the reference may appear. Same age, face, clothing, and animal companions as in the interior pages. All visible text must use {{.LanguageName}} and {{.ScriptName}} script only. Story excerpt:
 
 {{.StoryText}}{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}

@@ -47,8 +47,22 @@ func TestBuildPanelLayoutUsesFallbackExcerpt(t *testing.T) {
 	t.Parallel()
 
 	got := buildPanelLayout("one two three four five", nil)
-	if !strings.Contains(got, "Откъс от историята") {
+	if !strings.Contains(got, "Story excerpt") {
 		t.Fatalf("buildPanelLayout() = %q", got)
+	}
+}
+
+func TestComicOutputDirDoesNotDuplicateComicsSegment(t *testing.T) {
+	t.Parallel()
+
+	if got, want := comicOutputDir("comics", "slug"), filepath.Join("comics", "slug"); got != want {
+		t.Fatalf("comicOutputDir() = %q, want %q", got, want)
+	}
+	if got, want := comicOutputDir(".", "slug"), filepath.Join(".", "comics", "slug"); got != want {
+		t.Fatalf("comicOutputDir() = %q, want %q", got, want)
+	}
+	if got, want := comicOutputDir("/tmp/out", "slug"), filepath.Join("/tmp/out", "comics", "slug"); got != want {
+		t.Fatalf("comicOutputDir() = %q, want %q", got, want)
 	}
 }
 

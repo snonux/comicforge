@@ -128,7 +128,7 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		fmt.Printf("  Comic title: %q (slug: %s)\n", result.Title, slug)
 	}
 
-	comicsDir := filepath.Join(dir, "comics", slug)
+	comicsDir := comicOutputDir(dir, slug)
 	if err := os.MkdirAll(comicsDir, 0o755); err != nil {
 		return fmt.Errorf("create comics dir %s: %w", comicsDir, err)
 	}
@@ -169,6 +169,14 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		return nil
 	}
 	return r.handleNarration(ctx, result.StoryText, slug, comicsDir)
+}
+
+func comicOutputDir(outputRoot, slug string) string {
+	root := orDefault(outputRoot, ".")
+	if filepath.Base(filepath.Clean(root)) == "comics" {
+		return filepath.Join(root, slug)
+	}
+	return filepath.Join(root, "comics", slug)
 }
 
 var _ StoryRunner = (*Runner)(nil)

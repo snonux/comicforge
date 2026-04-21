@@ -1,46 +1,33 @@
-Напиши история с дължина около 250 думи на {{.LanguageName}}, която естествено използва всички следните думи.
-Историята трябва да е {{.Genre}} — не пиши безлична приказка.
-Използвай само {{.ScriptName}}. Не използвай латиница никъде в текста. Ако чуждо име или термин е нужен, транслитерирай го в {{.ScriptName}}.
-Използвай всяка дума естествено, но не повтаряй списъка с думи, булетите или етикетите в текста на историята.
+Write a story of about 250 words in {{.LanguageName}} that naturally uses all of the following words.
+The story must be {{.Genre}}; do not write a generic fairy tale.
+Use {{.ScriptName}} script only and do not mix in another language or script.
+Use every word naturally, but do not repeat the word list, bullet points, labels, or prompt instructions in the story.
 
-Думи за включване:
+Words to include:
 {{.Words}}
 
-След текста на историята напиши точно този ред самостоятелно (без нищо друго на този ред):
+After the story text, write exactly this separator line by itself:
 {{.StoryBibleSeparator}}
 
-След това напиши РЪКОВОДСТВО ЗА ПОСЛЕДОВАТЕЛНОСТТА НА ПЕРСОНАЖИТЕ на {{.LanguageName}} с {{.ScriptName}} за илюстратор.
-ВАЖНО: всички човешки персонажи трябва да са възрастни (18+). Не описвай никой като дете, тийнейджър или непълнолетен.
-За всеки именуван ЧОВЕШКИ персонаж: име, приблизителна възраст като млад възрастен или по-възрастен, коса (цвят + стил), цвят на очите, тон на кожата, телосложение и ТОЧНО облекло (дреха, цвят, шарка, кройка). Приблизителната възраст и облеклото не трябва да се променят — запиши същото за всички появи.
-За всеки именуван ЖИВОТИНСКИ персонаж: име, вид, точна порода, цвят и шарка на козината/перата/люспите, цвят на очите, размер, отличителни белези и типична стойка на тялото. Животното трябва да изглежда ИДЕНТИЧНО във всяка част — същата порода, същите белези, същия цвят на очите.
-Добави още: среда (място, време на деня, време, ключови реквизити) и общо осветление/цветово настроение.
-Максимум 280 думи за ръководството. Без заглавия, само плътен текст.
+Then write a CHARACTER CONSISTENCY GUIDE in {{.LanguageName}} using {{.ScriptName}} script for an illustrator.
+IMPORTANT: all human characters must be adults (18+). Do not describe anyone as a child, teenager, or minor.
+For every named HUMAN character: name, approximate adult age, hair (colour + style), eye colour, skin tone, build, and EXACT clothing (garment, colour, pattern, fit). Apparent age and clothing must stay the same for all appearances.
+For every named ANIMAL character: name, species, exact breed, fur/feather/scale colour and pattern, eye colour, size, distinctive markings, and typical body posture. The animal must look IDENTICAL everywhere.
+Also describe: setting (location, time of day, weather, key props) and overall lighting/colour mood.
+Maximum 280 words for the guide. No headers, just dense descriptive prose.
 
-След ръководството напиши точно този ред самостоятелно:
+After the guide, write exactly this separator line by itself:
 {{.StoryTitleSeparator}}
 
-След това напиши кратко комиксово заглавие на {{.LanguageName}} с {{.ScriptName}}: 2-4 думи, които улавят темата и персонажите на историята. Изведи само заглавието — без кавички, без пунктуация, без обяснение.
+Then write a short comic title in {{.LanguageName}} using {{.ScriptName}} script: 2-4 words that capture the story's theme and characters. Output only the title: no quotes, punctuation, or explanation.
 
-След заглавието напиши точно този ред самостоятелно:
+After the title, write exactly this separator line by itself:
 {{.StoryPanelSeparator}}
 
-Напиши точно 20 визуални описания на панели за комиксовия илюстратор, по един ред, в строг хронологичен ред.
-Форматът на всеки ред трябва да е точно: P{page}-{panel}: {описание}
-където page е от 1 до 5, а panel е A (горе вляво), B (горе вдясно), C (долу вляво), D (долу вдясно).
-Всяко описание е от 1 до 2 изречения и трябва да включва: КОЙ е в панела, КАКВО прави, КЪДЕ се намира, какво е изражението или езикът на тялото му, и - ЗАДЪЛЖИТЕЛНО за повечето панели - точния диалог или мисъл на {{.LanguageName}}, написан в кавички.
-Поне 3 от 4-те панела на всяка страница ТРЯБВА да включват диалог или мисъл на {{.LanguageName}} в балон за реплика или мисъл. Диалогът трябва да идва директно от историята и да е на {{.ScriptName}}.
-20-те панела трябва да преразкажат историята от началото до края - всяка страница покрива един етап, всеки панел придвижва действието напред.
-Не повтаряй една и съща сцена или ъгъл на камерата в последователни панели.
-Примерен формат, замени с истинското съдържание на историята:
-P1-A: Мария излиза от входната си врата в утринната светлина, с чанта на рамо, и казва "Най-сетне!" в балон за реплика.
-P1-B: Тя върви по оживена улица покрай паркирани коли, с слушалки в ушите, и мисли "Толкова хубав ден." в балон за мисъл.
-P1-C: Крупен план на ръката ѝ, която стиска голяма пареща чаша кафе, а баристата ѝ я подава с думите "Заповядайте!" в балон за реплика.
-P1-D: Мария спира при входа на парк и поглежда към зелените дървета отпред, като казва "Точно това ми трябваше." в балон за реплика.
-
----
-Напиши история с дължина около 250 думи на {{.LanguageName}}, която естествено използва всички следните думи.
-Историята трябва да е {{.Genre}} — не пиши безлична приказка.
-Използвай всяка дума естествено, но не повтаряй списъка с думи, булетите или етикетите в текста. Върни САМО текста на историята — без заглавие, без заглавен ред, без обяснение.
-
-Думи за включване:
-{{.Words}}
+Write exactly 20 visual panel descriptions for the comic illustrator, one per line, in strict chronological story order.
+Each line must use exactly this format: P{page}-{panel}: {description}
+where page is 1 through 5, and panel is A (top-left), B (top-right), C (bottom-left), or D (bottom-right).
+Each description must be 1-2 sentences and include who is in the panel, what they do, where they are, their expression or body language, and, for most panels, exact dialogue or thought text in {{.LanguageName}} inside quotation marks.
+At least 3 of the 4 panels on every page MUST include dialogue or thought text in {{.LanguageName}} for a speech or thought bubble. Dialogue must come from the story and use {{.ScriptName}} script.
+The 20 panels must retell the story from beginning to end; each page covers one stage and each panel moves the action forward.
+Do not repeat the same scene or camera angle in consecutive panels.

@@ -1,15 +1,15 @@
-{{if .Language}}Български комикс. Всички видими надписи, ленти и етикети на задната корица са на {{.ScriptName}}. Без латиница на задната корица.
+This is a {{.LanguageName}} comic. All visible back-cover text, banners, boxes, and labels must use {{.ScriptName}} script only.
 
-{{end}}Стил: {{.Style}}.{{.RenderingRequirement}}
-Пълна задна корица {{if .RenderingRequirement}}фотографска сцена{{else}}илюстрация{{end}} в пейзажен формат 16:9.
-Без панелна решетка. Без балони за реплики.
-{{if .Bible}}РЕФЕРЕНЦИЯ ЗА ПЕРСОНАЖИТЕ И СРЕДАТА:
+Style: {{.Style}}.{{.RenderingRequirement}}
+Full back cover {{if .RenderingRequirement}}photographic scene{{else}}illustration{{end}} in landscape 16:9 format.
+No panel grid. No speech bubbles.
+{{if .Bible}}CHARACTER AND SETTING REFERENCE:
 {{.Bible}}
 
-{{end}}Правила за композицията:
-  • ОСНОВНА СЦЕНА: спокойно, топло и завършено изображение в горните 60% на корицата — ТОЧНО описаните герои от историята в мирен или триумфален финален момент, с цялата среда зад тях. Сцената трябва да изглежда фотографска, не рисувана.
-  • ТЕКСТОВО ПОЛЕ: {{.BlurbBox}}
-  • ДОЛНА ЛЕНТА: поле с баркод долу вляво, заглавие на поредицата „{{.SeriesTitle}}“ долу вдясно — класическо комиксово оформление.
-ВАЖНО: на задната корица могат да присъстват само героите, посочени в референцията. Същата възраст, лице и дрехи като в страниците. Всички надписи са на {{.ScriptName}}. Подсказка за финала на историята:
+{{end}}Composition rules:
+  • MAIN ART: a calm, warm, resolved image in the upper 60% of the cover — EXACTLY the characters described in the reference in a peaceful or triumphant final moment, with the full setting behind them.
+  • TEXT BOX: {{.BlurbBox}}
+  • BOTTOM STRIP: barcode box at bottom-left, series title "{{.SeriesTitle}}" at bottom-right — classic comic back-cover layout.
+IMPORTANT: only characters named in the reference may appear. Same age, face, clothing, and animal companions as in the interior pages. All visible text must use {{.LanguageName}} and {{.ScriptName}} script only. Story ending hint:
 
 {{.StoryText}}{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}

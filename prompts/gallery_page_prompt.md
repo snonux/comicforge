@@ -1,13 +1,13 @@
-Стил: {{.Style}}.{{.RenderingRequirement}}
-Един цял кадър {{if .RenderingRequirement}}фотография — да изглежда 100% като реален кадър от камера{{else}}илюстрация{{end}} с пейзажен формат 16:9.
-Не разделяй изображението на няколко панела или секции. Цялото поле трябва да е една единствена сцена.
-Без текст от какъвто и да е вид. Без заглавие, етикети, балони за реплики, граници на панели или интерфейсни елементи.
-{{if .Bible}}РЕФЕРЕНЦИЯ ЗА ПЕРСОНАЖИТЕ И СРЕДАТА:
+Style: {{.Style}}.{{.RenderingRequirement}}
+One full-frame {{if .RenderingRequirement}}photograph that looks 100% like a real camera shot{{else}}illustration{{end}} in landscape 16:9 format.
+Do not split the image into panels or sections. The entire canvas is one single scene.
+No text of any kind. No title, labels, speech bubbles, panel borders, or UI elements.
+{{if .Bible}}CHARACTER AND SETTING REFERENCE:
 {{.Bible}}
 
 {{end}}
 
-Композиция: {{.Pose}}
+Composition: {{.Pose}}
 
-Героите трябва да са ТОЧНО описаните персонажи — същите лица, пол, възраст и дрехи. Ако има естествен спътник-животно, включи го. Не измисляй нови персонажи и не променяй пола им. Не добавяй текстови наслагвания.
-Фон: средата на историята, предадена с пълна кинематографична атмосфера и цветово настроение.{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}
+The characters must be EXACTLY the described people — same faces, gender, adult age, and clothing. Include the animal companion if naturally present. Do not invent new characters or change anyone's gender. Do not add text overlays.
+Background: the story setting rendered with full cinematic atmosphere and colour mood.{{if .RenderingRequirement}}{{.RenderingRequirementEnd}}{{end}}

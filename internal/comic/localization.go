@@ -13,9 +13,9 @@ func localizedBrandName(language, script string) string {
 func localizedScriptName(script string) string {
 	switch {
 	case strings.EqualFold(script, "Cyrillic"):
-		return "кирилица"
+		return "Cyrillic"
 	case strings.EqualFold(script, "Latin"):
-		return "латиница"
+		return "Latin"
 	default:
 		return script
 	}
@@ -27,11 +27,11 @@ func localizedLanguageName(language, script string) string {
 	}
 	switch {
 	case strings.EqualFold(language, "English"):
-		return "английски"
+		return "English"
 	case strings.EqualFold(language, "German"):
-		return "немски"
+		return "German"
 	case strings.EqualFold(language, "French"):
-		return "френски"
+		return "French"
 	default:
 		return language
 	}

@@ -95,7 +95,7 @@ func TestRenderPromptFallsBackToEmbeddedTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderPrompt() error = %v", err)
 	}
-	if !strings.Contains(got, "Напиши история с дължина около 250 думи на български") {
+	if !strings.Contains(got, "Write a story of about 250 words in български") {
 		t.Fatalf("RenderPrompt() = %q, want embedded story prompt", got)
 	}
 }
