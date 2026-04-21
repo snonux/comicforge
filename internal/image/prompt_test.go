@@ -1,8 +1,10 @@
 package image
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestPromptSubjectUsesTranslationFirst(t *testing.T) {
@@ -56,5 +58,37 @@ func TestFallbackVisualDirectionForSingleWord(t *testing.T) {
 	got := fallbackVisualDirection("apple")
 	if got == "" || !strings.Contains(got, "single apple") {
 		t.Fatalf("fallbackVisualDirection() = %q", got)
+	}
+}
+
+func TestBuildEducationalPromptTruncatesLongSceneWithoutBreakingUTF8(t *testing.T) {
+	t.Parallel()
+
+	style := "Photorealism"
+	subject := "ябълка"
+	for {
+		template := fmt.Sprintf(
+			"Generate a %s flashcard image illustrating \"%s\". Scene:  "+
+				"The image should be educational and suitable for language learning flashcards. "+
+				"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
+			style, subject,
+		)
+		if (maxImagePromptChars-len(template))%2 == 1 {
+			break
+		}
+		subject += "x"
+	}
+
+	scene := strings.Repeat("Ярка сцена с ябълки и хора, ", 80)
+	got := buildEducationalPrompt(style, scene, subject)
+
+	if !utf8.ValidString(got) {
+		t.Fatalf("buildEducationalPrompt() returned invalid UTF-8: %q", got)
+	}
+	if len(got) > maxImagePromptChars {
+		t.Fatalf("buildEducationalPrompt() length = %d, want <= %d", len(got), maxImagePromptChars)
+	}
+	if !strings.Contains(got, "...") {
+		t.Fatalf("buildEducationalPrompt() = %q, want truncated scene marker", got)
 	}
 }

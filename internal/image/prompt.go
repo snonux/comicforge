@@ -6,6 +6,7 @@ import (
 )
 
 const maxImagePromptChars = 1000
+const promptEllipsis = "..."
 
 func promptSubject(englishTranslation, fallback string) string {
 	subject := normalizePromptText(englishTranslation)
@@ -95,6 +96,38 @@ func withTerminalPunctuation(text string) string {
 	}
 }
 
+func truncateToByteLimit(text string, maxBytes int) string {
+	text = strings.TrimSpace(text)
+	if text == "" || maxBytes <= 0 {
+		return ""
+	}
+	if len(text) <= maxBytes {
+		return text
+	}
+
+	if maxBytes <= len(promptEllipsis) {
+		return truncateToRuneBoundary(text, maxBytes)
+	}
+
+	return truncateToRuneBoundary(text, maxBytes-len(promptEllipsis)) + promptEllipsis
+}
+
+func truncateToRuneBoundary(text string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+
+	end := 0
+	for i := range text {
+		if i > maxBytes {
+			break
+		}
+		end = i
+	}
+
+	return text[:end]
+}
+
 // buildEducationalPrompt assembles the final image-generation prompt from a
 // pre-chosen artistic style, an optional scene description, and the word subject.
 func buildEducationalPrompt(style, scene, subject string) string {
@@ -128,7 +161,7 @@ func buildEducationalPrompt(style, scene, subject string) string {
 				)
 				maxSceneLen := maxImagePromptChars - len(template)
 				if maxSceneLen > 3 && len(scene) > maxSceneLen {
-					scene = scene[:maxSceneLen] + "..."
+					scene = truncateToByteLimit(scene, maxSceneLen)
 				}
 				prompt = fmt.Sprintf(
 					"Generate a %s flashcard image illustrating \"%s\". Scene: %s "+
@@ -149,7 +182,7 @@ func buildEducationalPrompt(style, scene, subject string) string {
 	}
 
 	if len(prompt) > maxImagePromptChars {
-		prompt = prompt[:997] + "..."
+		prompt = truncateToByteLimit(prompt, maxImagePromptChars)
 	}
 
 	return prompt

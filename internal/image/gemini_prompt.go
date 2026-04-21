@@ -9,7 +9,7 @@ import (
 func normalizeCustomPrompt(prompt string) string {
 	prompt = strings.TrimSpace(prompt)
 	if len(prompt) > maxCustomPrompt {
-		prompt = prompt[:maxCustomPrompt-3] + "..."
+		prompt = truncateToByteLimit(prompt, maxCustomPrompt)
 	}
 	return prompt
 }
