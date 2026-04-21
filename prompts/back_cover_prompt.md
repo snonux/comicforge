@@ -1,4 +1,4 @@
-This is a {{.LanguageName}} comic. All visible back-cover text, banners, boxes, and labels must use {{.ScriptName}} script only.
+This comic is in {{.LanguageName}}. All visible back-cover text, banners, boxes, and labels must use {{.ScriptName}} script only.
 
 Style: {{.Style}}.{{.RenderingRequirement}}
 Full back cover {{if .RenderingRequirement}}photographic scene{{else}}illustration{{end}} in landscape 16:9 format.

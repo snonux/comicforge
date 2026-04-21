@@ -225,16 +225,13 @@ func (n *Narrator) narrateChunkWith(ctx context.Context, provider provider.TTSPr
 }
 
 const (
-	cinematicInstruction = `You are a dramatic cinematic narrator performing a story written in BULGARIAN.
-IMPORTANT: This text is in the BULGARIAN language — NOT Russian, NOT Serbian, NOT any other Slavic language.
-Pronounce every word using authentic BULGARIAN phonology and accent. Bulgarian vowels are clear and distinct;
-do not apply Russian stress patterns or Russian vowel reduction. The letter 'ъ' in Bulgarian is a mid-central
-vowel (like the 'u' in "but"), not the Russian reduced schwa.
+	cinematicInstruction = `You are a dramatic cinematic narrator performing the provided story.
+Respect the story's language exactly. Do not translate it and do not drift into another language or accent family.
 Deliver this as a professional movie trailer narrator would: deep, resonant, and commanding.
 Use long dramatic pauses before key moments. Build tension with slower, deliberate pacing,
 then accelerate through action. Drop your voice low and gravelly for mysterious or serious
 passages; let warmth and energy rise for joyful or triumphant ones. Breathe life into every
-sentence — this should sound like an epic Bulgarian film, not a reading exercise.
+sentence — this should sound like an epic film, not a reading exercise.
 
 `
 

@@ -1,4 +1,4 @@
-This is a {{.LanguageName}} comic. All visible cover text, including the main title, must use {{.ScriptName}} script only.
+This comic is in {{.LanguageName}}. All visible cover text, including the main title, must use {{.ScriptName}} script only.
 
 Style: {{.Style}}.{{.RenderingRequirement}}
 Full front cover {{if .RenderingRequirement}}photographic scene{{else}}illustration{{end}} in landscape 16:9 format.

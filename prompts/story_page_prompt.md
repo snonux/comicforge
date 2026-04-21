@@ -1,4 +1,4 @@
-This is a {{.LanguageName}} comic page. All speech, thoughts, captions, and labels inside panels must use {{.ScriptName}} script only.
+This comic page is in {{.LanguageName}}. All speech, thoughts, captions, and labels inside panels must use {{.ScriptName}} script only.
 
 {{.Words}}
 Style: {{.Style}}.{{.RenderingRequirement}}
