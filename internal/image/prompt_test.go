@@ -66,20 +66,29 @@ func TestBuildEducationalPromptTruncatesLongSceneWithoutBreakingUTF8(t *testing.
 
 	style := "Photorealism"
 	subject := "ябълка"
-	for {
+	var maxSceneLen int
+	for i := 0; i < 3; i++ {
+		candidateSubject := subject + strings.Repeat("x", i)
 		template := fmt.Sprintf(
 			"Generate a %s flashcard image illustrating \"%s\". Scene:  "+
 				"The image should be educational and suitable for language learning flashcards. "+
 				"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
-			style, subject,
+			style, candidateSubject,
 		)
-		if (maxImagePromptChars-len(template))%2 == 1 {
+		maxSceneLen = maxImagePromptChars - len(template)
+		if maxSceneLen%3 != 0 {
+			subject = candidateSubject
 			break
 		}
-		subject += "x"
 	}
 
-	scene := strings.Repeat("Ярка сцена с ябълки и хора, ", 80)
+	scene := "abc" + strings.Repeat("界", maxSceneLen+32)
+	if len(scene) <= maxSceneLen {
+		t.Fatalf("test setup failed: scene length = %d, want > %d", len(scene), maxSceneLen)
+	}
+	if utf8.ValidString(scene[:maxSceneLen]) {
+		t.Fatalf("test setup failed: raw byte slice unexpectedly remained valid UTF-8 at cut position %d", maxSceneLen)
+	}
 	got := buildEducationalPrompt(style, scene, subject)
 
 	if !utf8.ValidString(got) {
@@ -90,5 +99,8 @@ func TestBuildEducationalPromptTruncatesLongSceneWithoutBreakingUTF8(t *testing.
 	}
 	if !strings.Contains(got, "...") {
 		t.Fatalf("buildEducationalPrompt() = %q, want truncated scene marker", got)
+	}
+	if !strings.Contains(got, "abc") {
+		t.Fatalf("buildEducationalPrompt() = %q, want ASCII scene prefix to survive truncation", got)
 	}
 }
