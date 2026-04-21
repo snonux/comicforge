@@ -10,12 +10,13 @@ import (
 )
 
 type mockDownloaderProvider struct {
-	results       []SearchResult
-	searchErr     error
-	payload       string
-	searchQueries []string
-	downloadURLs  []string
-	getAttrCalls  int
+	results        []SearchResult
+	searchErr      error
+	payload        string
+	searchQueries  []string
+	searchPerPages []int
+	downloadURLs   []string
+	getAttrCalls   int
 }
 
 func (m *mockDownloaderProvider) Name() string { return "mock" }
@@ -23,6 +24,7 @@ func (m *mockDownloaderProvider) Name() string { return "mock" }
 func (m *mockDownloaderProvider) Search(_ context.Context, opts *SearchOptions) ([]SearchResult, error) {
 	if opts != nil {
 		m.searchQueries = append(m.searchQueries, opts.Query)
+		m.searchPerPages = append(m.searchPerPages, opts.PerPage)
 	}
 	if m.searchErr != nil {
 		return nil, m.searchErr
@@ -123,12 +125,15 @@ func TestDownloadBestMatchWithOptions(t *testing.T) {
 		MaxSizeBytes:      10 * 1024 * 1024,
 	})
 
-	result, path, err := d.DownloadBestMatchWithOptions(context.Background(), &SearchOptions{Query: "ябълка"})
+	result, path, err := d.DownloadBestMatchWithOptions(context.Background(), &SearchOptions{Query: "ябълка", PerPage: 3})
 	if err != nil {
 		t.Fatalf("DownloadBestMatchWithOptions() error = %v", err)
 	}
 	if result == nil || result.ID != "1" {
 		t.Fatalf("DownloadBestMatchWithOptions() result = %+v, want ID 1", result)
+	}
+	if got, want := provider.searchPerPages, []int{3}; len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("provider search PerPage = %v, want %v", got, want)
 	}
 	if !strings.HasSuffix(path, ".jpg") {
 		t.Fatalf("DownloadBestMatchWithOptions() path = %q, want jpg suffix", path)

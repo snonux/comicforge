@@ -131,7 +131,9 @@ func (d *Downloader) DownloadBestMatchWithOptions(ctx context.Context, opts *Sea
 	}
 
 	searchOpts := *opts
-	searchOpts.PerPage = 5
+	if searchOpts.PerPage == 0 {
+		searchOpts.PerPage = 5
+	}
 
 	results, err := d.provider.Search(ctx, &searchOpts)
 	if err != nil {
