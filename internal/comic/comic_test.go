@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func TestSlugify(t *testing.T) {
@@ -52,6 +53,34 @@ func TestBuildPanelLayoutUsesFallbackExcerpt(t *testing.T) {
 	}
 	if !strings.Contains(got, "Story excerpt") {
 		t.Fatalf("buildPanelLayout() = %q", got)
+	}
+}
+
+func TestSplitIntoSectionsUsesRuneBoundaries(t *testing.T) {
+	t.Parallel()
+
+	text := strings.Repeat("Български текст за проверка на разделянето. ", 80)
+	sections := splitIntoSections(text, 4)
+	if len(sections) != 4 {
+		t.Fatalf("splitIntoSections() sections = %d, want 4", len(sections))
+	}
+	for i, section := range sections {
+		if !utf8.ValidString(section) {
+			t.Fatalf("splitIntoSections() section %d is not valid UTF-8: %q", i, section)
+		}
+	}
+}
+
+func TestBuildPanelLayoutTruncatesCyrillicOnRuneBoundaries(t *testing.T) {
+	t.Parallel()
+
+	text := strings.Repeat("абвгдежзийклмно", 70)
+	got := buildPanelLayout(text, nil, 2)
+	if !utf8.ValidString(got) {
+		t.Fatalf("buildPanelLayout() returned invalid UTF-8: %q", got)
+	}
+	if !strings.Contains(got, "…") {
+		t.Fatalf("buildPanelLayout() = %q, want truncation ellipsis", got)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
@@ -377,8 +378,8 @@ func buildPanelLayout(section string, pagePanels []string, panelCount int) strin
 	}
 
 	excerpt := strings.TrimSpace(section)
-	if len(excerpt) > comicPromptMaxChars {
-		excerpt = excerpt[:comicPromptMaxChars]
+	if utf8.RuneCountInString(excerpt) > comicPromptMaxChars {
+		excerpt = string([]rune(excerpt)[:comicPromptMaxChars])
 		if idx := strings.LastIndex(excerpt, " "); idx > 0 {
 			excerpt = excerpt[:idx]
 		}

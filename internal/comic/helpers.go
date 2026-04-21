@@ -64,15 +64,16 @@ func distributeParagraphs(paragraphs []string, n int) []string {
 }
 
 func splitByChars(text string, n int) []string {
-	size := len(text) / n
+	runes := []rune(text)
+	size := len(runes) / n
 	sections := make([]string, n)
 	for i := range n {
 		start := i * size
 		end := start + size
 		if i == n-1 {
-			end = len(text)
+			end = len(runes)
 		}
-		sections[i] = strings.TrimSpace(text[start:end])
+		sections[i] = strings.TrimSpace(string(runes[start:end]))
 	}
 	return sections
 }
