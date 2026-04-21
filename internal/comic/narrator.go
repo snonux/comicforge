@@ -172,7 +172,7 @@ func (n *Narrator) narrateConclusion(ctx context.Context, storyText, tmpDir stri
 		conclusionNarration = paths[0]
 	} else if err := concatenateMP3s(paths, conclusionNarration, tmpDir); err != nil {
 		fmt.Printf("    Warning: conclusion concat failed: %v\n", err)
-		return paths[len(paths)-1], true
+		return "", false
 	}
 
 	conclusionWithMusic := filepath.Join(tmpDir, "conclusion_with_music.mp3")

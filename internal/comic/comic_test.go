@@ -355,6 +355,35 @@ func TestConvertToStereoFallsBackToCopyWhenFFmpegMissing(t *testing.T) {
 	}
 }
 
+func TestNarrateConclusionDoesNotAcceptPartialConcatFallback(t *testing.T) {
+	originalLookPath := lookPath
+	lookPath = func(string) (string, error) {
+		return "", errors.New("missing ffmpeg")
+	}
+	t.Cleanup(func() {
+		lookPath = originalLookPath
+	})
+
+	provider := &recordingTTSProvider{}
+	n := NewNarrator(&NarratorConfig{
+		TextProvider:       fakeTextProvider{text: strings.Join([]string{strings.Repeat("алфа ", 60), strings.Repeat("бета ", 60)}, "\n\n")},
+		MainProvider:       fakeTTSProvider{},
+		ConclusionProvider: provider,
+		Prompts:            fakePromptRenderer{},
+	})
+
+	path, ok := n.narrateConclusion(context.Background(), "story", t.TempDir())
+	if ok {
+		t.Fatalf("narrateConclusion() ok = true, want false")
+	}
+	if path != "" {
+		t.Fatalf("narrateConclusion() path = %q, want empty", path)
+	}
+	if got, want := len(provider.calls), 2; got != want {
+		t.Fatalf("conclusion provider calls = %d, want %d", got, want)
+	}
+}
+
 type fakePromptRenderer struct{}
 
 func (fakePromptRenderer) RenderPrompt(name string, data any) (string, error) {
@@ -483,5 +512,16 @@ type fakeTTSProvider struct{}
 func (fakeTTSProvider) Name() string       { return "fake-tts" }
 func (fakeTTSProvider) IsAvailable() error { return nil }
 func (fakeTTSProvider) GenerateAudio(_ context.Context, _ string, outputFile string) error {
+	return os.WriteFile(outputFile, []byte("mp3"), 0o644)
+}
+
+type recordingTTSProvider struct {
+	calls []string
+}
+
+func (p *recordingTTSProvider) Name() string       { return "recording-tts" }
+func (p *recordingTTSProvider) IsAvailable() error { return nil }
+func (p *recordingTTSProvider) GenerateAudio(_ context.Context, text, outputFile string) error {
+	p.calls = append(p.calls, text)
 	return os.WriteFile(outputFile, []byte("mp3"), 0o644)
 }
