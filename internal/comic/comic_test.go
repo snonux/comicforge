@@ -111,6 +111,31 @@ func TestPanelLabelSupportsMultiLetterSequence(t *testing.T) {
 	}
 }
 
+func TestValidateGeneratedResultUsesExcelStylePanelLabels(t *testing.T) {
+	t.Parallel()
+
+	page := make([]string, 27)
+	for i := range page {
+		page[i] = "а"
+	}
+	page[26] = "latin"
+
+	err := validateGeneratedResult(GenerateResult{
+		StoryText: "история",
+		Bible:     "библия",
+		Title:     "Заглавие",
+		PanelScript: [][]string{
+			page,
+		},
+	}, "Cyrillic")
+	if err == nil {
+		t.Fatal("validateGeneratedResult() error = nil, want panel label failure")
+	}
+	if !strings.Contains(err.Error(), "panel script P1-AA") {
+		t.Fatalf("validateGeneratedResult() error = %v, want Excel-style panel label", err)
+	}
+}
+
 func TestComicOutputDirDoesNotDuplicateComicsSegment(t *testing.T) {
 	t.Parallel()
 

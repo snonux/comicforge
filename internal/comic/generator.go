@@ -192,10 +192,11 @@ func validateGeneratedResult(result GenerateResult, script string) error {
 	}
 	for pageIdx, page := range result.PanelScript {
 		for panelIdx, panel := range page {
-			if err := validateTextScript(fmt.Sprintf("panel script P%d-%c", pageIdx+1, 'A'+panelIdx), panel, script); err != nil {
+			label := fmt.Sprintf("panel script P%d-%s", pageIdx+1, panelLabel(panelIdx))
+			if err := validateTextScript(label, panel, script); err != nil {
 				return fmt.Errorf("%w (panel=%q)", err, compactTextSnippet(panel))
 			}
-			if err := validateNoPromptLeakage(fmt.Sprintf("panel script P%d-%c", pageIdx+1, 'A'+panelIdx), panel); err != nil {
+			if err := validateNoPromptLeakage(label, panel); err != nil {
 				return fmt.Errorf("%w (panel=%q)", err, compactTextSnippet(panel))
 			}
 		}
