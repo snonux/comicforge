@@ -22,6 +22,7 @@ type NarratorConfig struct {
 	VoiceName          string
 	Language           string
 	Script             string
+	ChunkWords         int
 }
 
 // Narrator generates intro, story, and conclusion narration.
@@ -33,6 +34,7 @@ type Narrator struct {
 	voiceName          string
 	language           string
 	script             string
+	chunkWords         int
 	initErr            error
 }
 
@@ -53,6 +55,7 @@ func NewNarrator(cfg *NarratorConfig) *Narrator {
 	n.voiceName = cfg.VoiceName
 	n.language = orDefault(cfg.Language, n.language)
 	n.script = orDefault(cfg.Script, n.script)
+	n.chunkWords = normalizePositive(cfg.ChunkWords, narratorChunkWords)
 	if n.conclusionProvider == nil {
 		n.conclusionProvider = n.mainProvider
 	}
@@ -112,7 +115,7 @@ func (n *Narrator) ready() error {
 }
 
 func (n *Narrator) narrateMainStory(ctx context.Context, storyText, tmpDir string) ([]string, error) {
-	chunks := splitIntoNarrationChunks(storyText, narratorChunkWords)
+	chunks := splitIntoNarrationChunks(storyText, n.chunkWords)
 	fmt.Printf("    Splitting narration into %d chunks for consistent voice quality...\n", len(chunks))
 
 	var paths []string
@@ -156,7 +159,7 @@ func (n *Narrator) narrateConclusion(ctx context.Context, storyText, tmpDir stri
 		return "", false
 	}
 
-	chunks := splitIntoNarrationChunks(conclusion, narratorChunkWords)
+	chunks := splitIntoNarrationChunks(conclusion, n.chunkWords)
 	var paths []string
 	for i, chunk := range chunks {
 		path := filepath.Join(tmpDir, fmt.Sprintf("conclusion_%03d.mp3", i+1))

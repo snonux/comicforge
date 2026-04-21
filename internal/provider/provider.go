@@ -32,6 +32,12 @@ type ImageProvider interface {
 	GenerateImage(ctx context.Context, prompt string, outputFile string) error
 }
 
+// AspectRatioImageProvider generates images with an explicit aspect ratio.
+type AspectRatioImageProvider interface {
+	ImageProvider
+	GenerateImageWithAspectRatio(ctx context.Context, prompt string, outputFile string, aspectRatio string) error
+}
+
 // TTSProvider generates audio from text.
 type TTSProvider interface {
 	Name() string

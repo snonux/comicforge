@@ -184,6 +184,52 @@ prompts_dir: ./config-prompts
 	}
 }
 
+func TestRootCommandUsesRealisticWeightWhenUltraModeUnset(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+story:
+  realistic_weight: 0
+`)), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var gotRunnerCfg *comic.RunnerConfig
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(path string) (*config.Config, error) {
+			return config.Load(path)
+		},
+		newTextProvider:  func(*config.Config) (provider.TextProvider, error) { return noopProvider{}, nil },
+		newImageProvider: func(*config.Config) (provider.ImageProvider, error) { return noopProvider{}, nil },
+		newTTSProvider:   func(*config.Config, string) (provider.TTSProvider, error) { return noopProvider{}, nil },
+		newRunner: func(cfg *comic.RunnerConfig) comic.StoryRunner {
+			gotRunnerCfg = cfg
+			return &recordingRunner{}
+		},
+	})
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	vocabPath := filepath.Join(tmpDir, "vocab.txt")
+	if err := os.WriteFile(vocabPath, []byte("ябълка = apple\n"), 0o644); err != nil {
+		t.Fatalf("write vocab: %v", err)
+	}
+	cmd.SetArgs([]string{"--config", configPath, "--vocab", vocabPath})
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext() error = %v\noutput:\n%s", err, buf.String())
+	}
+	if gotRunnerCfg == nil {
+		t.Fatal("runner config was not captured")
+	}
+	if got, want := gotRunnerCfg.RealisticWeight, 0.0; got != want {
+		t.Fatalf("realistic weight = %v, want %v", got, want)
+	}
+	if gotRunnerCfg.UltraRealistic != nil {
+		t.Fatalf("ultra realistic override = %#v, want nil when flags are unset", gotRunnerCfg.UltraRealistic)
+	}
+}
+
 func TestRootCommandVersionSkipsRequiredFlags(t *testing.T) {
 	cmd := newRootCommandWithDeps(commandDeps{
 		loadConfig: func(string) (*config.Config, error) {

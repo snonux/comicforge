@@ -47,7 +47,7 @@ func TestParseGenerateResult(t *testing.T) {
 func TestBuildPanelLayoutUsesFallbackExcerpt(t *testing.T) {
 	t.Parallel()
 
-	got := buildPanelLayout("one two three four five", nil, 2)
+	got := buildPanelLayout("one two three four five", nil, 2, 900)
 	if !strings.Contains(got, "exactly 2 distinct panels") {
 		t.Fatalf("buildPanelLayout() = %q, want 2-panel layout instruction", got)
 	}
@@ -78,7 +78,7 @@ func TestBuildPanelLayoutTruncatesCyrillicOnRuneBoundaries(t *testing.T) {
 	t.Parallel()
 
 	text := strings.Repeat("a", 899) + "б" + strings.Repeat("c", 100)
-	got := buildPanelLayout(text, nil, 2)
+	got := buildPanelLayout(text, nil, 2, 900)
 	if !utf8.ValidString(got) {
 		t.Fatalf("buildPanelLayout() returned invalid UTF-8: %q", got)
 	}
@@ -87,6 +87,18 @@ func TestBuildPanelLayoutTruncatesCyrillicOnRuneBoundaries(t *testing.T) {
 	}
 	if !strings.Contains(got, "б") {
 		t.Fatalf("buildPanelLayout() = %q, want mixed-width rune preserved", got)
+	}
+}
+
+func TestBuildPanelLayoutRespectsPromptMaxChars(t *testing.T) {
+	t.Parallel()
+
+	got := buildPanelLayout(strings.Repeat("a", 80), nil, 2, 12)
+	if !strings.Contains(got, "…") {
+		t.Fatalf("buildPanelLayout() = %q, want truncation ellipsis", got)
+	}
+	if strings.Contains(got, strings.Repeat("a", 20)) {
+		t.Fatalf("buildPanelLayout() = %q, want configured truncation limit", got)
 	}
 }
 
@@ -402,6 +414,60 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	}
 }
 
+func TestNewRunnerUsesRealisticWeightWhenUltraRealisticUnset(t *testing.T) {
+	t.Parallel()
+
+	t.Run("comic", func(t *testing.T) {
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			RealisticWeight: 0,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			ComicStyles:     []string{"comic-ink"},
+			RealisticStyles: []string{"photo-real"},
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if runner.artist == nil {
+			t.Fatal("artist is nil")
+		}
+		if runner.artist.ultraRealistic {
+			t.Fatal("ultraRealistic = true, want false when weight is 0")
+		}
+	})
+
+	t.Run("realistic", func(t *testing.T) {
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			RealisticWeight: 1,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			ComicStyles:     []string{"comic-ink"},
+			RealisticStyles: []string{"photo-real"},
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if runner.artist == nil {
+			t.Fatal("artist is nil")
+		}
+		if !runner.artist.ultraRealistic {
+			t.Fatal("ultraRealistic = false, want true when weight is 1")
+		}
+	})
+}
+
 func TestRunnerPropagatesRenderFailures(t *testing.T) {
 	originalSleep := sleep
 	sleep = func(time.Duration) {}
@@ -506,6 +572,56 @@ func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
 	}
 }
 
+func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
+	t.Cleanup(func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	})
+
+	tests := []struct {
+		name           string
+		ultraRealistic bool
+		wantStyle      string
+	}{
+		{name: "comic", ultraRealistic: false, wantStyle: "comic-ink"},
+		{name: "realistic", ultraRealistic: true, wantStyle: "photo-real"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			renderer := &recordingPromptRenderer{}
+			artist := NewArtist(&ArtistConfig{
+				ImageProvider:   fakeImageProvider{t: t},
+				Prompts:         renderer,
+				OutputDir:       t.TempDir(),
+				UltraRealistic:  tt.ultraRealistic,
+				ComicStyles:     []string{"comic-ink"},
+				RealisticStyles: []string{"photo-real"},
+				Language:        "English",
+				Script:          "Latin",
+				PanelsPerPage:   2,
+			})
+
+			if _, err := artist.DrawComicPages(context.Background(), "story", "bible", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
+				t.Fatalf("DrawComicPages() error = %v", err)
+			}
+
+			var gotStyle string
+			for _, call := range renderer.calls {
+				if call.name != storyPagePromptTemplate {
+					continue
+				}
+				gotStyle, _ = call.data["Style"].(string)
+				break
+			}
+			if gotStyle != tt.wantStyle {
+				t.Fatalf("Style prompt = %q, want %q", gotStyle, tt.wantStyle)
+			}
+		})
+	}
+}
+
 func TestDrawComicPagesChainsReferenceImages(t *testing.T) {
 	originalLeakValidation := validateImagePromptLeakageFn
 	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
@@ -535,6 +651,37 @@ func TestDrawComicPagesChainsReferenceImages(t *testing.T) {
 	}
 	if provider.referenceCounts[2] < 1 {
 		t.Fatalf("second page refs = %d, want chained references", provider.referenceCounts[2])
+	}
+}
+
+func TestGenerateWithRetryUsesConfiguredRetriesAndBackoff(t *testing.T) {
+	originalSleep := sleep
+	var pauses []time.Duration
+	sleep = func(d time.Duration) {
+		pauses = append(pauses, d)
+	}
+	t.Cleanup(func() {
+		sleep = originalSleep
+	})
+
+	artist := NewArtist(&ArtistConfig{
+		ImageProvider:  failingImageProvider{},
+		Prompts:        fakePromptRenderer{},
+		OutputDir:      t.TempDir(),
+		UltraRealistic: false,
+		PageMaxRetries: 3,
+		PageRetryBase:  2 * time.Second,
+	})
+
+	err := artist.generateWithRetry(context.Background(), "prompt", filepath.Join(t.TempDir(), "out.png"), "cover page", nil)
+	if err == nil {
+		t.Fatal("generateWithRetry() error = nil, want failure")
+	}
+	if got, want := len(pauses), 2; got != want {
+		t.Fatalf("sleep calls = %d, want %d", got, want)
+	}
+	if pauses[0] != 2*time.Second || pauses[1] != 4*time.Second {
+		t.Fatalf("sleep pauses = %v, want [2s 4s]", pauses)
 	}
 }
 
@@ -595,6 +742,29 @@ func TestNarrateConclusionDoesNotAcceptPartialConcatFallback(t *testing.T) {
 	}
 	if got, want := len(provider.calls), 2; got != want {
 		t.Fatalf("conclusion provider calls = %d, want %d", got, want)
+	}
+}
+
+func TestNarratorUsesConfiguredChunkWords(t *testing.T) {
+	t.Parallel()
+
+	text := strings.Join([]string{
+		"едно две",
+		"три четири",
+		"пет шест",
+	}, "\n\n")
+
+	n := NewNarrator(&NarratorConfig{
+		MainProvider: fakeTTSProvider{},
+		Prompts:      fakePromptRenderer{},
+		ChunkWords:   2,
+	})
+	paths, err := n.narrateMainStory(context.Background(), text, t.TempDir())
+	if err != nil {
+		t.Fatalf("narrateMainStory() error = %v", err)
+	}
+	if got, want := len(paths), 3; got != want {
+		t.Fatalf("chunk count = %d, want %d", got, want)
 	}
 }
 

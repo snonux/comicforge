@@ -20,6 +20,7 @@ type GeminiRegistryConfig interface {
 	GoogleAPIKey() string
 	ImageModel() string
 	ImageTextModel() string
+	ComicAspectRatio() string
 }
 
 // Registry resolves provider names to factories.
@@ -96,9 +97,10 @@ func DefaultRegistry() *Registry[GeminiRegistryConfig] {
 	registry := NewRegistry[GeminiRegistryConfig]()
 	registry.Register(Gemini, func(cfg GeminiRegistryConfig) (ImageProvider, error) {
 		geminiProvider := NewGeminiProvider(&GeminiConfig{
-			APIKey:    cfg.GoogleAPIKey(),
-			Model:     cfg.ImageModel(),
-			TextModel: cfg.ImageTextModel(),
+			APIKey:      cfg.GoogleAPIKey(),
+			Model:       cfg.ImageModel(),
+			TextModel:   cfg.ImageTextModel(),
+			AspectRatio: cfg.ComicAspectRatio(),
 		})
 		if err := geminiProvider.IsAvailable(); err != nil {
 			return nil, err

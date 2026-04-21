@@ -65,13 +65,13 @@ var (
 		"a superhero origin story",
 	}
 
-	realisticStyles = []string{
+	defaultRealisticStyles = []string{
 		"ultra-realistic DSLR photography, cinematic 35mm lens, natural lighting, hyper-detailed textures",
 		"cinematic still photography, golden-hour lighting, shallow depth of field, photojournalism quality",
 		"hyper-realistic photography, studio-quality lighting, sharp focus, true-to-life colours and textures",
 	}
 
-	comicStyles = []string{
+	defaultComicStyles = []string{
 		"classic American comic book with bold ink outlines, halftone dots, and primary colors",
 		"Japanese manga with clean linework, expressive eyes, and speed lines",
 		"retro 1960s pop art in the style of Roy Lichtenstein with thick outlines and Ben-Day dots",
@@ -82,6 +82,9 @@ var (
 		"painterly oil-on-canvas comic with loose brushwork and vivid impressionist colors",
 		"cyberpunk neon art with glowing outlines, dark backgrounds, and electric accent colors",
 	}
+
+	realisticStyles = defaultRealisticStyles
+	comicStyles     = defaultComicStyles
 
 	galleryPoses = []string{
 		"close-up portrait of face and shoulders, dramatic three-quarter lighting, clear gaze toward the viewer, sharp eyes and expressive face",
@@ -136,28 +139,34 @@ func resolveGenre(theme string, genres []string) string {
 	return pickStoryGenre(genres)
 }
 
-func pickUltraRealistic() bool {
-	return rand.Float64() < 0.5
+func pickUltraRealistic(weight float64) bool {
+	weight = clampRealisticWeight(weight)
+	return rand.Float64() < weight
 }
 
-func pickStyle(styles []string, ultraRealistic bool) string {
-	if len(styles) == 0 {
-		if ultraRealistic {
-			styles = realisticStyles
-		} else {
-			styles = comicStyles
-		}
-	}
+func pickStyle(comicStyles, realisticStyles []string, ultraRealistic bool) string {
 	if ultraRealistic {
-		return styles[rand.IntN(len(styles))]
+		if len(realisticStyles) == 0 {
+			realisticStyles = defaultRealisticStyles
+		}
+		if len(realisticStyles) == 0 {
+			return ""
+		}
+		return realisticStyles[rand.IntN(len(realisticStyles))]
 	}
-	if len(styles) == 1 {
-		return styles[0]
+	if len(comicStyles) == 0 {
+		comicStyles = defaultComicStyles
+	}
+	if len(comicStyles) == 0 {
+		return ""
 	}
 	if rand.Float64() < 0.9 {
-		return styles[0]
+		return comicStyles[0]
 	}
-	return styles[1+rand.IntN(len(styles)-1)]
+	if len(comicStyles) == 1 {
+		return comicStyles[0]
+	}
+	return comicStyles[1+rand.IntN(len(comicStyles)-1)]
 }
 
 func parseGenerateResult(combined string) GenerateResult {
@@ -276,6 +285,17 @@ func normalizePositive(value, fallback int) int {
 		return value
 	}
 	return fallback
+}
+
+func clampRealisticWeight(weight float64) float64 {
+	switch {
+	case weight < 0:
+		return 0
+	case weight > 1:
+		return 1
+	default:
+		return weight
+	}
 }
 
 func panelLabel(idx int) string {

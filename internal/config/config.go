@@ -246,6 +246,14 @@ func (c *Config) ImageTextModel() string {
 	return c.Models.ImageText
 }
 
+// ComicAspectRatio returns the configured comic image aspect ratio.
+func (c *Config) ComicAspectRatio() string {
+	if c == nil {
+		return ""
+	}
+	return c.Comic.AspectRatio
+}
+
 // TTSModel returns the configured text-to-speech model name.
 func (c *Config) TTSModel() string {
 	if c == nil {

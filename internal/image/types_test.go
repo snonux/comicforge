@@ -162,6 +162,7 @@ func (f fakeConfig) ImageProviderName() string { return f.name }
 func (f fakeConfig) GoogleAPIKey() string      { return f.apiKey }
 func (f fakeConfig) ImageModel() string        { return f.model }
 func (f fakeConfig) ImageTextModel() string    { return f.textModel }
+func (f fakeConfig) ComicAspectRatio() string  { return "" }
 
 type customConfig struct {
 	name string

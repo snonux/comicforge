@@ -36,6 +36,19 @@ prompts_dir: ./custom-prompts
 comic:
   story_pages: 7
   panels_per_page: 2
+  aspect_ratio: "1:1"
+  prompt_max_chars: 321
+  page_max_retries: 2
+  page_retry_base_seconds: 9
+story:
+  realistic_weight: 0.8
+styles:
+  comic:
+    - custom comic
+  realistic:
+    - custom realistic
+narration:
+  chunk_words: 42
 `)), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -58,6 +71,30 @@ comic:
 	}
 	if got, want := cfg.Comic.PanelsPerPage, 2; got != want {
 		t.Fatalf("Comic.PanelsPerPage = %d, want %d", got, want)
+	}
+	if got, want := cfg.Comic.AspectRatio, "1:1"; got != want {
+		t.Fatalf("Comic.AspectRatio = %q, want %q", got, want)
+	}
+	if got, want := cfg.Comic.PromptMaxChars, 321; got != want {
+		t.Fatalf("Comic.PromptMaxChars = %d, want %d", got, want)
+	}
+	if got, want := cfg.Comic.PageMaxRetries, 2; got != want {
+		t.Fatalf("Comic.PageMaxRetries = %d, want %d", got, want)
+	}
+	if got, want := cfg.Comic.PageRetryBaseSeconds, 9; got != want {
+		t.Fatalf("Comic.PageRetryBaseSeconds = %d, want %d", got, want)
+	}
+	if got, want := cfg.Story.RealisticWeight, 0.8; got != want {
+		t.Fatalf("Story.RealisticWeight = %v, want %v", got, want)
+	}
+	if got, want := len(cfg.Styles.Comic), 1; got != want || cfg.Styles.Comic[0] != "custom comic" {
+		t.Fatalf("Styles.Comic = %#v, want %q", cfg.Styles.Comic, "custom comic")
+	}
+	if got, want := len(cfg.Styles.Realistic), 1; got != want || cfg.Styles.Realistic[0] != "custom realistic" {
+		t.Fatalf("Styles.Realistic = %#v, want %q", cfg.Styles.Realistic, "custom realistic")
+	}
+	if got, want := cfg.Narration.ChunkWords, 42; got != want {
+		t.Fatalf("Narration.ChunkWords = %d, want %d", got, want)
 	}
 	if got, want := cfg.PromptsDir, "./custom-prompts"; got != want {
 		t.Fatalf("PromptsDir = %q, want %q", got, want)

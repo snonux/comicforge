@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"codeberg.org/snonux/comicforge/internal/provider"
 	"codeberg.org/snonux/comicforge/internal/vocab"
@@ -36,6 +37,14 @@ type RunnerConfig struct {
 	Slug                  string
 	NarrateEnabled        bool
 	UltraRealistic        *bool
+	RealisticWeight       float64
+	ComicStyles           []string
+	RealisticStyles       []string
+	AspectRatio           string
+	PromptMaxChars        int
+	PageMaxRetries        int
+	PageRetryBase         time.Duration
+	ChunkWords            int
 	StoryPages            int
 	GalleryPages          int
 	PanelsPerPage         int
@@ -58,7 +67,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		return r
 	}
 
-	ultra := pickUltraRealistic()
+	ultra := pickUltraRealistic(cfg.RealisticWeight)
 	if cfg.UltraRealistic != nil {
 		ultra = *cfg.UltraRealistic
 	}
@@ -73,18 +82,24 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		PanelsPerPage: cfg.PanelsPerPage,
 	})
 	r.artist = NewArtist(&ArtistConfig{
-		ImageProvider:  cfg.ImageProvider,
-		TextProvider:   cfg.TextProvider,
-		Prompts:        cfg.Prompts,
-		OutputDir:      cfg.OutputDir,
-		Style:          cfg.Style,
-		Theme:          cfg.Theme,
-		Language:       cfg.Language,
-		Script:         cfg.Script,
-		UltraRealistic: ultra,
-		StoryPages:     cfg.StoryPages,
-		GalleryPages:   cfg.GalleryPages,
-		PanelsPerPage:  cfg.PanelsPerPage,
+		ImageProvider:   cfg.ImageProvider,
+		TextProvider:    cfg.TextProvider,
+		Prompts:         cfg.Prompts,
+		OutputDir:       cfg.OutputDir,
+		Style:           cfg.Style,
+		ComicStyles:     cfg.ComicStyles,
+		RealisticStyles: cfg.RealisticStyles,
+		Theme:           cfg.Theme,
+		AspectRatio:     cfg.AspectRatio,
+		Language:        cfg.Language,
+		Script:          cfg.Script,
+		UltraRealistic:  ultra,
+		PromptMaxChars:  cfg.PromptMaxChars,
+		PageMaxRetries:  cfg.PageMaxRetries,
+		PageRetryBase:   cfg.PageRetryBase,
+		StoryPages:      cfg.StoryPages,
+		GalleryPages:    cfg.GalleryPages,
+		PanelsPerPage:   cfg.PanelsPerPage,
 	})
 	r.narrator = NewNarrator(&NarratorConfig{
 		TextProvider:       cfg.TextProvider,
@@ -94,6 +109,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		VoiceName:          cfg.NarratorVoice,
 		Language:           cfg.Language,
 		Script:             cfg.Script,
+		ChunkWords:         cfg.ChunkWords,
 	})
 	return r
 }

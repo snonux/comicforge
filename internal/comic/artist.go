@@ -14,39 +14,55 @@ import (
 
 // ArtistConfig configures comic page generation.
 type ArtistConfig struct {
-	ImageProvider  provider.ImageProvider
-	TextProvider   provider.TextProvider
-	Prompts        PromptRenderer
-	OutputDir      string
-	Style          string
-	Theme          string
-	Language       string
-	Script         string
-	UltraRealistic bool
-	StoryPages     int
-	GalleryPages   int
-	PanelsPerPage  int
+	ImageProvider   provider.ImageProvider
+	TextProvider    provider.TextProvider
+	Prompts         PromptRenderer
+	OutputDir       string
+	Style           string
+	ComicStyles     []string
+	RealisticStyles []string
+	Theme           string
+	AspectRatio     string
+	Language        string
+	Script          string
+	UltraRealistic  bool
+	StoryPages      int
+	GalleryPages    int
+	PanelsPerPage   int
+	PromptMaxChars  int
+	PageMaxRetries  int
+	PageRetryBase   time.Duration
 }
 
 // Artist generates comic-book pages.
 type Artist struct {
-	imageProvider  provider.ImageProvider
-	textProvider   provider.TextProvider
-	prompts        PromptRenderer
-	outputDir      string
-	style          string
-	theme          string
-	language       string
-	script         string
-	ultraRealistic bool
-	storyPages     int
-	galleryPages   int
-	panelsPerPage  int
-	initErr        error
+	imageProvider   provider.ImageProvider
+	textProvider    provider.TextProvider
+	prompts         PromptRenderer
+	outputDir       string
+	style           string
+	comicStyles     []string
+	realisticStyles []string
+	theme           string
+	aspectRatio     string
+	language        string
+	script          string
+	ultraRealistic  bool
+	storyPages      int
+	galleryPages    int
+	panelsPerPage   int
+	promptMaxChars  int
+	pageMaxRetries  int
+	pageRetryBase   time.Duration
+	initErr         error
 }
 
 type referenceImageGenerator interface {
 	GenerateImageWithReferences(context.Context, string, string, [][]byte) error
+}
+
+type referenceAspectRatioImageGenerator interface {
+	GenerateImageWithReferencesAndAspectRatio(context.Context, string, string, [][]byte, string) error
 }
 
 var sleep = time.Sleep
@@ -72,7 +88,10 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	a.prompts = cfg.Prompts
 	a.outputDir = orDefault(cfg.OutputDir, a.outputDir)
 	a.style = cfg.Style
+	a.comicStyles = append([]string(nil), cfg.ComicStyles...)
+	a.realisticStyles = append([]string(nil), cfg.RealisticStyles...)
 	a.theme = cfg.Theme
+	a.aspectRatio = orDefault(cfg.AspectRatio, comicPageAspectRatio)
 	a.language = orDefault(cfg.Language, a.language)
 	a.script = orDefault(cfg.Script, a.script)
 	a.ultraRealistic = cfg.UltraRealistic
@@ -84,6 +103,13 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	}
 	if cfg.PanelsPerPage > 0 {
 		a.panelsPerPage = cfg.PanelsPerPage
+	}
+	a.promptMaxChars = normalizePositive(cfg.PromptMaxChars, comicPromptMaxChars)
+	a.pageMaxRetries = normalizePositive(cfg.PageMaxRetries, pageMaxRetries)
+	if cfg.PageRetryBase > 0 {
+		a.pageRetryBase = cfg.PageRetryBase
+	} else {
+		a.pageRetryBase = pageRetryBase
 	}
 
 	if a.imageProvider == nil {
@@ -102,7 +128,7 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	}
 	style := a.style
 	if style == "" {
-		style = pickStyle(nil, a.ultraRealistic)
+		style = pickStyle(a.comicStyles, a.realisticStyles, a.ultraRealistic)
 	}
 	fmt.Printf("  Comic style: %s\n", style)
 
@@ -184,7 +210,7 @@ func (a *Artist) renderPage(ctx context.Context, fileName, templateName string, 
 }
 
 func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, label string, refs [][]byte) error {
-	attempts := pageMaxRetries
+	attempts := a.pageMaxRetries
 	for attempt := 1; attempt <= attempts; attempt++ {
 		callCtx, cancel := withTimeout(ctx, helperTimeout)
 		err := a.generateImage(callCtx, prompt, outputFile, refs)
@@ -199,7 +225,7 @@ func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, labe
 			return nil
 		}
 		if attempt < attempts {
-			pause := pageRetryBase * time.Duration(attempt)
+			pause := a.pageRetryBase * time.Duration(attempt)
 			fmt.Printf("  Warning: %s attempt %d/%d failed (%v), retrying in %s...\n", label, attempt, attempts, err, pause)
 			sleep(pause)
 			continue
@@ -210,10 +236,16 @@ func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, labe
 }
 
 func (a *Artist) generateImage(ctx context.Context, prompt, outputFile string, refs [][]byte) error {
+	if withRefs, ok := a.imageProvider.(referenceAspectRatioImageGenerator); ok {
+		return withRefs.GenerateImageWithReferencesAndAspectRatio(ctx, prompt, outputFile, refs, a.aspectRatio)
+	}
 	if len(refs) > 0 {
 		if withRefs, ok := a.imageProvider.(referenceImageGenerator); ok {
 			return withRefs.GenerateImageWithReferences(ctx, prompt, outputFile, refs)
 		}
+	}
+	if withAspectRatio, ok := a.imageProvider.(provider.AspectRatioImageProvider); ok {
+		return withAspectRatio.GenerateImageWithAspectRatio(ctx, prompt, outputFile, a.aspectRatio)
 	}
 	return a.imageProvider.GenerateImage(ctx, prompt, outputFile)
 }
@@ -299,7 +331,7 @@ func (a *Artist) storyPagePromptData(section string, pageNum int, style, bible s
 		"RequiredDialoguePanels":  requiredDialoguePanels(a.panelsPerPage),
 		"TotalPanels":             a.storyPages * a.panelsPerPage,
 		"PanelLabelsText":         panelLabelsText(a.panelsPerPage),
-		"PanelLayout":             buildPanelLayout(section, pageScriptForPage(panelScript, pageNum-1), a.panelsPerPage),
+		"PanelLayout":             buildPanelLayout(section, pageScriptForPage(panelScript, pageNum-1), a.panelsPerPage, a.promptMaxChars),
 		"RenderingRequirement":    a.renderingRequirement(),
 		"RenderingRequirementEnd": a.renderingRequirementEnd(),
 	}
@@ -362,7 +394,7 @@ func pageScriptForPage(panelScript [][]string, idx int) []string {
 	return panelScript[idx]
 }
 
-func buildPanelLayout(section string, pagePanels []string, panelCount int) string {
+func buildPanelLayout(section string, pagePanels []string, panelCount, promptMaxChars int) string {
 	panelCount = normalizePositive(panelCount, defaultStoryPanelsPerPage)
 	if len(pagePanels) == panelCount && allPanelsPresent(pagePanels) {
 		var sb strings.Builder
@@ -378,8 +410,9 @@ func buildPanelLayout(section string, pagePanels []string, panelCount int) strin
 	}
 
 	excerpt := strings.TrimSpace(section)
-	if utf8.RuneCountInString(excerpt) > comicPromptMaxChars {
-		excerpt = string([]rune(excerpt)[:comicPromptMaxChars])
+	promptMaxChars = normalizePositive(promptMaxChars, comicPromptMaxChars)
+	if utf8.RuneCountInString(excerpt) > promptMaxChars {
+		excerpt = string([]rune(excerpt)[:promptMaxChars])
 		if idx := strings.LastIndex(excerpt, " "); idx > 0 {
 			excerpt = excerpt[:idx]
 		}

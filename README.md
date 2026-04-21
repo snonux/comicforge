@@ -72,6 +72,24 @@ comic:
   story_pages: 5
   gallery_pages: 5
   panels_per_page: 4
+  aspect_ratio: "16:9"
+  prompt_max_chars: 900
+  page_max_retries: 5
+  page_retry_base_seconds: 15
+
+story:
+  realistic_weight: 0.4
+
+styles:
+  comic:
+    - classic comic book with bold ink outlines
+    - graphic novel with dramatic shadows
+  realistic:
+    - ultra-realistic DSLR photography, cinematic 35mm lens
+    - cinematic realism with natural light
+
+narration:
+  chunk_words: 100
 
 prompts_dir: ./prompts
 ```
@@ -118,4 +136,3 @@ comicforge \
 ```
 
 The generated files are written under `out/comics/demo-comic/`.
-

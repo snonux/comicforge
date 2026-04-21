@@ -115,6 +115,34 @@ func TestGeminiProvider_Search_CustomPromptSkipsTextGeneration(t *testing.T) {
 	}
 }
 
+func TestGeminiProvider_UsesConfiguredAspectRatio(t *testing.T) {
+	originalText := geminiGenerateText
+	originalImage := geminiGenerateImage
+	t.Cleanup(func() {
+		geminiGenerateText = originalText
+		geminiGenerateImage = originalImage
+	})
+
+	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+		t.Fatal("unexpected text generation for configured aspect ratio")
+		return "", nil
+	}
+
+	var gotAspectRatio string
+	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error) {
+		gotAspectRatio = aspectRatio
+		return mustJPEGBytes(t), "image/jpeg", nil
+	}
+
+	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key", AspectRatio: "1:1"})
+	if err := client.GenerateImage(context.Background(), "Art style: comic.", t.TempDir()+"/out.png"); err != nil {
+		t.Fatalf("GenerateImage() unexpected error: %v", err)
+	}
+	if got, want := gotAspectRatio, "1:1"; got != want {
+		t.Fatalf("aspect ratio = %q, want %q", got, want)
+	}
+}
+
 func TestGeminiProvider_Search_CustomPromptWithoutTranslationKeepsDescriptionSimple(t *testing.T) {
 	originalText := geminiGenerateText
 	originalImage := geminiGenerateImage

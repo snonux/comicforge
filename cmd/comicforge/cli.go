@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -151,6 +152,8 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 		Prompts:               cfg,
 		OutputDir:             flags.outputDir,
 		Style:                 flags.style,
+		ComicStyles:           cfg.Styles.Comic,
+		RealisticStyles:       cfg.Styles.Realistic,
 		Theme:                 flags.theme,
 		Language:              cfg.Language.Story,
 		Script:                cfg.Language.Script,
@@ -158,6 +161,12 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 		Slug:                  flags.slug,
 		NarrateEnabled:        flags.narrateEnabled,
 		UltraRealistic:        resolveUltraRealistic(flags),
+		RealisticWeight:       cfg.Story.RealisticWeight,
+		AspectRatio:           cfg.Comic.AspectRatio,
+		PromptMaxChars:        cfg.Comic.PromptMaxChars,
+		PageMaxRetries:        cfg.Comic.PageMaxRetries,
+		PageRetryBase:         time.Duration(cfg.Comic.PageRetryBaseSeconds) * time.Second,
+		ChunkWords:            cfg.Narration.ChunkWords,
 		StoryPages:            cfg.Comic.StoryPages,
 		GalleryPages:          cfg.Comic.GalleryPages,
 		PanelsPerPage:         cfg.Comic.PanelsPerPage,

@@ -28,9 +28,10 @@ const (
 
 // GeminiConfig holds the settings needed to build a Gemini-backed image provider.
 type GeminiConfig struct {
-	APIKey    string
-	Model     string
-	TextModel string
+	APIKey      string
+	Model       string
+	TextModel   string
+	AspectRatio string
 }
 
 // GeminiProvider implements ImageProvider for Google Gemini image generation.
@@ -104,6 +105,9 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 	}
 
 	aspectRatio := geminiAspectRatio
+	if c.config != nil && strings.TrimSpace(c.config.AspectRatio) != "" {
+		aspectRatio = strings.TrimSpace(c.config.AspectRatio)
+	}
 	if opts.AspectRatio != "" {
 		aspectRatio = opts.AspectRatio
 	}
@@ -164,13 +168,26 @@ func (c *GeminiProvider) IsAvailable() error {
 
 // GenerateImage renders the first generated image to outputFile.
 func (c *GeminiProvider) GenerateImage(ctx context.Context, prompt, outputFile string) error {
-	return c.GenerateImageWithReferences(ctx, prompt, outputFile, nil)
+	return c.GenerateImageWithAspectRatio(ctx, prompt, outputFile, "")
+}
+
+// GenerateImageWithAspectRatio renders the first generated image to outputFile
+// using the configured aspect ratio or the supplied override.
+func (c *GeminiProvider) GenerateImageWithAspectRatio(ctx context.Context, prompt, outputFile string, aspectRatio string) error {
+	return c.GenerateImageWithReferencesAndAspectRatio(ctx, prompt, outputFile, nil, aspectRatio)
 }
 
 // GenerateImageWithReferences renders the first generated image to outputFile,
 // optionally conditioning the model on prior page images so comic pages stay
 // visually consistent across the full PDF.
 func (c *GeminiProvider) GenerateImageWithReferences(ctx context.Context, prompt, outputFile string, refs [][]byte) error {
+	return c.GenerateImageWithReferencesAndAspectRatio(ctx, prompt, outputFile, refs, "")
+}
+
+// GenerateImageWithReferencesAndAspectRatio renders the first generated image
+// to outputFile, optionally conditioning on reference images and overriding the
+// aspect ratio.
+func (c *GeminiProvider) GenerateImageWithReferencesAndAspectRatio(ctx context.Context, prompt, outputFile string, refs [][]byte, aspectRatio string) error {
 	if c == nil {
 		return fmt.Errorf("image provider is nil")
 	}
@@ -186,6 +203,9 @@ func (c *GeminiProvider) GenerateImageWithReferences(ctx context.Context, prompt
 	opts := &SearchOptions{CustomPrompt: prompt}
 	if len(refs) > 0 {
 		opts.ReferenceImages = refs
+	}
+	if strings.TrimSpace(aspectRatio) != "" {
+		opts.AspectRatio = strings.TrimSpace(aspectRatio)
 	}
 	results, err := c.Search(ctx, opts)
 	if err != nil {
