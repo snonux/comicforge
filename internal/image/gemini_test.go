@@ -114,6 +114,39 @@ func TestGeminiProvider_Search_CustomPromptSkipsTextGeneration(t *testing.T) {
 	}
 }
 
+func TestGeminiProvider_Search_CustomPromptWithoutTranslationKeepsDescriptionSimple(t *testing.T) {
+	originalText := geminiGenerateText
+	originalImage := geminiGenerateImage
+	t.Cleanup(func() {
+		geminiGenerateText = originalText
+		geminiGenerateImage = originalImage
+	})
+
+	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+		t.Fatal("unexpected text generation for custom prompt")
+		return "", nil
+	}
+
+	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, _ string, _ string) ([]byte, string, error) {
+		return mustJPEGBytes(t), "image/jpeg", nil
+	}
+
+	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	results, err := client.Search(context.Background(), &SearchOptions{
+		Query:        "ябълка",
+		CustomPrompt: "custom flashcard prompt",
+	})
+	if err != nil {
+		t.Fatalf("Search() unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if got := results[0].Description; got != "Generated educational image for ябълка" {
+		t.Fatalf("Description = %q, want %q", got, "Generated educational image for ябълка")
+	}
+}
+
 func TestGeminiProvider_Search_CustomPromptIsTruncated(t *testing.T) {
 	originalText := geminiGenerateText
 	originalImage := geminiGenerateImage

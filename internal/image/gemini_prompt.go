@@ -42,6 +42,11 @@ func (c *GeminiProvider) buildPrompt(ctx context.Context, opts *SearchOptions) (
 	}
 
 	translation := strings.TrimSpace(opts.Translation)
+	if customPrompt := normalizeCustomPrompt(opts.CustomPrompt); customPrompt != "" {
+		fmt.Printf("Using custom prompt: %s\n", customPrompt)
+		return customPrompt, translation, nil
+	}
+
 	translatedWord, err := c.resolveTranslation(ctx, opts, translation)
 	if err != nil {
 		return "", "", err
