@@ -210,6 +210,8 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"BlurbBox":                "правоъгълно текстово поле с кратък текст",
 		"SeriesTitle":             "КомиксФордж Приключения",
 		"Pose":                    "extreme close-up portrait",
+		"GalleryNum":              1,
+		"TotalGalleryPages":       5,
 	}
 
 	for _, name := range []string{

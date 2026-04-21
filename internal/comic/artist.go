@@ -345,6 +345,8 @@ func (a *Artist) galleryPromptData(style, bible string, galleryNum int) map[stri
 		"ScriptName":              localizedScriptName(a.script),
 		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
+		"GalleryNum":              galleryNum,
+		"TotalGalleryPages":       a.galleryPages,
 		"Pose":                    galleryPoses[(galleryNum-1)%len(galleryPoses)],
 		"RenderingRequirement":    a.renderingRequirement(),
 		"RenderingRequirementEnd": a.renderingRequirementEnd(),
