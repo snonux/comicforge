@@ -18,7 +18,7 @@ var ArtisticStyles = []string{
 	"Street Art", "Graffiti Art", "Installation Art", "Land Art",
 	"Conceptual Art", "Performance Art", "Video Art", "Net Art",
 	"Generative Art", "Algorithmic Art", "Fractal Art", "Glitch Art",
-	"Vaporwave", "Synthwave", "Cyberpunk", "Steampunk",
+	"Vaporwave", "Synthwave", "Steampunk",
 	"Fantasy Art", "Science Fiction Art", "Horror Art", "Gothic Art",
 	"Anime", "Manga", "Comic Book Art", "Cartoon",
 	"Caricature", "Editorial Illustration", "Children's Book Illustration", "Fashion Illustration",

@@ -57,20 +57,14 @@ styles:
     - 1990s superhero comic splash-page style like a bold caped hero punching a masked villain in a city, huge muscles, spandex costumes, explosions, halftone print texture
     - classic 90s action superhero cover style, oversized yellow masthead energy, caped spandex hero, armored villain, city skyline, speech balloons, Ben-Day dots
   manga:
-    - authentic black-and-white shonen manga page style, screentone shading, manga speed lines, large expressive eyes, sharp angular hair, impact bursts, minimal western color
-    - high-energy manga action style, monochrome ink, dense screentones, exaggerated emotional close-ups, chibi reaction inset, diagonal panel rhythm
-  cyberpunk:
-    - cyberpunk neon comic style, rain-slick streets, glowing signage, chrome technology
-    - tech-noir cyberpunk comic style, dense futuristic cityscapes, holograms, saturated neon rim lighting
-  golden_age:
-    - golden age superhero comic style, clean heroic poses, bright primary colors, optimistic mid-century adventure energy
-    - vintage golden age comic book style, bold flat colors, classic hero staging, retro print texture
+    - true monochrome Japanese shonen manga page, black ink only with grey screentone, no western color rendering, large expressive anime eyes, sharp spiky hair silhouettes, sweat drops, impact bursts, speed-line backgrounds, exaggerated emotion close-ups, dynamic diagonal manga panel language
+    - authentic serialized manga action art, crisp black linework, dense screentone gradients, white paper highlights, hand-drawn Japanese comic energy, chibi reaction inset, dramatic sound-effect shapes, cinematic close-ups, no painterly western comic coloring
   horror:
     - vintage horror comic style, eerie shadows, gothic atmosphere, unsettling monsters
     - creepy supernatural horror comic style, fog, haunted architecture, heavy inks
   watercolor:
-    - watercolor storybook comic style, soft washes, gentle ink outlines, luminous paper texture
-    - delicate watercolor children's adventure style, airy backgrounds, pastel palette, soft brush edges
+    - pure transparent watercolor storybook comic style, visible cold-press paper grain, watery pigment blooms, uneven wash edges, granulation, soft bleeding colors, pale layered washes, loose pencil underdrawing, no digital airbrush, no oil-paint texture, no glossy comic coloring
+    - hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering
 
 narration:
   voices:

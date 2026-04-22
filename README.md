@@ -6,7 +6,7 @@ ComicForge turns a vocabulary file into a generated comic package. It uses Gemin
 
 ## What It Does
 
-ComicForge reads a vocabulary list, generates a story from those words, renders comic pages, and saves supporting files alongside the comic. By default it uses Gemini for text, image, and text-to-speech generation. When no explicit style is provided, it randomly chooses between photorealistic, classic comic, rubber-hose cartoon, 90s action, manga, cyberpunk, golden-age superhero, horror, and watercolor storybook style families.
+ComicForge reads a vocabulary list, generates a story from those words, renders comic pages, and saves supporting files alongside the comic. By default it uses Gemini for text, image, and text-to-speech generation. When no explicit style is provided, it randomly chooses between photorealistic, classic comic, rubber-hose cartoon, 90s action, manga, horror, and watercolor storybook style families.
 
 It also supports a manual prompt mode for generating a single image directly from a prompt, without the vocabulary/story pipeline.
 

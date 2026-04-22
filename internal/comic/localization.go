@@ -58,8 +58,6 @@ func localizedStylePrompt(style, language, script string) string {
 		return "детска книжка с ярки, приветливи илюстрации и дебели контури"
 	case "painterly oil-on-canvas comic with loose brushwork and vivid impressionist colors":
 		return "живописен комикс с маслени щрихи и ярки импресионистични цветове"
-	case "cyberpunk neon art with glowing outlines, dark backgrounds, and electric accent colors":
-		return "киберпънк неонова визия с светещи контури, тъмни фонове и електрически акцентни цветове"
 	case "ultra-realistic DSLR photography, cinematic 35mm lens, natural lighting, hyper-detailed textures":
 		return "ултрареалистична фотография с кинематографичен 35 мм обектив, естествено осветление и силно детайлни текстури"
 	case "cinematic still photography, golden-hour lighting, shallow depth of field, photojournalism quality":

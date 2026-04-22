@@ -838,8 +838,6 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 		{name: "cartoon", styleMode: styleModeCartoon, wantStyle: "cartoon-ink"},
 		{name: "action90s", styleMode: styleModeAction90s, wantStyle: "action-ink"},
 		{name: "manga", styleMode: styleModeManga, wantStyle: "manga-ink"},
-		{name: "cyberpunk", styleMode: styleModeCyberpunk, wantStyle: "cyberpunk-ink"},
-		{name: "goldenAge", styleMode: styleModeGoldenAge, wantStyle: "golden-age-ink"},
 		{name: "horror", styleMode: styleModeHorror, wantStyle: "horror-ink"},
 		{name: "watercolor", styleMode: styleModeWatercolor, wantStyle: "watercolor-ink"},
 	}
@@ -857,8 +855,6 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 				CartoonStyles:    []string{"cartoon-ink"},
 				Action90sStyles:  []string{"action-ink"},
 				MangaStyles:      []string{"manga-ink"},
-				CyberpunkStyles:  []string{"cyberpunk-ink"},
-				GoldenAgeStyles:  []string{"golden-age-ink"},
 				HorrorStyles:     []string{"horror-ink"},
 				WatercolorStyles: []string{"watercolor-ink"},
 				Language:         "English",

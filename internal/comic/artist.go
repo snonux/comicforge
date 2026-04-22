@@ -25,8 +25,6 @@ type ArtistConfig struct {
 	CartoonStyles    []string
 	Action90sStyles  []string
 	MangaStyles      []string
-	CyberpunkStyles  []string
-	GoldenAgeStyles  []string
 	HorrorStyles     []string
 	WatercolorStyles []string
 	Theme            string
@@ -55,8 +53,6 @@ type Artist struct {
 	cartoonStyles    []string
 	action90sStyles  []string
 	mangaStyles      []string
-	cyberpunkStyles  []string
-	goldenAgeStyles  []string
 	horrorStyles     []string
 	watercolorStyles []string
 	theme            string
@@ -110,8 +106,6 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	a.cartoonStyles = append([]string(nil), cfg.CartoonStyles...)
 	a.action90sStyles = append([]string(nil), cfg.Action90sStyles...)
 	a.mangaStyles = append([]string(nil), cfg.MangaStyles...)
-	a.cyberpunkStyles = append([]string(nil), cfg.CyberpunkStyles...)
-	a.goldenAgeStyles = append([]string(nil), cfg.GoldenAgeStyles...)
 	a.horrorStyles = append([]string(nil), cfg.HorrorStyles...)
 	a.watercolorStyles = append([]string(nil), cfg.WatercolorStyles...)
 	a.theme = cfg.Theme
@@ -158,8 +152,6 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 			a.cartoonStyles,
 			a.action90sStyles,
 			a.mangaStyles,
-			a.cyberpunkStyles,
-			a.goldenAgeStyles,
 			a.horrorStyles,
 			a.watercolorStyles,
 			a.styleMode,

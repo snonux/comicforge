@@ -53,10 +53,6 @@ styles:
     - custom 90s action
   manga:
     - custom manga
-  cyberpunk:
-    - custom cyberpunk
-  golden_age:
-    - custom golden age
   horror:
     - custom horror
   watercolor:
@@ -115,12 +111,6 @@ narration:
 	}
 	if got, want := len(cfg.Styles.Manga), 1; got != want || cfg.Styles.Manga[0] != "custom manga" {
 		t.Fatalf("Styles.Manga = %#v, want %q", cfg.Styles.Manga, "custom manga")
-	}
-	if got, want := len(cfg.Styles.Cyberpunk), 1; got != want || cfg.Styles.Cyberpunk[0] != "custom cyberpunk" {
-		t.Fatalf("Styles.Cyberpunk = %#v, want %q", cfg.Styles.Cyberpunk, "custom cyberpunk")
-	}
-	if got, want := len(cfg.Styles.GoldenAge), 1; got != want || cfg.Styles.GoldenAge[0] != "custom golden age" {
-		t.Fatalf("Styles.GoldenAge = %#v, want %q", cfg.Styles.GoldenAge, "custom golden age")
 	}
 	if got, want := len(cfg.Styles.Horror), 1; got != want || cfg.Styles.Horror[0] != "custom horror" {
 		t.Fatalf("Styles.Horror = %#v, want %q", cfg.Styles.Horror, "custom horror")

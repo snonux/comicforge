@@ -95,21 +95,9 @@ var (
 	}
 
 	defaultMangaStyles = []string{
-		"authentic black-and-white shonen manga page style, right-to-left manga energy, screentone shading, manga speed lines, large expressive eyes, sharp angular hair, sweat drops, impact bursts, Japanese comic panel language, minimal western color",
-		"high-energy manga action style, monochrome ink, dense screentones, exaggerated emotional close-ups, chibi reaction inset where appropriate, motion blur lines, diagonal panel rhythm, dramatic sound-effect shapes",
-		"modern manga fantasy comic style, elegant anime-inspired character designs, big eyes, spiky hair silhouettes, black ink linework, grey screentone gradients, explosive action frames, cinematic close-ups",
-	}
-
-	defaultCyberpunkStyles = []string{
-		"cyberpunk neon comic style, rain-slick streets, glowing signage, chrome technology, high contrast shadows, electric cyan and magenta accents",
-		"tech-noir cyberpunk comic style, dense futuristic cityscapes, holograms, cybernetic details, saturated neon rim lighting",
-		"futuristic cyberpunk action comic style, laser-lit alleys, augmented heroes, digital glitches, saturated night colors, sharp ink silhouettes",
-	}
-
-	defaultGoldenAgeStyles = []string{
-		"golden age superhero comic style, clean heroic poses, bright primary colors, simple confident linework, optimistic mid-century adventure energy",
-		"vintage golden age comic book style, bold flat colors, classic caped hero staging, simple dramatic compositions, retro print texture",
-		"1940s superhero serial comic style, square-jawed heroes, clear action, hand-lettered poster energy, bright optimistic palette",
+		"true monochrome Japanese shonen manga page, black ink only with grey screentone, no western color rendering, large expressive anime eyes, sharp spiky hair silhouettes, sweat drops, impact bursts, speed-line backgrounds, exaggerated emotion close-ups, dynamic diagonal manga panel language",
+		"authentic serialized manga action art, crisp black linework, dense screentone gradients, white paper highlights, hand-drawn Japanese comic energy, chibi reaction inset where appropriate, dramatic sound-effect shapes, cinematic close-ups, no painterly western comic coloring",
+		"modern black-and-white manga fantasy style, anime character proportions, big eyes, angular hair, thin-to-thick ink strokes, patterned screentones, motion streaks, expressive face acting, explosive action frames, minimal color accents only if unavoidable",
 	}
 
 	defaultHorrorStyles = []string{
@@ -119,9 +107,9 @@ var (
 	}
 
 	defaultWatercolorStyles = []string{
-		"watercolor storybook comic style, soft washes, gentle ink outlines, luminous paper texture, warm hand-painted colors, whimsical atmosphere",
-		"delicate watercolor children's adventure style, airy backgrounds, expressive simple characters, pastel palette, soft brush edges",
-		"storybook watercolor fantasy comic style, transparent layered color, soft paper grain, tender expressions, dreamy illustrated settings",
+		"pure transparent watercolor storybook comic style, visible cold-press paper grain, watery pigment blooms, uneven wash edges, granulation, soft bleeding colors, pale layered washes, loose pencil underdrawing, no digital airbrush, no oil-paint texture, no glossy comic coloring",
+		"hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering",
+		"storybook watercolor fantasy comic style, washed paper texture, transparent layered color, soft backruns and blossoms, feathered brush edges, muted handmade palette, tender expressions, dreamy illustrated settings, visibly painted on paper",
 	}
 
 	realisticStyles  = defaultRealisticStyles
@@ -129,8 +117,6 @@ var (
 	cartoonStyles    = defaultCartoonStyles
 	action90sStyles  = defaultAction90sStyles
 	mangaStyles      = defaultMangaStyles
-	cyberpunkStyles  = defaultCyberpunkStyles
-	goldenAgeStyles  = defaultGoldenAgeStyles
 	horrorStyles     = defaultHorrorStyles
 	watercolorStyles = defaultWatercolorStyles
 
@@ -149,8 +135,6 @@ const (
 	styleModeCartoon    = "cartoon"
 	styleModeAction90s  = "action_90s"
 	styleModeManga      = "manga"
-	styleModeCyberpunk  = "cyberpunk"
-	styleModeGoldenAge  = "golden_age"
 	styleModeHorror     = "horror"
 	styleModeWatercolor = "watercolor"
 )
@@ -214,8 +198,6 @@ func pickStyleMode(forcedUltra *bool) string {
 		styleModeCartoon,
 		styleModeAction90s,
 		styleModeManga,
-		styleModeCyberpunk,
-		styleModeGoldenAge,
 		styleModeHorror,
 		styleModeWatercolor,
 	}
@@ -228,8 +210,6 @@ func pickStyle(
 	cartoonStyles,
 	action90sStyles,
 	mangaStyles,
-	cyberpunkStyles,
-	goldenAgeStyles,
 	horrorStyles,
 	watercolorStyles []string,
 	mode string,
@@ -267,22 +247,6 @@ func pickStyle(
 			return ""
 		}
 		return mangaStyles[rand.IntN(len(mangaStyles))]
-	case styleModeCyberpunk:
-		if len(cyberpunkStyles) == 0 {
-			cyberpunkStyles = defaultCyberpunkStyles
-		}
-		if len(cyberpunkStyles) == 0 {
-			return ""
-		}
-		return cyberpunkStyles[rand.IntN(len(cyberpunkStyles))]
-	case styleModeGoldenAge:
-		if len(goldenAgeStyles) == 0 {
-			goldenAgeStyles = defaultGoldenAgeStyles
-		}
-		if len(goldenAgeStyles) == 0 {
-			return ""
-		}
-		return goldenAgeStyles[rand.IntN(len(goldenAgeStyles))]
 	case styleModeHorror:
 		if len(horrorStyles) == 0 {
 			horrorStyles = defaultHorrorStyles

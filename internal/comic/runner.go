@@ -44,8 +44,6 @@ type RunnerConfig struct {
 	CartoonStyles         []string
 	Action90sStyles       []string
 	MangaStyles           []string
-	CyberpunkStyles       []string
-	GoldenAgeStyles       []string
 	HorrorStyles          []string
 	WatercolorStyles      []string
 	AspectRatio           string
@@ -102,8 +100,6 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		CartoonStyles:    cfg.CartoonStyles,
 		Action90sStyles:  cfg.Action90sStyles,
 		MangaStyles:      cfg.MangaStyles,
-		CyberpunkStyles:  cfg.CyberpunkStyles,
-		GoldenAgeStyles:  cfg.GoldenAgeStyles,
 		HorrorStyles:     cfg.HorrorStyles,
 		WatercolorStyles: cfg.WatercolorStyles,
 		Theme:            cfg.Theme,

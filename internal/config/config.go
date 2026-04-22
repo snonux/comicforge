@@ -100,8 +100,6 @@ type StyleConfig struct {
 	Cartoon    []string `mapstructure:"cartoon" yaml:"cartoon"`
 	Action90s  []string `mapstructure:"action_90s" yaml:"action_90s"`
 	Manga      []string `mapstructure:"manga" yaml:"manga"`
-	Cyberpunk  []string `mapstructure:"cyberpunk" yaml:"cyberpunk"`
-	GoldenAge  []string `mapstructure:"golden_age" yaml:"golden_age"`
 	Horror     []string `mapstructure:"horror" yaml:"horror"`
 	Watercolor []string `mapstructure:"watercolor" yaml:"watercolor"`
 }
@@ -160,32 +158,24 @@ func DefaultConfig() *Config {
 				"cinematic realism with natural light",
 			},
 			Cartoon: []string{
-				"very cartoonish 1930s rubber-hose animation comic style, pie-cut eyes, white gloves, noodle arms, squash-and-stretch bodies, round heads, huge expressions, flat candy colors, simple gag staging, no realism",
-				"vintage theatrical funny-animal cartoon comic style, beaks and round snouts, white gloves, oversized shoes, elastic limbs, cheerful slapstick poses, bold clean outlines, bright flat backgrounds, no realistic anatomy",
+				"extremely cartoonish 1930s rubber-hose funny-animal comic style, original mouse-and-duck-era mascot energy, pie-cut eyes, button noses or beaks, white gloves, oversized shoes, noodle arms, squash-and-stretch bodies, round heads, huge expressions, flat candy colors, simple gag staging, absolutely no realism",
+				"vintage theatrical funny-animal cartoon comic style, redesign people as original anthropomorphic mascot characters with beaks or round snouts, pie-cut eyes, white gloves, oversized shoes, elastic limbs, cheerful slapstick poses, bold clean outlines, bright flat backgrounds, no realistic anatomy",
 			},
 			Action90s: []string{
 				"1990s superhero comic splash-page style like a bold caped hero punching a masked villain in a city, huge muscles, spandex costumes, flowing cape, explosive impact burst, speed lines, smoke, rubble, halftone print texture, heavy black inks, saturated primary colors",
 				"classic 90s action superhero cover style, oversized yellow masthead energy, caped spandex hero, armored villain, clenched fists, dramatic foreshortening, city skyline, explosions, speech balloons, thick ink outlines, Ben-Day dots",
 			},
 			Manga: []string{
-				"authentic black-and-white shonen manga page style, right-to-left manga energy, screentone shading, manga speed lines, large expressive eyes, sharp angular hair, sweat drops, impact bursts, Japanese comic panel language, minimal western color",
-				"high-energy manga action style, monochrome ink, dense screentones, exaggerated emotional close-ups, chibi reaction inset where appropriate, motion blur lines, diagonal panel rhythm, dramatic sound-effect shapes",
-			},
-			Cyberpunk: []string{
-				"cyberpunk neon comic style, rain-slick streets, glowing signage, chrome technology, high contrast shadows, electric cyan and magenta accents",
-				"tech-noir cyberpunk comic style, dense futuristic cityscapes, holograms, cybernetic details, saturated neon rim lighting",
-			},
-			GoldenAge: []string{
-				"golden age superhero comic style, clean heroic poses, bright primary colors, simple confident linework, optimistic mid-century adventure energy",
-				"vintage golden age comic book style, bold flat colors, classic caped hero staging, simple dramatic compositions, retro print texture",
+				"true monochrome Japanese shonen manga page, black ink only with grey screentone, no western color rendering, large expressive anime eyes, sharp spiky hair silhouettes, sweat drops, impact bursts, speed-line backgrounds, exaggerated emotion close-ups, dynamic diagonal manga panel language",
+				"authentic serialized manga action art, crisp black linework, dense screentone gradients, white paper highlights, hand-drawn Japanese comic energy, chibi reaction inset where appropriate, dramatic sound-effect shapes, cinematic close-ups, no painterly western comic coloring",
 			},
 			Horror: []string{
 				"vintage horror comic style, eerie shadows, gothic atmosphere, unsettling monsters, dramatic candlelit contrast, suspenseful panel staging",
 				"creepy supernatural horror comic style, fog, haunted architecture, anxious expressions, heavy inks, sickly green and crimson accents",
 			},
 			Watercolor: []string{
-				"watercolor storybook comic style, soft washes, gentle ink outlines, luminous paper texture, warm hand-painted colors, whimsical atmosphere",
-				"delicate watercolor children's adventure style, airy backgrounds, expressive simple characters, pastel palette, soft brush edges",
+				"pure transparent watercolor storybook comic style, visible cold-press paper grain, watery pigment blooms, uneven wash edges, granulation, soft bleeding colors, pale layered washes, loose pencil underdrawing, no digital airbrush, no oil-paint texture, no glossy comic coloring",
+				"hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering",
 			},
 		},
 		Narration: NarrationConfig{
@@ -426,8 +416,6 @@ func setDefaults(v *viper.Viper, cfg *Config) {
 	v.SetDefault("styles.cartoon", cfg.Styles.Cartoon)
 	v.SetDefault("styles.action_90s", cfg.Styles.Action90s)
 	v.SetDefault("styles.manga", cfg.Styles.Manga)
-	v.SetDefault("styles.cyberpunk", cfg.Styles.Cyberpunk)
-	v.SetDefault("styles.golden_age", cfg.Styles.GoldenAge)
 	v.SetDefault("styles.horror", cfg.Styles.Horror)
 	v.SetDefault("styles.watercolor", cfg.Styles.Watercolor)
 
