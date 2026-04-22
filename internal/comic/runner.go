@@ -281,7 +281,7 @@ func (r *Runner) saveTTSPlaceholder(titleSlug, dir string) error {
 }
 
 func copyGalleryPNGsToComicsGallery(outputRoot, comicDir string) error {
-	destDir := filepath.Join(outputRoot, "comics", "gallery")
+	destDir := filepath.Join(outputRoot, "gallery")
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return fmt.Errorf("mkdir gallery: %w", err)
 	}
