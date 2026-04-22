@@ -4,6 +4,8 @@ import (
 	"strings"
 )
 
+const maxPromptSlugLength = 48
+
 // slugify converts a comic title into a safe file-name component.
 func slugify(title string) string {
 	title = strings.ToLower(strings.TrimSpace(title))
@@ -27,6 +29,32 @@ func slugify(title string) string {
 		return "comic"
 	}
 	return slug
+}
+
+func shortSlug(title, fallback string) string {
+	slug := slugify(title)
+	if slug == "comic" {
+		slug = fallback
+	}
+	if slug == "" {
+		slug = fallback
+	}
+	if len(slug) <= maxPromptSlugLength {
+		return slug
+	}
+	cut := strings.LastIndex(slug[:maxPromptSlugLength+1], "-")
+	if cut < 12 {
+		cut = maxPromptSlugLength
+	}
+	slug = strings.TrimRight(slug[:cut], "-")
+	if slug == "" {
+		return fallback
+	}
+	return slug
+}
+
+func shortPromptSlugFromText(text string) string {
+	return shortSlug(text, "manual-prompt")
 }
 
 // splitIntoSections divides text into n sections, preferring paragraph boundaries.

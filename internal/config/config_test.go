@@ -101,6 +101,33 @@ narration:
 	}
 }
 
+func TestLoadFallsBackToGoogleAPIKeyEnv(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "fallback-key")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if got, want := cfg.GoogleAPIKey(), "fallback-key"; got != want {
+		t.Fatalf("GoogleAPIKey() = %q, want %q", got, want)
+	}
+}
+
+func TestLoadPrefersComicForgeGoogleAPIKeyEnv(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "fallback-key")
+	t.Setenv("COMICFORGE_API_GOOGLE_API_KEY", "comicforge-key")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if got, want := cfg.GoogleAPIKey(), "comicforge-key"; got != want {
+		t.Fatalf("GoogleAPIKey() = %q, want %q", got, want)
+	}
+}
+
 func TestRenderPrompt(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := DefaultConfig()

@@ -1,6 +1,6 @@
 # ComicForge
 
-![ComicForge logo](assets/comicforge-logo.png)
+![ComicForge](assets/comicforge.png)
 
 ComicForge turns a vocabulary file into a generated comic package. It uses Gemini-backed providers to write a story, draw comic pages, and optionally produce narration. The CLI writes comic assets into `./comics/assets/<slug>/`, gallery copies into `./comics/gallery/`, and final PDFs into `./comics/PDF/`.
 
@@ -54,6 +54,8 @@ Environment variables also work. `COMICFORGE_` is the prefix, and dots in config
 - `COMICFORGE_MODELS_IMAGE`
 - `COMICFORGE_COMIC_STORY_PAGES`
 
+If `COMICFORGE_API_GOOGLE_API_KEY` is not set, ComicForge falls back to `GOOGLE_API_KEY`.
+
 Start from [`config.yaml.example`](config.yaml.example). The important settings are:
 
 ```yaml
@@ -97,7 +99,7 @@ narration:
 prompts_dir: ./prompts
 ```
 
-`provider.*` currently supports Gemini in this codebase. Set `api.google_api_key` or `COMICFORGE_API_GOOGLE_API_KEY` for Gemini-backed generation.
+`provider.*` currently supports Gemini in this codebase. Set `api.google_api_key`, `COMICFORGE_API_GOOGLE_API_KEY`, or fallback `GOOGLE_API_KEY` for Gemini-backed generation.
 
 ## Usage
 

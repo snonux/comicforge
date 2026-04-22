@@ -197,6 +197,7 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("decode config: %w", err)
 	}
 
+	applyEnvFallbacks(cfg)
 	cfg.normalize()
 	if err := cfg.validate(); err != nil {
 		return nil, err
@@ -392,4 +393,13 @@ func setDefaults(v *viper.Viper, cfg *Config) {
 	v.SetDefault("narration.chunk_words", cfg.Narration.ChunkWords)
 
 	v.SetDefault("prompts_dir", cfg.PromptsDir)
+}
+
+func applyEnvFallbacks(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if cfg.API.GoogleAPIKey == "" {
+		cfg.API.GoogleAPIKey = os.Getenv("GOOGLE_API_KEY")
+	}
 }

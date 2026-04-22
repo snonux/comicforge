@@ -14,9 +14,7 @@ import (
 const binaryName = "comicforge"
 
 // Default builds the project.
-func Default() {
-	mg.Deps(Build)
-}
+var Default = Build
 
 // Build compiles the comicforge binary.
 func Build() error {

@@ -212,12 +212,9 @@ func (r *Runner) RunPrompt(ctx context.Context, prompt string) error {
 	}
 
 	dir := orDefault(r.config.OutputDir, ".")
-	slug := strings.TrimSpace(r.config.Slug)
-	if slug == "" {
-		slug = slugify(prompt)
-		if slug == "" || slug == "comic" {
-			slug = "manual-prompt"
-		}
+	slug, err := r.manualPromptSlug(ctx, prompt)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not generate prompt title: %v\n", err)
 	}
 
 	assetsDir := comicAssetsDir(dir, slug)
@@ -232,6 +229,58 @@ func (r *Runner) RunPrompt(ctx context.Context, prompt string) error {
 	}
 	fmt.Printf("Prompt image saved: %s\n", outputFile)
 	return nil
+}
+
+func (r *Runner) manualPromptSlug(ctx context.Context, prompt string) (string, error) {
+	if forced := strings.TrimSpace(r.config.Slug); forced != "" {
+		return forced, nil
+	}
+	fallback := shortPromptSlugFromText(prompt)
+	if r.config.TextProvider == nil || r.config.Prompts == nil {
+		return fallback, nil
+	}
+	title, err := r.generateManualPromptTitle(ctx, prompt)
+	if err != nil {
+		return fallback, err
+	}
+	if titleSlug := shortPromptSlugFromText(title); titleSlug != "manual-prompt" {
+		fmt.Printf("  Prompt title: %q (slug: %s)\n", title, titleSlug)
+		return titleSlug, nil
+	}
+	return fallback, nil
+}
+
+func (r *Runner) generateManualPromptTitle(ctx context.Context, prompt string) (string, error) {
+	renderedPrompt, err := r.config.Prompts.RenderPrompt(manualTitlePromptTemplate, map[string]any{
+		"Prompt": prompt,
+	})
+	if err != nil {
+		return "", fmt.Errorf("render manual title prompt: %w", err)
+	}
+	callCtx, cancel := withTimeout(ctx, helperTimeout)
+	defer cancel()
+	text, err := r.config.TextProvider.GenerateText(callCtx, renderedPrompt)
+	if err != nil {
+		return "", fmt.Errorf("generate manual title: %w", err)
+	}
+	title := cleanManualPromptTitle(text)
+	if title == "" {
+		return "", fmt.Errorf("manual title was empty")
+	}
+	if err := validateNoPromptLeakage("manual prompt title", title); err != nil {
+		return "", err
+	}
+	return title, nil
+}
+
+func cleanManualPromptTitle(text string) string {
+	text = strings.TrimSpace(text)
+	if idx := strings.IndexByte(text, '\n'); idx >= 0 {
+		text = text[:idx]
+	}
+	text = strings.TrimSpace(text)
+	text = strings.Trim(text, `"'“”‘’.:;`)
+	return strings.Join(strings.Fields(text), " ")
 }
 
 func comicsRootDir(outputRoot string) string {
