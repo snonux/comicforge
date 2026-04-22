@@ -2,7 +2,7 @@
 
 ![ComicForge logo](assets/comicforge-logo.png)
 
-ComicForge turns a vocabulary file into a generated comic package. It uses Gemini-backed providers to write a story, draw comic pages, and optionally produce narration. The CLI writes the finished assets into `./comics/<slug>/` and can also assemble a PDF.
+ComicForge turns a vocabulary file into a generated comic package. It uses Gemini-backed providers to write a story, draw comic pages, and optionally produce narration. The CLI writes comic assets into `./comics/assets/<slug>/`, gallery copies into `./comics/gallery/`, and final PDFs into `./comics/PDF/`.
 
 ## What It Does
 
@@ -10,12 +10,13 @@ ComicForge reads a vocabulary list, generates a story from those words, renders 
 
 Generated output includes:
 
-- story text
-- vocabulary recap
-- theme file
-- comic page PNGs
-- PDF output when page rendering succeeds
-- narration MP3 when narration is enabled and a TTS provider is available
+- story text in `comics/assets/<slug>/`
+- vocabulary recap in `comics/assets/<slug>/`
+- theme file in `comics/assets/<slug>/`
+- comic page PNGs in `comics/assets/<slug>/`
+- gallery PNG copies in `comics/gallery/`
+- PDF output in `comics/PDF/` when page rendering succeeds
+- narration MP3 in `comics/assets/<slug>/` when narration is enabled and a TTS provider is available
 
 ## Installation
 
@@ -135,4 +136,4 @@ comicforge \
   --narrate
 ```
 
-The generated files are written under `out/comics/demo-comic/`.
+The generated files are written under `out/comics/assets/demo-comic/`, with the gallery copied to `out/comics/gallery/` and the PDF written to `out/comics/PDF/`.

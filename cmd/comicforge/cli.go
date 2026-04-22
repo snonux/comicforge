@@ -93,7 +93,7 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 	cmd.Flags().StringVar(&flags.vocab, "vocab", "", "path to the vocabulary input file")
 	cmd.Flags().StringVar(&flags.configPath, "config", "", "config file (default: search ~/.config/comicforge, $HOME, and .)")
 	cmd.Flags().StringVar(&flags.promptsDir, "prompts-dir", "", "directory containing prompt templates")
-	cmd.Flags().StringVar(&flags.outputDir, "output", ".", "output directory for generated comic assets")
+	cmd.Flags().StringVar(&flags.outputDir, "output", ".", "root output directory for generated comic data")
 	cmd.Flags().StringVar(&flags.style, "style", "", "comic art style override")
 	cmd.Flags().StringVar(&flags.theme, "theme", "", "story theme override")
 	cmd.Flags().BoolVar(&flags.ultraRealistic, "ultra-realistic", false, "force photorealistic rendering")

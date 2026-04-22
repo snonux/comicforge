@@ -183,17 +183,26 @@ func TestValidateGeneratedResultUsesExcelStylePanelLabels(t *testing.T) {
 	}
 }
 
-func TestComicOutputDirDoesNotDuplicateComicsSegment(t *testing.T) {
+func TestComicAssetAndPDFDirs(t *testing.T) {
 	t.Parallel()
 
-	if got, want := comicOutputDir("comics", "slug"), filepath.Join("comics", "slug"); got != want {
-		t.Fatalf("comicOutputDir() = %q, want %q", got, want)
+	if got, want := comicAssetsDir("comics", "slug"), filepath.Join("comics", "assets", "slug"); got != want {
+		t.Fatalf("comicAssetsDir() = %q, want %q", got, want)
 	}
-	if got, want := comicOutputDir(".", "slug"), filepath.Join(".", "comics", "slug"); got != want {
-		t.Fatalf("comicOutputDir() = %q, want %q", got, want)
+	if got, want := comicAssetsDir(".", "slug"), filepath.Join(".", "comics", "assets", "slug"); got != want {
+		t.Fatalf("comicAssetsDir() = %q, want %q", got, want)
 	}
-	if got, want := comicOutputDir("/tmp/out", "slug"), filepath.Join("/tmp/out", "comics", "slug"); got != want {
-		t.Fatalf("comicOutputDir() = %q, want %q", got, want)
+	if got, want := comicAssetsDir("/tmp/out", "slug"), filepath.Join("/tmp/out", "comics", "assets", "slug"); got != want {
+		t.Fatalf("comicAssetsDir() = %q, want %q", got, want)
+	}
+	if got, want := comicsPDFDir("comics"), filepath.Join("comics", "PDF"); got != want {
+		t.Fatalf("comicsPDFDir() = %q, want %q", got, want)
+	}
+	if got, want := comicsPDFDir("."), filepath.Join(".", "comics", "PDF"); got != want {
+		t.Fatalf("comicsPDFDir() = %q, want %q", got, want)
+	}
+	if got, want := comicsPDFDir("/tmp/out"), filepath.Join("/tmp/out", "comics", "PDF"); got != want {
+		t.Fatalf("comicsPDFDir() = %q, want %q", got, want)
 	}
 }
 
@@ -409,8 +418,11 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	if err := runner.Run(context.Background(), filepath.Join(tmpDir, "vocab.txt")); err != nil {
 		t.Fatalf("Runner.Run() error = %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "forced-slug", "forced-slug.pdf")); err != nil {
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "PDF", "forced-slug.pdf")); err != nil {
 		t.Fatalf("pdf missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "assets", "forced-slug", "forced-slug_story.txt")); err != nil {
+		t.Fatalf("story missing: %v", err)
 	}
 }
 

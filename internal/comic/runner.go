@@ -146,19 +146,22 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		fmt.Printf("  Comic title: %q (slug: %s)\n", result.Title, slug)
 	}
 
-	comicsDir := comicOutputDir(dir, slug)
-	if err := os.MkdirAll(comicsDir, 0o755); err != nil {
-		return fmt.Errorf("create comics dir %s: %w", comicsDir, err)
+	assetsDir := comicAssetsDir(dir, slug)
+	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
+		return fmt.Errorf("create comics assets dir %s: %w", assetsDir, err)
 	}
-	r.artist.outputDir = comicsDir
+	if err := os.MkdirAll(comicsPDFDir(dir), 0o755); err != nil {
+		return fmt.Errorf("create comics pdf dir %s: %w", comicsPDFDir(dir), err)
+	}
+	r.artist.outputDir = assetsDir
 
-	if err := r.saveStoryText(result.StoryText, slug, comicsDir); err != nil {
+	if err := r.saveStoryText(result.StoryText, slug, assetsDir); err != nil {
 		return err
 	}
-	if err := r.saveVocabularyFile(result.StoryText, entries, slug, comicsDir); err != nil {
+	if err := r.saveVocabularyFile(result.StoryText, entries, slug, assetsDir); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not write vocabulary file: %v\n", err)
 	}
-	if err := r.saveThemeFile(slug, comicsDir); err != nil {
+	if err := r.saveThemeFile(slug, assetsDir); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not write theme file: %v\n", err)
 	}
 
@@ -169,12 +172,12 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 	for _, path := range paths {
 		fmt.Printf("Comic page saved: %s\n", path)
 	}
-	rootDir := filepath.Dir(filepath.Dir(r.artist.outputDir))
+	rootDir := comicsRootDir(dir)
 	if err := copyGalleryPNGsToComicsGallery(rootDir, r.artist.outputDir); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
 	}
 	if len(paths) > 0 {
-		pdfPath, err := r.assemblePDF(r.artist.outputDir, slug, paths)
+		pdfPath, err := r.assemblePDF(comicsPDFDir(dir), slug, paths)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
 		} else {
@@ -186,15 +189,23 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		fmt.Println("Narration skipped (enable narration in config to produce audio).")
 		return nil
 	}
-	return r.handleNarration(ctx, result.StoryText, slug, comicsDir)
+	return r.handleNarration(ctx, result.StoryText, slug, assetsDir)
 }
 
-func comicOutputDir(outputRoot, slug string) string {
+func comicsRootDir(outputRoot string) string {
 	root := orDefault(outputRoot, ".")
 	if filepath.Base(filepath.Clean(root)) == "comics" {
-		return filepath.Join(root, slug)
+		return root
 	}
-	return filepath.Join(root, "comics", slug)
+	return filepath.Join(root, "comics")
+}
+
+func comicAssetsDir(outputRoot, slug string) string {
+	return filepath.Join(comicsRootDir(outputRoot), "assets", slug)
+}
+
+func comicsPDFDir(outputRoot string) string {
+	return filepath.Join(comicsRootDir(outputRoot), "PDF")
 }
 
 var _ StoryRunner = (*Runner)(nil)
