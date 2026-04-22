@@ -210,12 +210,22 @@ func (a *Artist) renderPage(ctx context.Context, fileName, templateName string, 
 }
 
 func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, label string, refs [][]byte) error {
+	return a.generateWithRetryAndValidation(ctx, prompt, outputFile, label, refs, validateImagePromptLeakageFn)
+}
+
+func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile string) error {
+	return a.generateWithRetryAndValidation(ctx, prompt, outputFile, "manual prompt image", nil, nil)
+}
+
+type imageOutputValidator func(context.Context, string, string, string) error
+
+func (a *Artist) generateWithRetryAndValidation(ctx context.Context, prompt, outputFile, label string, refs [][]byte, validator imageOutputValidator) error {
 	attempts := a.pageMaxRetries
 	for attempt := 1; attempt <= attempts; attempt++ {
 		callCtx, cancel := withTimeout(ctx, helperTimeout)
 		err := a.generateImage(callCtx, prompt, outputFile, refs)
-		if err == nil {
-			if leakErr := validateImagePromptLeakageFn(callCtx, outputFile, label, a.script); leakErr != nil {
+		if err == nil && validator != nil {
+			if leakErr := validator(callCtx, outputFile, label, a.script); leakErr != nil {
 				_ = os.Remove(outputFile)
 				err = leakErr
 			}

@@ -8,6 +8,8 @@ ComicForge turns a vocabulary file into a generated comic package. It uses Gemin
 
 ComicForge reads a vocabulary list, generates a story from those words, renders comic pages, and saves supporting files alongside the comic. By default it uses Gemini for text, image, and text-to-speech generation.
 
+It also supports a manual prompt mode for generating a single image directly from a prompt, without the vocabulary/story pipeline.
+
 Generated output includes:
 
 - story text in `comics/assets/<slug>/`
@@ -115,6 +117,7 @@ Vocabulary lines can be:
 Useful flags:
 
 - `--output` sets the root output directory
+- `--prompt` generates a single image from a direct prompt and skips the story flow
 - `--prompts-dir` overrides the prompt template directory
 - `--style` and `--theme` override story generation hints
 - `--slug` forces the output folder name
@@ -137,3 +140,11 @@ comicforge \
 ```
 
 The generated files are written under `out/comics/assets/demo-comic/`, with the gallery copied to `out/comics/gallery/` and the PDF written to `out/comics/PDF/`.
+
+For manual prompt mode:
+
+```bash
+comicforge --prompt "a robot reading a newspaper" --output out --slug manual-robot
+```
+
+This writes a single image to `out/comics/assets/manual-robot/prompt.png`.

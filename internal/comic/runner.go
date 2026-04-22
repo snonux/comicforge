@@ -192,6 +192,45 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 	return r.handleNarration(ctx, result.StoryText, slug, assetsDir)
 }
 
+// RunPrompt renders a single image from a direct user prompt.
+func (r *Runner) RunPrompt(ctx context.Context, prompt string) error {
+	if r == nil || r.config == nil {
+		return fmt.Errorf("runner config is required")
+	}
+	if r.artist == nil {
+		return fmt.Errorf("runner providers are not configured")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return fmt.Errorf("prompt is required")
+	}
+
+	dir := orDefault(r.config.OutputDir, ".")
+	slug := strings.TrimSpace(r.config.Slug)
+	if slug == "" {
+		slug = slugify(prompt)
+		if slug == "" || slug == "comic" {
+			slug = "manual-prompt"
+		}
+	}
+
+	assetsDir := comicAssetsDir(dir, slug)
+	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
+		return fmt.Errorf("create comics assets dir %s: %w", assetsDir, err)
+	}
+
+	r.artist.outputDir = assetsDir
+	outputFile := filepath.Join(assetsDir, "prompt.png")
+	if err := r.artist.generatePromptImage(ctx, prompt, outputFile); err != nil {
+		return fmt.Errorf("prompt image generation failed: %w", err)
+	}
+	fmt.Printf("Prompt image saved: %s\n", outputFile)
+	return nil
+}
+
 func comicsRootDir(outputRoot string) string {
 	root := orDefault(outputRoot, ".")
 	if filepath.Base(filepath.Clean(root)) == "comics" {

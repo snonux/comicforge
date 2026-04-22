@@ -111,9 +111,11 @@ type GenerateResult struct {
 	PanelScript [][]string
 }
 
-// StoryRunner runs the comic generation pipeline from a vocabulary file.
+// StoryRunner runs the comic generation pipeline from either a vocabulary file
+// or a direct manual prompt.
 type StoryRunner interface {
 	Run(ctx context.Context, batchFile string) error
+	RunPrompt(ctx context.Context, prompt string) error
 }
 
 func pickStoryGenre(genres []string) string {

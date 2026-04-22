@@ -363,6 +363,140 @@ func TestRootCommandSkipsTTSProviderWhenNarrationDisabled(t *testing.T) {
 	}
 }
 
+func TestRootCommandPromptModeSkipsVocabFlow(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	var textCalled bool
+	var ttsCalled bool
+	var gotRunnerCfg *comic.RunnerConfig
+	runner := &recordingRunner{}
+
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(string) (*config.Config, error) {
+			return config.DefaultConfig(), nil
+		},
+		newTextProvider: func(*config.Config) (provider.TextProvider, error) {
+			textCalled = true
+			return noopProvider{}, nil
+		},
+		newImageProvider: func(cfg *config.Config) (provider.ImageProvider, error) {
+			return noopProvider{}, nil
+		},
+		newTTSProvider: func(*config.Config, string) (provider.TTSProvider, error) {
+			ttsCalled = true
+			return noopProvider{}, nil
+		},
+		newRunner: func(cfg *comic.RunnerConfig) comic.StoryRunner {
+			gotRunnerCfg = cfg
+			runner.cfg = cfg
+			return runner
+		},
+	})
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{
+		"--prompt", "a robot reading a newspaper",
+		"--output", filepath.Join(tmpDir, "out"),
+		"--slug", "manual-robot",
+	})
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext() error = %v\noutput:\n%s", err, buf.String())
+	}
+	if textCalled {
+		t.Fatal("newTextProvider was called, want prompt mode to skip story flow")
+	}
+	if ttsCalled {
+		t.Fatal("newTTSProvider was called, want prompt mode to skip narration setup")
+	}
+	if gotRunnerCfg == nil {
+		t.Fatal("runner config was not captured")
+	}
+	if got, want := runner.prompt, "a robot reading a newspaper"; got != want {
+		t.Fatalf("prompt = %q, want %q", got, want)
+	}
+	if got, want := runner.promptRuns, 1; got != want {
+		t.Fatalf("prompt runs = %d, want %d", got, want)
+	}
+	if got, want := gotRunnerCfg.OutputDir, filepath.Join(tmpDir, "out"); got != want {
+		t.Fatalf("output dir = %q, want %q", got, want)
+	}
+	if got, want := gotRunnerCfg.Slug, "manual-robot"; got != want {
+		t.Fatalf("slug = %q, want %q", got, want)
+	}
+}
+
+func TestRootCommandRejectsPromptAndVocabTogether(t *testing.T) {
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(string) (*config.Config, error) {
+			return config.DefaultConfig(), nil
+		},
+		newTextProvider: func(*config.Config) (provider.TextProvider, error) {
+			t.Fatal("newTextProvider should not be called when flags conflict")
+			return noopProvider{}, nil
+		},
+		newImageProvider: func(*config.Config) (provider.ImageProvider, error) {
+			t.Fatal("newImageProvider should not be called when flags conflict")
+			return noopProvider{}, nil
+		},
+		newTTSProvider: func(*config.Config, string) (provider.TTSProvider, error) {
+			t.Fatal("newTTSProvider should not be called when flags conflict")
+			return noopProvider{}, nil
+		},
+		newRunner: func(*comic.RunnerConfig) comic.StoryRunner {
+			t.Fatal("newRunner should not be called when flags conflict")
+			return &recordingRunner{}
+		},
+	})
+	cmd.SetArgs([]string{
+		"--vocab", "words.txt",
+		"--prompt", "draw a robot",
+	})
+
+	err := cmd.ExecuteContext(context.Background())
+	if err == nil {
+		t.Fatal("ExecuteContext() error = nil, want conflict error")
+	}
+	if !strings.Contains(err.Error(), "only one of --prompt and --vocab may be set") {
+		t.Fatalf("ExecuteContext() error = %v, want conflict error", err)
+	}
+}
+
+func TestRootCommandRejectsEmptyPromptFlag(t *testing.T) {
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(string) (*config.Config, error) {
+			t.Fatal("loadConfig should not be called for empty prompt validation")
+			return nil, nil
+		},
+		newTextProvider: func(*config.Config) (provider.TextProvider, error) {
+			t.Fatal("newTextProvider should not be called for empty prompt validation")
+			return noopProvider{}, nil
+		},
+		newImageProvider: func(*config.Config) (provider.ImageProvider, error) {
+			t.Fatal("newImageProvider should not be called for empty prompt validation")
+			return noopProvider{}, nil
+		},
+		newTTSProvider: func(*config.Config, string) (provider.TTSProvider, error) {
+			t.Fatal("newTTSProvider should not be called for empty prompt validation")
+			return noopProvider{}, nil
+		},
+		newRunner: func(*comic.RunnerConfig) comic.StoryRunner {
+			t.Fatal("newRunner should not be called for empty prompt validation")
+			return &recordingRunner{}
+		},
+	})
+	cmd.SetArgs([]string{"--prompt", ""})
+
+	err := cmd.ExecuteContext(context.Background())
+	if err == nil {
+		t.Fatal("ExecuteContext() error = nil, want empty prompt error")
+	}
+	if !strings.Contains(err.Error(), "--prompt is required when set") {
+		t.Fatalf("ExecuteContext() error = %v, want empty prompt error", err)
+	}
+}
+
 func mustLookupFlag(t *testing.T, cmd *cobra.Command, name string) *pflag.Flag {
 	t.Helper()
 
@@ -374,14 +508,22 @@ func mustLookupFlag(t *testing.T, cmd *cobra.Command, name string) *pflag.Flag {
 }
 
 type recordingRunner struct {
-	cfg       *comic.RunnerConfig
-	batchFile string
-	runs      int
+	cfg        *comic.RunnerConfig
+	batchFile  string
+	prompt     string
+	runs       int
+	promptRuns int
 }
 
 func (r *recordingRunner) Run(_ context.Context, batchFile string) error {
 	r.batchFile = batchFile
 	r.runs++
+	return nil
+}
+
+func (r *recordingRunner) RunPrompt(_ context.Context, prompt string) error {
+	r.prompt = prompt
+	r.promptRuns++
 	return nil
 }
 

@@ -28,6 +28,7 @@ type commandDeps struct {
 
 type cliFlags struct {
 	vocab            string
+	prompt           string
 	configPath       string
 	promptsDir       string
 	outputDir        string
@@ -82,8 +83,17 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), version.Version)
 				return nil
 			}
+			if cmd.Flags().Changed("prompt") && strings.TrimSpace(flags.prompt) == "" {
+				return fmt.Errorf("--prompt is required when set")
+			}
+			if strings.TrimSpace(flags.prompt) != "" && strings.TrimSpace(flags.vocab) != "" {
+				return fmt.Errorf("only one of --prompt and --vocab may be set")
+			}
+			if strings.TrimSpace(flags.prompt) != "" {
+				return runPromptCommand(cmd.Context(), cmd, deps, flags)
+			}
 			if strings.TrimSpace(flags.vocab) == "" {
-				return fmt.Errorf("--vocab is required")
+				return fmt.Errorf("--vocab is required unless --prompt is set")
 			}
 			return runCommand(cmd.Context(), cmd, deps, flags)
 		},
@@ -91,6 +101,7 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 
 	cmd.Flags().BoolVarP(&flags.version, "version", "v", false, "print version information")
 	cmd.Flags().StringVar(&flags.vocab, "vocab", "", "path to the vocabulary input file")
+	cmd.Flags().StringVar(&flags.prompt, "prompt", "", "manual prompt for generating a single image")
 	cmd.Flags().StringVar(&flags.configPath, "config", "", "config file (default: search ~/.config/comicforge, $HOME, and .)")
 	cmd.Flags().StringVar(&flags.promptsDir, "prompts-dir", "", "directory containing prompt templates")
 	cmd.Flags().StringVar(&flags.outputDir, "output", ".", "root output directory for generated comic data")
@@ -173,6 +184,44 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 	})
 
 	return runner.Run(ctx, flags.vocab)
+}
+
+func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags cliFlags) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	cfg, err := deps.loadConfig(flags.configPath)
+	if err != nil {
+		return err
+	}
+
+	applyConfigOverrides(cmd, cfg, flags)
+	imageProvider, err := deps.newImageProvider(cfg)
+	if err != nil {
+		return fmt.Errorf("build image provider: %w", err)
+	}
+
+	runner := deps.newRunner(&comic.RunnerConfig{
+		ImageProvider:   imageProvider,
+		Prompts:         cfg,
+		OutputDir:       flags.outputDir,
+		Style:           flags.style,
+		ComicStyles:     cfg.Styles.Comic,
+		RealisticStyles: cfg.Styles.Realistic,
+		Theme:           flags.theme,
+		Language:        cfg.Language.Story,
+		Script:          cfg.Language.Script,
+		Slug:            flags.slug,
+		UltraRealistic:  resolveUltraRealistic(flags),
+		RealisticWeight: cfg.Story.RealisticWeight,
+		AspectRatio:     cfg.Comic.AspectRatio,
+		PromptMaxChars:  cfg.Comic.PromptMaxChars,
+		PageMaxRetries:  cfg.Comic.PageMaxRetries,
+		PageRetryBase:   time.Duration(cfg.Comic.PageRetryBaseSeconds) * time.Second,
+	})
+
+	return runner.RunPrompt(ctx, flags.prompt)
 }
 
 func applyConfigOverrides(cmd *cobra.Command, cfg *config.Config, flags cliFlags) {

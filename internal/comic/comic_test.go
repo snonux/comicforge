@@ -436,6 +436,55 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	}
 }
 
+func TestRunnerRunPromptWritesSingleAsset(t *testing.T) {
+	t.Parallel()
+
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
+	t.Cleanup(func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	})
+
+	tmpDir := t.TempDir()
+	runner := NewRunner(&RunnerConfig{
+		ImageProvider:  fakeImageProvider{t: t},
+		Prompts:        fakePromptRenderer{},
+		OutputDir:      tmpDir,
+		Slug:           "manual-robot",
+		UltraRealistic: boolPtr(false),
+		PageMaxRetries: 1,
+		PageRetryBase:  time.Second,
+	})
+
+	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
+		t.Fatalf("RunPrompt() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "assets", "manual-robot", "prompt.png")); err != nil {
+		t.Fatalf("prompt image missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "PDF")); !os.IsNotExist(err) {
+		t.Fatalf("PDF directory exists unexpectedly: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "gallery")); !os.IsNotExist(err) {
+		t.Fatalf("gallery directory exists unexpectedly: %v", err)
+	}
+}
+
+func TestRunnerRunPromptRejectsEmptyPrompt(t *testing.T) {
+	t.Parallel()
+
+	runner := NewRunner(&RunnerConfig{
+		ImageProvider:  fakeImageProvider{t: t},
+		Prompts:        fakePromptRenderer{},
+		OutputDir:      t.TempDir(),
+		UltraRealistic: boolPtr(false),
+	})
+
+	if err := runner.RunPrompt(context.Background(), "   "); err == nil {
+		t.Fatal("RunPrompt() error = nil, want validation failure")
+	}
+}
+
 func TestNewRunnerUsesRealisticWeightWhenUltraRealisticUnset(t *testing.T) {
 	t.Parallel()
 
@@ -930,4 +979,8 @@ func (p *recordingTTSProvider) IsAvailable() error { return nil }
 func (p *recordingTTSProvider) GenerateAudio(_ context.Context, text, outputFile string) error {
 	p.calls = append(p.calls, text)
 	return os.WriteFile(outputFile, []byte("mp3"), 0o644)
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
