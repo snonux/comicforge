@@ -200,6 +200,9 @@ func (r *Runner) RunPrompt(ctx context.Context, prompt string) error {
 	if r.artist == nil {
 		return fmt.Errorf("runner providers are not configured")
 	}
+	if err := r.artist.ready(); err != nil {
+		return err
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}

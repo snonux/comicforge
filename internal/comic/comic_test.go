@@ -373,6 +373,12 @@ func TestDrawComicPagesReturnsErrorWhenRenderFails(t *testing.T) {
 func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 	t.Parallel()
 
+	originalSleep := sleep
+	sleep = func(time.Duration) {}
+	t.Cleanup(func() {
+		sleep = originalSleep
+	})
+
 	originalLeakValidation := validateImagePromptLeakageFn
 	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
 	t.Cleanup(func() {
@@ -471,6 +477,50 @@ func TestRunnerRunPromptWritesSingleAsset(t *testing.T) {
 	}
 }
 
+func TestRunnerRunPromptValidatesImageOutput(t *testing.T) {
+	originalLeakValidation := validateImagePromptLeakageFn
+	defer func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	}()
+
+	var calls int
+	var gotLabel string
+	var gotScript string
+	validateImagePromptLeakageFn = func(_ context.Context, outputFile, label, script string) error {
+		calls++
+		if outputFile == "" {
+			t.Fatal("validator received empty output file")
+		}
+		gotLabel = label
+		gotScript = script
+		return nil
+	}
+
+	tmpDir := t.TempDir()
+	runner := NewRunner(&RunnerConfig{
+		ImageProvider:  fakeImageProvider{t: t},
+		Prompts:        fakePromptRenderer{},
+		OutputDir:      tmpDir,
+		Slug:           "manual-robot",
+		UltraRealistic: boolPtr(false),
+		PageMaxRetries: 1,
+		PageRetryBase:  time.Second,
+	})
+
+	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
+		t.Fatalf("RunPrompt() error = %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("validator calls = %d, want 1", calls)
+	}
+	if gotLabel != "manual prompt image" {
+		t.Fatalf("validator label = %q, want %q", gotLabel, "manual prompt image")
+	}
+	if gotScript == "" {
+		t.Fatal("validator script was empty")
+	}
+}
+
 func TestRunnerRunPromptRejectsEmptyPrompt(t *testing.T) {
 	t.Parallel()
 
@@ -483,6 +533,27 @@ func TestRunnerRunPromptRejectsEmptyPrompt(t *testing.T) {
 
 	if err := runner.RunPrompt(context.Background(), "   "); err == nil {
 		t.Fatal("RunPrompt() error = nil, want validation failure")
+	}
+}
+
+func TestRunnerRunPromptReturnsErrorWhenPromptRendererMissing(t *testing.T) {
+	runner := NewRunner(&RunnerConfig{
+		ImageProvider:  fakeImageProvider{t: t},
+		OutputDir:      t.TempDir(),
+		Slug:           "manual-robot",
+		UltraRealistic: boolPtr(false),
+		PageMaxRetries: 1,
+		PageRetryBase:  time.Second,
+	})
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("RunPrompt() panicked: %v", r)
+		}
+	}()
+
+	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err == nil {
+		t.Fatal("RunPrompt() error = nil, want readiness failure")
 	}
 }
 

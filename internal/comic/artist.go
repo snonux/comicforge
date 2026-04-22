@@ -218,7 +218,7 @@ func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile str
 	if err != nil {
 		return fmt.Errorf("render manual prompt: %w", err)
 	}
-	return a.generateWithRetryAndValidation(ctx, renderedPrompt, outputFile, "manual prompt image", nil, nil)
+	return a.generateWithRetryAndValidation(ctx, renderedPrompt, outputFile, "manual prompt image", nil, validateImagePromptLeakageFn)
 }
 
 type imageOutputValidator func(context.Context, string, string, string) error
