@@ -300,6 +300,44 @@ func TestRootCommandRejectsConflictingUltraFlags(t *testing.T) {
 	}
 }
 
+func TestRootCommandRejectsConflictingUltraFlagsInPromptMode(t *testing.T) {
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(string) (*config.Config, error) {
+			t.Fatal("loadConfig should not be called when ultra-realistic flags conflict")
+			return nil, nil
+		},
+		newTextProvider: func(*config.Config) (provider.TextProvider, error) {
+			t.Fatal("newTextProvider should not be called when ultra-realistic flags conflict")
+			return noopProvider{}, nil
+		},
+		newImageProvider: func(*config.Config) (provider.ImageProvider, error) {
+			t.Fatal("newImageProvider should not be called when ultra-realistic flags conflict")
+			return noopProvider{}, nil
+		},
+		newTTSProvider: func(*config.Config, string) (provider.TTSProvider, error) {
+			t.Fatal("newTTSProvider should not be called when ultra-realistic flags conflict")
+			return noopProvider{}, nil
+		},
+		newRunner: func(*comic.RunnerConfig) comic.StoryRunner {
+			t.Fatal("newRunner should not be called when ultra-realistic flags conflict")
+			return &recordingRunner{}
+		},
+	})
+	cmd.SetArgs([]string{
+		"--prompt", "draw a robot",
+		"--ultra-realistic",
+		"--no-ultra-realistic",
+	})
+
+	err := cmd.ExecuteContext(context.Background())
+	if err == nil {
+		t.Fatal("ExecuteContext() error = nil, want conflict error")
+	}
+	if !strings.Contains(err.Error(), "only one of --ultra-realistic and --no-ultra-realistic may be set") {
+		t.Fatalf("ExecuteContext() error = %v, want conflict error", err)
+	}
+}
+
 func TestRootCommandProviderFlagsDefaultToGemini(t *testing.T) {
 	cmd := newRootCommand()
 	for _, flagName := range []string{"text-provider", "image-provider", "tts-provider"} {
@@ -399,6 +437,9 @@ func TestRootCommandPromptModeSkipsVocabFlow(t *testing.T) {
 		"--prompt", "a robot reading a newspaper",
 		"--output", filepath.Join(tmpDir, "out"),
 		"--slug", "manual-robot",
+		"--style", "noir",
+		"--theme", "mystery",
+		"--ultra-realistic",
 	})
 
 	if err := cmd.ExecuteContext(context.Background()); err != nil {
@@ -424,6 +465,15 @@ func TestRootCommandPromptModeSkipsVocabFlow(t *testing.T) {
 	}
 	if got, want := gotRunnerCfg.Slug, "manual-robot"; got != want {
 		t.Fatalf("slug = %q, want %q", got, want)
+	}
+	if got, want := gotRunnerCfg.Style, "noir"; got != want {
+		t.Fatalf("style = %q, want %q", got, want)
+	}
+	if got, want := gotRunnerCfg.Theme, "mystery"; got != want {
+		t.Fatalf("theme = %q, want %q", got, want)
+	}
+	if gotRunnerCfg.UltraRealistic == nil || !*gotRunnerCfg.UltraRealistic {
+		t.Fatalf("ultra realistic = %#v, want true", gotRunnerCfg.UltraRealistic)
 	}
 }
 

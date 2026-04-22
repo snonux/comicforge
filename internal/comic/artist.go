@@ -214,7 +214,11 @@ func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, labe
 }
 
 func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile string) error {
-	return a.generateWithRetryAndValidation(ctx, prompt, outputFile, "manual prompt image", nil, nil)
+	renderedPrompt, err := a.prompts.RenderPrompt(manualPromptTemplate, a.manualPromptData(prompt))
+	if err != nil {
+		return fmt.Errorf("render manual prompt: %w", err)
+	}
+	return a.generateWithRetryAndValidation(ctx, renderedPrompt, outputFile, "manual prompt image", nil, nil)
 }
 
 type imageOutputValidator func(context.Context, string, string, string) error
@@ -374,6 +378,16 @@ func (a *Artist) backPromptData(storyText, style, bible, blurb string) map[strin
 		"BlurbBox":                blurbBoxInstruction(blurb),
 		"SeriesTitle":             localizedBrandName(a.language, a.script),
 		"StoryText":               storyText,
+		"RenderingRequirement":    a.renderingRequirement(),
+		"RenderingRequirementEnd": a.renderingRequirementEnd(),
+	}
+}
+
+func (a *Artist) manualPromptData(prompt string) map[string]any {
+	return map[string]any{
+		"Prompt":                  strings.TrimSpace(prompt),
+		"Style":                   localizedStylePrompt(a.style, a.language, a.script),
+		"Theme":                   a.theme,
 		"RenderingRequirement":    a.renderingRequirement(),
 		"RenderingRequirementEnd": a.renderingRequirementEnd(),
 	}

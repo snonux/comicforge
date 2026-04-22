@@ -83,6 +83,9 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), version.Version)
 				return nil
 			}
+			if err := validateUltraRealisticFlags(flags); err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("prompt") && strings.TrimSpace(flags.prompt) == "" {
 				return fmt.Errorf("--prompt is required when set")
 			}
@@ -105,8 +108,8 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 	cmd.Flags().StringVar(&flags.configPath, "config", "", "config file (default: search ~/.config/comicforge, $HOME, and .)")
 	cmd.Flags().StringVar(&flags.promptsDir, "prompts-dir", "", "directory containing prompt templates")
 	cmd.Flags().StringVar(&flags.outputDir, "output", ".", "root output directory for generated comic data")
-	cmd.Flags().StringVar(&flags.style, "style", "", "comic art style override")
-	cmd.Flags().StringVar(&flags.theme, "theme", "", "story theme override")
+	cmd.Flags().StringVar(&flags.style, "style", "", "comic art style override for story and prompt mode")
+	cmd.Flags().StringVar(&flags.theme, "theme", "", "story theme override; used as prompt context in manual prompt mode")
 	cmd.Flags().BoolVar(&flags.ultraRealistic, "ultra-realistic", false, "force photorealistic rendering")
 	cmd.Flags().BoolVar(&flags.noUltraRealistic, "no-ultra-realistic", false, "disable photorealistic rendering")
 	cmd.Flags().BoolVar(&flags.narrateEnabled, "narrate", false, "generate narration after the comic")
@@ -126,9 +129,6 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags cliFlags) error {
 	if ctx == nil {
 		ctx = context.Background()
-	}
-	if flags.noUltraRealistic && flags.ultraRealistic {
-		return fmt.Errorf("only one of --ultra-realistic and --no-ultra-realistic may be set")
 	}
 
 	cfg, err := deps.loadConfig(flags.configPath)
@@ -222,6 +222,13 @@ func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps,
 	})
 
 	return runner.RunPrompt(ctx, flags.prompt)
+}
+
+func validateUltraRealisticFlags(flags cliFlags) error {
+	if flags.noUltraRealistic && flags.ultraRealistic {
+		return fmt.Errorf("only one of --ultra-realistic and --no-ultra-realistic may be set")
+	}
+	return nil
 }
 
 func applyConfigOverrides(cmd *cobra.Command, cfg *config.Config, flags cliFlags) {

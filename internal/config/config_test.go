@@ -190,6 +190,8 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"ScriptName":              "кирилица",
 		"Genre":                   "a mystery with a surprising twist",
 		"Style":                   "cinematic realism",
+		"Theme":                   "mystery",
+		"Prompt":                  "a robot reading a newspaper",
 		"Words":                   "- ябълка\n- книга\n",
 		"Bible":                   "Мира: млада жена, кафява коса, сини очи, червено палто.\n",
 		"Subtitle":                "КомиксФордж Приключения",
@@ -230,6 +232,7 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"narrator_conclusion_system.md",
 		"rendering_requirement.md",
 		"rendering_requirement_end.md",
+		"manual_prompt.md",
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := cfg.RenderPrompt(name, data)

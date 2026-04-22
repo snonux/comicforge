@@ -3,6 +3,7 @@ package comic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -485,6 +486,52 @@ func TestRunnerRunPromptRejectsEmptyPrompt(t *testing.T) {
 	}
 }
 
+func TestRunnerRunPromptAppliesStyleThemeAndUltraContext(t *testing.T) {
+	t.Parallel()
+
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
+	t.Cleanup(func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	})
+
+	provider := &capturingImageProvider{t: t}
+	renderer := &recordingPromptRenderer{}
+	runner := NewRunner(&RunnerConfig{
+		ImageProvider:  provider,
+		Prompts:        renderer,
+		OutputDir:      t.TempDir(),
+		Slug:           "manual-robot",
+		Style:          "noir",
+		Theme:          "mystery",
+		UltraRealistic: boolPtr(true),
+		PageMaxRetries: 1,
+		PageRetryBase:  time.Second,
+	})
+
+	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
+		t.Fatalf("RunPrompt() error = %v", err)
+	}
+	if provider.lastPrompt == "" {
+		t.Fatal("image prompt was not captured")
+	}
+	if !strings.Contains(provider.lastPrompt, "Create a single image based on this prompt") {
+		t.Fatalf("prompt = %q, want manual prompt template", provider.lastPrompt)
+	}
+	if !strings.Contains(provider.lastPrompt, "a robot reading a newspaper") {
+		t.Fatalf("prompt = %q, want raw user prompt", provider.lastPrompt)
+	}
+	if !strings.Contains(provider.lastPrompt, "Visual style: noir.") {
+		t.Fatalf("prompt = %q, want style context", provider.lastPrompt)
+	}
+	if !strings.Contains(provider.lastPrompt, "Theme context: mystery.") {
+		t.Fatalf("prompt = %q, want theme context", provider.lastPrompt)
+	}
+	if !strings.Contains(provider.lastPrompt, "FINAL STYLE LOCK — PHOTOREALISM") {
+		t.Fatalf("prompt = %q, want ultra-realistic context", provider.lastPrompt)
+	}
+}
+
 func TestNewRunnerUsesRealisticWeightWhenUltraRealisticUnset(t *testing.T) {
 	t.Parallel()
 
@@ -847,6 +894,12 @@ func (fakePromptRenderer) RenderPrompt(name string, data any) (string, error) {
 		return "system prompt", nil
 	case storyPromptTemplate, storyFullPromptTemplate:
 		return "prompt", nil
+	case renderingRequirementPrompt:
+		return "ULTRA-REALISTIC MODE for this image:\n  • The image must look like a real photograph or a frame from a high-budget live-action film.\n  • Skin, hair, fabric, metal, and environments must look natural and real, with no drawn or painterly effect.\n  • Avoid cartoon, anime, manga, comic-line-art, or obviously illustrated rendering.\n  • Text elements, if required by the composition, should look like part of a photographed physical cover, sign, or poster.\n  • For gallery images, the whole image must be entirely photographic.\n", nil
+	case renderingRequirementEndPrompt:
+		return "FINAL STYLE LOCK — PHOTOREALISM: the entire image must look camera-captured. If anything looks drawn or painted, the result is wrong. Do not drift toward comic art between panels or in gallery images.", nil
+	case manualPromptTemplate:
+		return renderManualPromptForTest(data), nil
 	case coverPromptTemplate, storyPagePromptTemplate, galleryPagePromptTemplate, backCoverPromptTemplate:
 		return "image prompt", nil
 	case blurbSystemTemplate, introSystemTemplate, conclusionSystemTemplate:
@@ -880,6 +933,12 @@ func (r *recordingPromptRenderer) RenderPrompt(name string, data any) (string, e
 		return "system prompt", nil
 	case storyPromptTemplate, storyFullPromptTemplate:
 		return "prompt", nil
+	case renderingRequirementPrompt:
+		return "ULTRA-REALISTIC MODE for this image:\n  • The image must look like a real photograph or a frame from a high-budget live-action film.\n  • Skin, hair, fabric, metal, and environments must look natural and real, with no drawn or painterly effect.\n  • Avoid cartoon, anime, manga, comic-line-art, or obviously illustrated rendering.\n  • Text elements, if required by the composition, should look like part of a photographed physical cover, sign, or poster.\n  • For gallery images, the whole image must be entirely photographic.\n", nil
+	case renderingRequirementEndPrompt:
+		return "FINAL STYLE LOCK — PHOTOREALISM: the entire image must look camera-captured. If anything looks drawn or painted, the result is wrong. Do not drift toward comic art between panels or in gallery images.", nil
+	case manualPromptTemplate:
+		return renderManualPromptForTest(data), nil
 	case coverPromptTemplate, storyPagePromptTemplate, galleryPagePromptTemplate, backCoverPromptTemplate:
 		return "image prompt", nil
 	case blurbSystemTemplate, introSystemTemplate, conclusionSystemTemplate:
@@ -896,6 +955,32 @@ func isImagePromptTemplate(name string) bool {
 	default:
 		return false
 	}
+}
+
+func renderManualPromptForTest(data any) string {
+	m, _ := data.(map[string]any)
+	if m == nil {
+		return "Create a single image based on this prompt:"
+	}
+	var sb strings.Builder
+	sb.WriteString("Create a single image based on this prompt:\n\n")
+	sb.WriteString(fmt.Sprint(m["Prompt"]))
+	sb.WriteString("\n\n")
+	if style, _ := m["Style"].(string); strings.TrimSpace(style) != "" {
+		fmt.Fprintf(&sb, "Visual style: %s.\n", style)
+	}
+	if theme, _ := m["Theme"].(string); strings.TrimSpace(theme) != "" {
+		fmt.Fprintf(&sb, "Theme context: %s.\n", theme)
+	}
+	if requirement, _ := m["RenderingRequirement"].(string); strings.TrimSpace(requirement) != "" {
+		sb.WriteString(requirement)
+		sb.WriteString("\n")
+	}
+	sb.WriteString("No text, captions, logos, borders, panels, or UI elements.")
+	if requirementEnd, _ := m["RenderingRequirementEnd"].(string); strings.TrimSpace(requirementEnd) != "" {
+		sb.WriteString(requirementEnd)
+	}
+	return sb.String()
 }
 
 type fakeTextProvider struct{ text string }
@@ -932,6 +1017,21 @@ func (f fakeImageProvider) IsAvailable() error { return nil }
 func (f fakeImageProvider) GenerateImage(_ context.Context, _ string, outputFile string) error {
 	if err := os.WriteFile(outputFile, []byte("png"), 0o644); err != nil {
 		f.t.Fatal(err)
+	}
+	return nil
+}
+
+type capturingImageProvider struct {
+	t          *testing.T
+	lastPrompt string
+}
+
+func (p *capturingImageProvider) Name() string       { return "capturing-image" }
+func (p *capturingImageProvider) IsAvailable() error { return nil }
+func (p *capturingImageProvider) GenerateImage(_ context.Context, prompt, outputFile string) error {
+	p.lastPrompt = prompt
+	if err := os.WriteFile(outputFile, []byte("png"), 0o644); err != nil {
+		p.t.Fatal(err)
 	}
 	return nil
 }

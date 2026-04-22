@@ -16,6 +16,7 @@ const (
 	storySystemPromptTemplate     = "story_system.md"
 	storyPromptTemplate           = "story_prompt.md"
 	storyFullPromptTemplate       = "story_full_prompt.md"
+	manualPromptTemplate          = "manual_prompt.md"
 	coverPromptTemplate           = "cover_prompt.md"
 	storyPagePromptTemplate       = "story_page_prompt.md"
 	galleryPagePromptTemplate     = "gallery_page_prompt.md"

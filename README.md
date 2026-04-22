@@ -119,13 +119,13 @@ Useful flags:
 - `--output` sets the root output directory
 - `--prompt` generates a single image from a direct prompt and skips the story flow
 - `--prompts-dir` overrides the prompt template directory
-- `--style` and `--theme` override story generation hints
+- `--style` and `--theme` override story generation hints and are also applied as context in manual prompt mode
 - `--slug` forces the output folder name
 - `--narrate` enables narration output
 - `--narrator-voice` picks the Gemini narration voice
 - `--text-provider`, `--image-provider`, `--tts-provider` override provider names
 - `--text-model`, `--image-model`, `--image-text-model`, `--tts-model` override model IDs
-- `--ultra-realistic` and `--no-ultra-realistic` control the rendering mode
+- `--ultra-realistic` and `--no-ultra-realistic` control the rendering mode for both story and manual prompt mode
 - `--version` prints the application version
 
 Example:
@@ -148,3 +148,5 @@ comicforge --prompt "a robot reading a newspaper" --output out --slug manual-rob
 ```
 
 This writes a single image to `out/comics/assets/manual-robot/prompt.png`.
+
+Manual prompt mode can be combined with `--style`, `--theme`, and the ultra-realistic flags to shape the generated image prompt.
