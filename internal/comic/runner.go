@@ -30,6 +30,7 @@ type RunnerConfig struct {
 	Prompts               PromptRenderer
 	OutputDir             string
 	Style                 string
+	StyleMode             string
 	Theme                 string
 	Language              string
 	Script                string
@@ -40,6 +41,13 @@ type RunnerConfig struct {
 	RealisticWeight       float64
 	ComicStyles           []string
 	RealisticStyles       []string
+	CartoonStyles         []string
+	Action90sStyles       []string
+	MangaStyles           []string
+	CyberpunkStyles       []string
+	GoldenAgeStyles       []string
+	HorrorStyles          []string
+	WatercolorStyles      []string
 	AspectRatio           string
 	PromptMaxChars        int
 	PageMaxRetries        int
@@ -67,10 +75,11 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		return r
 	}
 
-	ultra := pickUltraRealistic(cfg.RealisticWeight)
-	if cfg.UltraRealistic != nil {
-		ultra = *cfg.UltraRealistic
+	styleMode := strings.TrimSpace(cfg.StyleMode)
+	if styleMode == "" {
+		styleMode = pickStyleMode(cfg.UltraRealistic)
 	}
+	ultra := styleMode == styleModeRealistic
 
 	r.generator = NewGenerator(&GeneratorConfig{
 		TextProvider:  cfg.TextProvider,
@@ -82,24 +91,32 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		PanelsPerPage: cfg.PanelsPerPage,
 	})
 	r.artist = NewArtist(&ArtistConfig{
-		ImageProvider:   cfg.ImageProvider,
-		TextProvider:    cfg.TextProvider,
-		Prompts:         cfg.Prompts,
-		OutputDir:       cfg.OutputDir,
-		Style:           cfg.Style,
-		ComicStyles:     cfg.ComicStyles,
-		RealisticStyles: cfg.RealisticStyles,
-		Theme:           cfg.Theme,
-		AspectRatio:     cfg.AspectRatio,
-		Language:        cfg.Language,
-		Script:          cfg.Script,
-		UltraRealistic:  ultra,
-		PromptMaxChars:  cfg.PromptMaxChars,
-		PageMaxRetries:  cfg.PageMaxRetries,
-		PageRetryBase:   cfg.PageRetryBase,
-		StoryPages:      cfg.StoryPages,
-		GalleryPages:    cfg.GalleryPages,
-		PanelsPerPage:   cfg.PanelsPerPage,
+		ImageProvider:    cfg.ImageProvider,
+		TextProvider:     cfg.TextProvider,
+		Prompts:          cfg.Prompts,
+		OutputDir:        cfg.OutputDir,
+		Style:            cfg.Style,
+		StyleMode:        styleMode,
+		ComicStyles:      cfg.ComicStyles,
+		RealisticStyles:  cfg.RealisticStyles,
+		CartoonStyles:    cfg.CartoonStyles,
+		Action90sStyles:  cfg.Action90sStyles,
+		MangaStyles:      cfg.MangaStyles,
+		CyberpunkStyles:  cfg.CyberpunkStyles,
+		GoldenAgeStyles:  cfg.GoldenAgeStyles,
+		HorrorStyles:     cfg.HorrorStyles,
+		WatercolorStyles: cfg.WatercolorStyles,
+		Theme:            cfg.Theme,
+		AspectRatio:      cfg.AspectRatio,
+		Language:         cfg.Language,
+		Script:           cfg.Script,
+		UltraRealistic:   ultra,
+		PromptMaxChars:   cfg.PromptMaxChars,
+		PageMaxRetries:   cfg.PageMaxRetries,
+		PageRetryBase:    cfg.PageRetryBase,
+		StoryPages:       cfg.StoryPages,
+		GalleryPages:     cfg.GalleryPages,
+		PanelsPerPage:    cfg.PanelsPerPage,
 	})
 	r.narrator = NewNarrator(&NarratorConfig{
 		TextProvider:       cfg.TextProvider,

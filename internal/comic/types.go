@@ -75,18 +75,64 @@ var (
 
 	defaultComicStyles = []string{
 		"classic American comic book with bold ink outlines, halftone dots, and primary colors",
-		"Japanese manga with clean linework, expressive eyes, and speed lines",
 		"retro 1960s pop art in the style of Roy Lichtenstein with thick outlines and Ben-Day dots",
-		"watercolor illustration with soft washes, delicate linework, and pastel tones",
 		"European bande dessinée with detailed backgrounds, clear lines, and rich flat colors",
 		"noir black-and-white graphic novel with heavy shadows and high contrast",
 		"children's picture book with bright, friendly illustrations and thick outlines",
 		"painterly oil-on-canvas comic with loose brushwork and vivid impressionist colors",
-		"cyberpunk neon art with glowing outlines, dark backgrounds, and electric accent colors",
 	}
 
-	realisticStyles = defaultRealisticStyles
-	comicStyles     = defaultComicStyles
+	defaultCartoonStyles = []string{
+		"extremely cartoonish 1930s rubber-hose funny-animal comic style, original mouse-and-duck-era mascot energy, pie-cut eyes, button noses or beaks, white gloves, oversized shoes, noodle arms, squash-and-stretch bodies, round heads, huge expressions, flat candy colors, simple gag staging, absolutely no realism",
+		"vintage theatrical funny-animal cartoon comic style, redesign people as original anthropomorphic mascot characters with beaks or round snouts, pie-cut eyes, white gloves, oversized shoes, elastic limbs, cheerful slapstick poses, bold clean outlines, bright flat backgrounds, no realistic anatomy",
+		"old black-and-white short cartoon style translated into comic panels, original rubber-hose mascot characters, pie eyes, rubber limbs, bouncing motion arcs, simple rounded shapes, comic mischief, exaggerated face acting, hand-inked animation cels",
+	}
+
+	defaultAction90sStyles = []string{
+		"1990s superhero comic splash-page style like a bold caped hero punching a masked villain in a city, huge muscles, spandex costumes, flowing cape, explosive impact burst, speed lines, smoke, rubble, halftone print texture, heavy black inks, saturated primary colors",
+		"classic 90s action superhero cover style, oversized yellow masthead energy, caped spandex hero, armored villain, clenched fists, dramatic foreshortening, city skyline, explosions, speech balloons, thick ink outlines, Ben-Day dots",
+		"extreme 1990s superhero action comic style, heroic anatomy, masked villain, motion streaks, lightning impact shapes, cross-hatching, smoky city destruction, glossy saturated colors, bold comic-book lettering spaces",
+	}
+
+	defaultMangaStyles = []string{
+		"authentic black-and-white shonen manga page style, right-to-left manga energy, screentone shading, manga speed lines, large expressive eyes, sharp angular hair, sweat drops, impact bursts, Japanese comic panel language, minimal western color",
+		"high-energy manga action style, monochrome ink, dense screentones, exaggerated emotional close-ups, chibi reaction inset where appropriate, motion blur lines, diagonal panel rhythm, dramatic sound-effect shapes",
+		"modern manga fantasy comic style, elegant anime-inspired character designs, big eyes, spiky hair silhouettes, black ink linework, grey screentone gradients, explosive action frames, cinematic close-ups",
+	}
+
+	defaultCyberpunkStyles = []string{
+		"cyberpunk neon comic style, rain-slick streets, glowing signage, chrome technology, high contrast shadows, electric cyan and magenta accents",
+		"tech-noir cyberpunk comic style, dense futuristic cityscapes, holograms, cybernetic details, saturated neon rim lighting",
+		"futuristic cyberpunk action comic style, laser-lit alleys, augmented heroes, digital glitches, saturated night colors, sharp ink silhouettes",
+	}
+
+	defaultGoldenAgeStyles = []string{
+		"golden age superhero comic style, clean heroic poses, bright primary colors, simple confident linework, optimistic mid-century adventure energy",
+		"vintage golden age comic book style, bold flat colors, classic caped hero staging, simple dramatic compositions, retro print texture",
+		"1940s superhero serial comic style, square-jawed heroes, clear action, hand-lettered poster energy, bright optimistic palette",
+	}
+
+	defaultHorrorStyles = []string{
+		"vintage horror comic style, eerie shadows, gothic atmosphere, unsettling monsters, dramatic candlelit contrast, suspenseful panel staging",
+		"creepy supernatural horror comic style, fog, haunted architecture, anxious expressions, heavy inks, sickly green and crimson accents",
+		"old anthology horror comic style, graveyard mist, warped shadows, tense faces, scratchy ink texture, ominous colored lighting",
+	}
+
+	defaultWatercolorStyles = []string{
+		"watercolor storybook comic style, soft washes, gentle ink outlines, luminous paper texture, warm hand-painted colors, whimsical atmosphere",
+		"delicate watercolor children's adventure style, airy backgrounds, expressive simple characters, pastel palette, soft brush edges",
+		"storybook watercolor fantasy comic style, transparent layered color, soft paper grain, tender expressions, dreamy illustrated settings",
+	}
+
+	realisticStyles  = defaultRealisticStyles
+	comicStyles      = defaultComicStyles
+	cartoonStyles    = defaultCartoonStyles
+	action90sStyles  = defaultAction90sStyles
+	mangaStyles      = defaultMangaStyles
+	cyberpunkStyles  = defaultCyberpunkStyles
+	goldenAgeStyles  = defaultGoldenAgeStyles
+	horrorStyles     = defaultHorrorStyles
+	watercolorStyles = defaultWatercolorStyles
 
 	galleryPoses = []string{
 		"close-up portrait of face and shoulders, dramatic three-quarter lighting, clear gaze toward the viewer, sharp eyes and expressive face",
@@ -95,6 +141,18 @@ var (
 		"profile close-up of face and upper body, soft rim light along jaw and hair, thoughtful expression, softly blurred background",
 		"confident full-body stance from eye level, arms relaxed but ready, environment filling the frame, golden or dramatic light",
 	}
+)
+
+const (
+	styleModeRealistic  = "realistic"
+	styleModeComic      = "comic"
+	styleModeCartoon    = "cartoon"
+	styleModeAction90s  = "action_90s"
+	styleModeManga      = "manga"
+	styleModeCyberpunk  = "cyberpunk"
+	styleModeGoldenAge  = "golden_age"
+	styleModeHorror     = "horror"
+	styleModeWatercolor = "watercolor"
 )
 
 // PromptRenderer renders external or embedded prompt templates.
@@ -143,13 +201,41 @@ func resolveGenre(theme string, genres []string) string {
 	return pickStoryGenre(genres)
 }
 
-func pickUltraRealistic(weight float64) bool {
-	weight = clampRealisticWeight(weight)
-	return rand.Float64() < weight
+func pickStyleMode(forcedUltra *bool) string {
+	if forcedUltra != nil {
+		if *forcedUltra {
+			return styleModeRealistic
+		}
+		return styleModeComic
+	}
+	modes := []string{
+		styleModeRealistic,
+		styleModeComic,
+		styleModeCartoon,
+		styleModeAction90s,
+		styleModeManga,
+		styleModeCyberpunk,
+		styleModeGoldenAge,
+		styleModeHorror,
+		styleModeWatercolor,
+	}
+	return modes[rand.IntN(len(modes))]
 }
 
-func pickStyle(comicStyles, realisticStyles []string, ultraRealistic bool) string {
-	if ultraRealistic {
+func pickStyle(
+	comicStyles,
+	realisticStyles,
+	cartoonStyles,
+	action90sStyles,
+	mangaStyles,
+	cyberpunkStyles,
+	goldenAgeStyles,
+	horrorStyles,
+	watercolorStyles []string,
+	mode string,
+) string {
+	switch mode {
+	case styleModeRealistic:
 		if len(realisticStyles) == 0 {
 			realisticStyles = defaultRealisticStyles
 		}
@@ -157,6 +243,62 @@ func pickStyle(comicStyles, realisticStyles []string, ultraRealistic bool) strin
 			return ""
 		}
 		return realisticStyles[rand.IntN(len(realisticStyles))]
+	case styleModeCartoon:
+		if len(cartoonStyles) == 0 {
+			cartoonStyles = defaultCartoonStyles
+		}
+		if len(cartoonStyles) == 0 {
+			return ""
+		}
+		return cartoonStyles[rand.IntN(len(cartoonStyles))]
+	case styleModeAction90s:
+		if len(action90sStyles) == 0 {
+			action90sStyles = defaultAction90sStyles
+		}
+		if len(action90sStyles) == 0 {
+			return ""
+		}
+		return action90sStyles[rand.IntN(len(action90sStyles))]
+	case styleModeManga:
+		if len(mangaStyles) == 0 {
+			mangaStyles = defaultMangaStyles
+		}
+		if len(mangaStyles) == 0 {
+			return ""
+		}
+		return mangaStyles[rand.IntN(len(mangaStyles))]
+	case styleModeCyberpunk:
+		if len(cyberpunkStyles) == 0 {
+			cyberpunkStyles = defaultCyberpunkStyles
+		}
+		if len(cyberpunkStyles) == 0 {
+			return ""
+		}
+		return cyberpunkStyles[rand.IntN(len(cyberpunkStyles))]
+	case styleModeGoldenAge:
+		if len(goldenAgeStyles) == 0 {
+			goldenAgeStyles = defaultGoldenAgeStyles
+		}
+		if len(goldenAgeStyles) == 0 {
+			return ""
+		}
+		return goldenAgeStyles[rand.IntN(len(goldenAgeStyles))]
+	case styleModeHorror:
+		if len(horrorStyles) == 0 {
+			horrorStyles = defaultHorrorStyles
+		}
+		if len(horrorStyles) == 0 {
+			return ""
+		}
+		return horrorStyles[rand.IntN(len(horrorStyles))]
+	case styleModeWatercolor:
+		if len(watercolorStyles) == 0 {
+			watercolorStyles = defaultWatercolorStyles
+		}
+		if len(watercolorStyles) == 0 {
+			return ""
+		}
+		return watercolorStyles[rand.IntN(len(watercolorStyles))]
 	}
 	if len(comicStyles) == 0 {
 		comicStyles = defaultComicStyles

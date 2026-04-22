@@ -6,7 +6,7 @@ ComicForge turns a vocabulary file into a generated comic package. It uses Gemin
 
 ## What It Does
 
-ComicForge reads a vocabulary list, generates a story from those words, renders comic pages, and saves supporting files alongside the comic. By default it uses Gemini for text, image, and text-to-speech generation.
+ComicForge reads a vocabulary list, generates a story from those words, renders comic pages, and saves supporting files alongside the comic. By default it uses Gemini for text, image, and text-to-speech generation. When no explicit style is provided, it randomly chooses between photorealistic, classic comic, rubber-hose cartoon, 90s action, manga, cyberpunk, golden-age superhero, horror, and watercolor storybook style families.
 
 It also supports a manual prompt mode for generating a single image directly from a prompt, without the vocabulary/story pipeline.
 
@@ -127,7 +127,7 @@ Useful flags:
 - `--narrator-voice` picks the Gemini narration voice
 - `--text-provider`, `--image-provider`, `--tts-provider` override provider names
 - `--text-model`, `--image-model`, `--image-text-model`, `--tts-model` override model IDs
-- `--ultra-realistic` and `--no-ultra-realistic` control the rendering mode for both story and manual prompt mode
+- `--ultra-realistic` and `--no-ultra-realistic` force photorealistic or classic comic rendering; without either flag ComicForge randomly chooses from the configured style families
 - `--version` prints the application version
 
 Example:
@@ -149,6 +149,6 @@ For manual prompt mode:
 comicforge --prompt "a robot reading a newspaper" --output out --slug manual-robot
 ```
 
-This writes a single image to `out/comics/assets/manual-robot/prompt.png`.
+This writes a single image to `out/comics/assets/manual-robot/prompt.png`. Without `--slug`, ComicForge asks the text model for a short title and uses that as the directory slug, with a short deterministic fallback if title generation fails.
 
 Manual prompt mode can be combined with `--style`, `--theme`, and the ultra-realistic flags to shape the generated image prompt.

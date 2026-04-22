@@ -23,6 +23,23 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
+func TestShortPromptSlugFromText(t *testing.T) {
+	t.Parallel()
+
+	longPrompt := "generate a logo for ComicForge which is a comic book generator displaying a superhero fighting a bad guy and speech bubbles"
+
+	got := shortPromptSlugFromText(longPrompt)
+	if got == "" {
+		t.Fatal("shortPromptSlugFromText() returned empty slug")
+	}
+	if len(got) > maxPromptSlugLength {
+		t.Fatalf("shortPromptSlugFromText() length = %d, want <= %d (%q)", len(got), maxPromptSlugLength, got)
+	}
+	if strings.Contains(got, " ") {
+		t.Fatalf("shortPromptSlugFromText() = %q, want path-safe slug", got)
+	}
+}
+
 func TestParseGenerateResult(t *testing.T) {
 	t.Parallel()
 
@@ -371,8 +388,6 @@ func TestDrawComicPagesReturnsErrorWhenRenderFails(t *testing.T) {
 }
 
 func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
-	t.Parallel()
-
 	originalSleep := sleep
 	sleep = func(time.Duration) {}
 	t.Cleanup(func() {
@@ -415,6 +430,7 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 		OutputDir:             tmpDir,
 		Slug:                  "forced-slug",
 		NarrateEnabled:        true,
+		GalleryPages:          1,
 	})
 	runner.assemblePDF = func(outputDir, titleSlug string, imagePaths []string) (string, error) {
 		path := filepath.Join(outputDir, titleSlug+".pdf")
@@ -444,8 +460,38 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 }
 
 func TestRunnerRunPromptWritesSingleAsset(t *testing.T) {
-	t.Parallel()
+	originalLeakValidation := validateImagePromptLeakageFn
+	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
+	t.Cleanup(func() {
+		validateImagePromptLeakageFn = originalLeakValidation
+	})
 
+	tmpDir := t.TempDir()
+	runner := NewRunner(&RunnerConfig{
+		ImageProvider:  fakeImageProvider{t: t},
+		TextProvider:   fakeTextProvider{text: "ComicForge Superhero Logo"},
+		Prompts:        fakePromptRenderer{},
+		OutputDir:      tmpDir,
+		UltraRealistic: boolPtr(false),
+		PageMaxRetries: 1,
+		PageRetryBase:  time.Second,
+	})
+
+	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
+		t.Fatalf("RunPrompt() error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "assets", "comicforge-superhero-logo", "prompt.png")); err != nil {
+		t.Fatalf("prompt image missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "PDF")); !os.IsNotExist(err) {
+		t.Fatalf("PDF directory exists unexpectedly: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "gallery")); !os.IsNotExist(err) {
+		t.Fatalf("gallery directory exists unexpectedly: %v", err)
+	}
+}
+
+func TestRunnerRunPromptUsesShortFallbackSlugWithoutTextProvider(t *testing.T) {
 	originalLeakValidation := validateImagePromptLeakageFn
 	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
 	t.Cleanup(func() {
@@ -457,23 +503,29 @@ func TestRunnerRunPromptWritesSingleAsset(t *testing.T) {
 		ImageProvider:  fakeImageProvider{t: t},
 		Prompts:        fakePromptRenderer{},
 		OutputDir:      tmpDir,
-		Slug:           "manual-robot",
 		UltraRealistic: boolPtr(false),
 		PageMaxRetries: 1,
 		PageRetryBase:  time.Second,
 	})
 
-	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
+	longPrompt := "generate a logo for ComicForge which is a comic book generator displaying a superhero fighting a bad guy and speech bubbles"
+	if err := runner.RunPrompt(context.Background(), longPrompt); err != nil {
 		t.Fatalf("RunPrompt() error = %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "assets", "manual-robot", "prompt.png")); err != nil {
+
+	entries, err := os.ReadDir(filepath.Join(tmpDir, "comics", "assets"))
+	if err != nil {
+		t.Fatalf("read assets dir: %v", err)
+	}
+	if got, want := len(entries), 1; got != want {
+		t.Fatalf("asset dirs = %d, want %d", got, want)
+	}
+	slug := entries[0].Name()
+	if len(slug) > maxPromptSlugLength {
+		t.Fatalf("prompt slug length = %d, want <= %d (%q)", len(slug), maxPromptSlugLength, slug)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "assets", slug, "prompt.png")); err != nil {
 		t.Fatalf("prompt image missing: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "PDF")); !os.IsNotExist(err) {
-		t.Fatalf("PDF directory exists unexpectedly: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(tmpDir, "comics", "gallery")); !os.IsNotExist(err) {
-		t.Fatalf("gallery directory exists unexpectedly: %v", err)
 	}
 }
 
@@ -603,15 +655,16 @@ func TestRunnerRunPromptAppliesStyleThemeAndUltraContext(t *testing.T) {
 	}
 }
 
-func TestNewRunnerUsesRealisticWeightWhenUltraRealisticUnset(t *testing.T) {
+func TestNewRunnerUsesUltraFlagsForStyleMode(t *testing.T) {
 	t.Parallel()
 
 	t.Run("comic", func(t *testing.T) {
+		ultra := false
 		runner := NewRunner(&RunnerConfig{
 			TextProvider:    fakeTextProvider{text: "story"},
 			ImageProvider:   fakeImageProvider{t: t},
 			Prompts:         fakePromptRenderer{},
-			RealisticWeight: 0,
+			UltraRealistic:  &ultra,
 			StoryPages:      1,
 			GalleryPages:    0,
 			PanelsPerPage:   1,
@@ -627,16 +680,20 @@ func TestNewRunnerUsesRealisticWeightWhenUltraRealisticUnset(t *testing.T) {
 			t.Fatal("artist is nil")
 		}
 		if runner.artist.ultraRealistic {
-			t.Fatal("ultraRealistic = true, want false when weight is 0")
+			t.Fatal("ultraRealistic = true, want false when explicitly disabled")
+		}
+		if got, want := runner.artist.styleMode, styleModeComic; got != want {
+			t.Fatalf("styleMode = %q, want %q", got, want)
 		}
 	})
 
 	t.Run("realistic", func(t *testing.T) {
+		ultra := true
 		runner := NewRunner(&RunnerConfig{
 			TextProvider:    fakeTextProvider{text: "story"},
 			ImageProvider:   fakeImageProvider{t: t},
 			Prompts:         fakePromptRenderer{},
-			RealisticWeight: 1,
+			UltraRealistic:  &ultra,
 			StoryPages:      1,
 			GalleryPages:    0,
 			PanelsPerPage:   1,
@@ -652,7 +709,10 @@ func TestNewRunnerUsesRealisticWeightWhenUltraRealisticUnset(t *testing.T) {
 			t.Fatal("artist is nil")
 		}
 		if !runner.artist.ultraRealistic {
-			t.Fatal("ultraRealistic = false, want true when weight is 1")
+			t.Fatal("ultraRealistic = false, want true when explicitly enabled")
+		}
+		if got, want := runner.artist.styleMode, styleModeRealistic; got != want {
+			t.Fatalf("styleMode = %q, want %q", got, want)
 		}
 	})
 }
@@ -769,27 +829,41 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 	})
 
 	tests := []struct {
-		name           string
-		ultraRealistic bool
-		wantStyle      string
+		name      string
+		styleMode string
+		wantStyle string
 	}{
-		{name: "comic", ultraRealistic: false, wantStyle: "comic-ink"},
-		{name: "realistic", ultraRealistic: true, wantStyle: "photo-real"},
+		{name: "comic", styleMode: styleModeComic, wantStyle: "comic-ink"},
+		{name: "realistic", styleMode: styleModeRealistic, wantStyle: "photo-real"},
+		{name: "cartoon", styleMode: styleModeCartoon, wantStyle: "cartoon-ink"},
+		{name: "action90s", styleMode: styleModeAction90s, wantStyle: "action-ink"},
+		{name: "manga", styleMode: styleModeManga, wantStyle: "manga-ink"},
+		{name: "cyberpunk", styleMode: styleModeCyberpunk, wantStyle: "cyberpunk-ink"},
+		{name: "goldenAge", styleMode: styleModeGoldenAge, wantStyle: "golden-age-ink"},
+		{name: "horror", styleMode: styleModeHorror, wantStyle: "horror-ink"},
+		{name: "watercolor", styleMode: styleModeWatercolor, wantStyle: "watercolor-ink"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := &recordingPromptRenderer{}
 			artist := NewArtist(&ArtistConfig{
-				ImageProvider:   fakeImageProvider{t: t},
-				Prompts:         renderer,
-				OutputDir:       t.TempDir(),
-				UltraRealistic:  tt.ultraRealistic,
-				ComicStyles:     []string{"comic-ink"},
-				RealisticStyles: []string{"photo-real"},
-				Language:        "English",
-				Script:          "Latin",
-				PanelsPerPage:   2,
+				ImageProvider:    fakeImageProvider{t: t},
+				Prompts:          renderer,
+				OutputDir:        t.TempDir(),
+				StyleMode:        tt.styleMode,
+				ComicStyles:      []string{"comic-ink"},
+				RealisticStyles:  []string{"photo-real"},
+				CartoonStyles:    []string{"cartoon-ink"},
+				Action90sStyles:  []string{"action-ink"},
+				MangaStyles:      []string{"manga-ink"},
+				CyberpunkStyles:  []string{"cyberpunk-ink"},
+				GoldenAgeStyles:  []string{"golden-age-ink"},
+				HorrorStyles:     []string{"horror-ink"},
+				WatercolorStyles: []string{"watercolor-ink"},
+				Language:         "English",
+				Script:           "Latin",
+				PanelsPerPage:    2,
 			})
 
 			if _, err := artist.DrawComicPages(context.Background(), "story", "bible", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
@@ -971,6 +1045,8 @@ func (fakePromptRenderer) RenderPrompt(name string, data any) (string, error) {
 		return "FINAL STYLE LOCK — PHOTOREALISM: the entire image must look camera-captured. If anything looks drawn or painted, the result is wrong. Do not drift toward comic art between panels or in gallery images.", nil
 	case manualPromptTemplate:
 		return renderManualPromptForTest(data), nil
+	case manualTitlePromptTemplate:
+		return "short title prompt", nil
 	case coverPromptTemplate, storyPagePromptTemplate, galleryPagePromptTemplate, backCoverPromptTemplate:
 		return "image prompt", nil
 	case blurbSystemTemplate, introSystemTemplate, conclusionSystemTemplate:
@@ -1010,6 +1086,8 @@ func (r *recordingPromptRenderer) RenderPrompt(name string, data any) (string, e
 		return "FINAL STYLE LOCK — PHOTOREALISM: the entire image must look camera-captured. If anything looks drawn or painted, the result is wrong. Do not drift toward comic art between panels or in gallery images.", nil
 	case manualPromptTemplate:
 		return renderManualPromptForTest(data), nil
+	case manualTitlePromptTemplate:
+		return "short title prompt", nil
 	case coverPromptTemplate, storyPagePromptTemplate, galleryPagePromptTemplate, backCoverPromptTemplate:
 		return "image prompt", nil
 	case blurbSystemTemplate, introSystemTemplate, conclusionSystemTemplate:

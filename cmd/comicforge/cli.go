@@ -165,6 +165,13 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 		Style:                 flags.style,
 		ComicStyles:           cfg.Styles.Comic,
 		RealisticStyles:       cfg.Styles.Realistic,
+		CartoonStyles:         cfg.Styles.Cartoon,
+		Action90sStyles:       cfg.Styles.Action90s,
+		MangaStyles:           cfg.Styles.Manga,
+		CyberpunkStyles:       cfg.Styles.Cyberpunk,
+		GoldenAgeStyles:       cfg.Styles.GoldenAge,
+		HorrorStyles:          cfg.Styles.Horror,
+		WatercolorStyles:      cfg.Styles.Watercolor,
 		Theme:                 flags.theme,
 		Language:              cfg.Language.Story,
 		Script:                cfg.Language.Script,
@@ -197,28 +204,40 @@ func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps,
 	}
 
 	applyConfigOverrides(cmd, cfg, flags)
+	textProvider, err := deps.newTextProvider(cfg)
+	if err != nil {
+		return fmt.Errorf("build text provider: %w", err)
+	}
 	imageProvider, err := deps.newImageProvider(cfg)
 	if err != nil {
 		return fmt.Errorf("build image provider: %w", err)
 	}
 
 	runner := deps.newRunner(&comic.RunnerConfig{
-		ImageProvider:   imageProvider,
-		Prompts:         cfg,
-		OutputDir:       flags.outputDir,
-		Style:           flags.style,
-		ComicStyles:     cfg.Styles.Comic,
-		RealisticStyles: cfg.Styles.Realistic,
-		Theme:           flags.theme,
-		Language:        cfg.Language.Story,
-		Script:          cfg.Language.Script,
-		Slug:            flags.slug,
-		UltraRealistic:  resolveUltraRealistic(flags),
-		RealisticWeight: cfg.Story.RealisticWeight,
-		AspectRatio:     cfg.Comic.AspectRatio,
-		PromptMaxChars:  cfg.Comic.PromptMaxChars,
-		PageMaxRetries:  cfg.Comic.PageMaxRetries,
-		PageRetryBase:   time.Duration(cfg.Comic.PageRetryBaseSeconds) * time.Second,
+		TextProvider:     textProvider,
+		ImageProvider:    imageProvider,
+		Prompts:          cfg,
+		OutputDir:        flags.outputDir,
+		Style:            flags.style,
+		ComicStyles:      cfg.Styles.Comic,
+		RealisticStyles:  cfg.Styles.Realistic,
+		CartoonStyles:    cfg.Styles.Cartoon,
+		Action90sStyles:  cfg.Styles.Action90s,
+		MangaStyles:      cfg.Styles.Manga,
+		CyberpunkStyles:  cfg.Styles.Cyberpunk,
+		GoldenAgeStyles:  cfg.Styles.GoldenAge,
+		HorrorStyles:     cfg.Styles.Horror,
+		WatercolorStyles: cfg.Styles.Watercolor,
+		Theme:            flags.theme,
+		Language:         cfg.Language.Story,
+		Script:           cfg.Language.Script,
+		Slug:             flags.slug,
+		UltraRealistic:   resolveUltraRealistic(flags),
+		RealisticWeight:  cfg.Story.RealisticWeight,
+		AspectRatio:      cfg.Comic.AspectRatio,
+		PromptMaxChars:   cfg.Comic.PromptMaxChars,
+		PageMaxRetries:   cfg.Comic.PageMaxRetries,
+		PageRetryBase:    time.Duration(cfg.Comic.PageRetryBaseSeconds) * time.Second,
 	})
 
 	return runner.RunPrompt(ctx, flags.prompt)

@@ -404,7 +404,6 @@ func TestRootCommandSkipsTTSProviderWhenNarrationDisabled(t *testing.T) {
 func TestRootCommandPromptModeSkipsVocabFlow(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	var textCalled bool
 	var ttsCalled bool
 	var gotRunnerCfg *comic.RunnerConfig
 	runner := &recordingRunner{}
@@ -414,7 +413,6 @@ func TestRootCommandPromptModeSkipsVocabFlow(t *testing.T) {
 			return config.DefaultConfig(), nil
 		},
 		newTextProvider: func(*config.Config) (provider.TextProvider, error) {
-			textCalled = true
 			return noopProvider{}, nil
 		},
 		newImageProvider: func(cfg *config.Config) (provider.ImageProvider, error) {
@@ -444,9 +442,6 @@ func TestRootCommandPromptModeSkipsVocabFlow(t *testing.T) {
 
 	if err := cmd.ExecuteContext(context.Background()); err != nil {
 		t.Fatalf("ExecuteContext() error = %v\noutput:\n%s", err, buf.String())
-	}
-	if textCalled {
-		t.Fatal("newTextProvider was called, want prompt mode to skip story flow")
 	}
 	if ttsCalled {
 		t.Fatal("newTTSProvider was called, want prompt mode to skip narration setup")

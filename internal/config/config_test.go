@@ -47,6 +47,20 @@ styles:
     - custom comic
   realistic:
     - custom realistic
+  cartoon:
+    - custom cartoon
+  action_90s:
+    - custom 90s action
+  manga:
+    - custom manga
+  cyberpunk:
+    - custom cyberpunk
+  golden_age:
+    - custom golden age
+  horror:
+    - custom horror
+  watercolor:
+    - custom watercolor
 narration:
   chunk_words: 42
 `)), 0o644); err != nil {
@@ -92,6 +106,27 @@ narration:
 	}
 	if got, want := len(cfg.Styles.Realistic), 1; got != want || cfg.Styles.Realistic[0] != "custom realistic" {
 		t.Fatalf("Styles.Realistic = %#v, want %q", cfg.Styles.Realistic, "custom realistic")
+	}
+	if got, want := len(cfg.Styles.Cartoon), 1; got != want || cfg.Styles.Cartoon[0] != "custom cartoon" {
+		t.Fatalf("Styles.Cartoon = %#v, want %q", cfg.Styles.Cartoon, "custom cartoon")
+	}
+	if got, want := len(cfg.Styles.Action90s), 1; got != want || cfg.Styles.Action90s[0] != "custom 90s action" {
+		t.Fatalf("Styles.Action90s = %#v, want %q", cfg.Styles.Action90s, "custom 90s action")
+	}
+	if got, want := len(cfg.Styles.Manga), 1; got != want || cfg.Styles.Manga[0] != "custom manga" {
+		t.Fatalf("Styles.Manga = %#v, want %q", cfg.Styles.Manga, "custom manga")
+	}
+	if got, want := len(cfg.Styles.Cyberpunk), 1; got != want || cfg.Styles.Cyberpunk[0] != "custom cyberpunk" {
+		t.Fatalf("Styles.Cyberpunk = %#v, want %q", cfg.Styles.Cyberpunk, "custom cyberpunk")
+	}
+	if got, want := len(cfg.Styles.GoldenAge), 1; got != want || cfg.Styles.GoldenAge[0] != "custom golden age" {
+		t.Fatalf("Styles.GoldenAge = %#v, want %q", cfg.Styles.GoldenAge, "custom golden age")
+	}
+	if got, want := len(cfg.Styles.Horror), 1; got != want || cfg.Styles.Horror[0] != "custom horror" {
+		t.Fatalf("Styles.Horror = %#v, want %q", cfg.Styles.Horror, "custom horror")
+	}
+	if got, want := len(cfg.Styles.Watercolor), 1; got != want || cfg.Styles.Watercolor[0] != "custom watercolor" {
+		t.Fatalf("Styles.Watercolor = %#v, want %q", cfg.Styles.Watercolor, "custom watercolor")
 	}
 	if got, want := cfg.Narration.ChunkWords, 42; got != want {
 		t.Fatalf("Narration.ChunkWords = %d, want %d", got, want)
@@ -260,6 +295,7 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"rendering_requirement.md",
 		"rendering_requirement_end.md",
 		"manual_prompt.md",
+		"manual_title_prompt.md",
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := cfg.RenderPrompt(name, data)

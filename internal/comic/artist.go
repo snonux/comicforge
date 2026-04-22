@@ -14,47 +14,63 @@ import (
 
 // ArtistConfig configures comic page generation.
 type ArtistConfig struct {
-	ImageProvider   provider.ImageProvider
-	TextProvider    provider.TextProvider
-	Prompts         PromptRenderer
-	OutputDir       string
-	Style           string
-	ComicStyles     []string
-	RealisticStyles []string
-	Theme           string
-	AspectRatio     string
-	Language        string
-	Script          string
-	UltraRealistic  bool
-	StoryPages      int
-	GalleryPages    int
-	PanelsPerPage   int
-	PromptMaxChars  int
-	PageMaxRetries  int
-	PageRetryBase   time.Duration
+	ImageProvider    provider.ImageProvider
+	TextProvider     provider.TextProvider
+	Prompts          PromptRenderer
+	OutputDir        string
+	Style            string
+	StyleMode        string
+	ComicStyles      []string
+	RealisticStyles  []string
+	CartoonStyles    []string
+	Action90sStyles  []string
+	MangaStyles      []string
+	CyberpunkStyles  []string
+	GoldenAgeStyles  []string
+	HorrorStyles     []string
+	WatercolorStyles []string
+	Theme            string
+	AspectRatio      string
+	Language         string
+	Script           string
+	UltraRealistic   bool
+	StoryPages       int
+	GalleryPages     int
+	PanelsPerPage    int
+	PromptMaxChars   int
+	PageMaxRetries   int
+	PageRetryBase    time.Duration
 }
 
 // Artist generates comic-book pages.
 type Artist struct {
-	imageProvider   provider.ImageProvider
-	textProvider    provider.TextProvider
-	prompts         PromptRenderer
-	outputDir       string
-	style           string
-	comicStyles     []string
-	realisticStyles []string
-	theme           string
-	aspectRatio     string
-	language        string
-	script          string
-	ultraRealistic  bool
-	storyPages      int
-	galleryPages    int
-	panelsPerPage   int
-	promptMaxChars  int
-	pageMaxRetries  int
-	pageRetryBase   time.Duration
-	initErr         error
+	imageProvider    provider.ImageProvider
+	textProvider     provider.TextProvider
+	prompts          PromptRenderer
+	outputDir        string
+	style            string
+	styleMode        string
+	comicStyles      []string
+	realisticStyles  []string
+	cartoonStyles    []string
+	action90sStyles  []string
+	mangaStyles      []string
+	cyberpunkStyles  []string
+	goldenAgeStyles  []string
+	horrorStyles     []string
+	watercolorStyles []string
+	theme            string
+	aspectRatio      string
+	language         string
+	script           string
+	ultraRealistic   bool
+	storyPages       int
+	galleryPages     int
+	panelsPerPage    int
+	promptMaxChars   int
+	pageMaxRetries   int
+	pageRetryBase    time.Duration
+	initErr          error
 }
 
 type referenceImageGenerator interface {
@@ -88,8 +104,16 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	a.prompts = cfg.Prompts
 	a.outputDir = orDefault(cfg.OutputDir, a.outputDir)
 	a.style = cfg.Style
+	a.styleMode = orDefault(cfg.StyleMode, styleModeComic)
 	a.comicStyles = append([]string(nil), cfg.ComicStyles...)
 	a.realisticStyles = append([]string(nil), cfg.RealisticStyles...)
+	a.cartoonStyles = append([]string(nil), cfg.CartoonStyles...)
+	a.action90sStyles = append([]string(nil), cfg.Action90sStyles...)
+	a.mangaStyles = append([]string(nil), cfg.MangaStyles...)
+	a.cyberpunkStyles = append([]string(nil), cfg.CyberpunkStyles...)
+	a.goldenAgeStyles = append([]string(nil), cfg.GoldenAgeStyles...)
+	a.horrorStyles = append([]string(nil), cfg.HorrorStyles...)
+	a.watercolorStyles = append([]string(nil), cfg.WatercolorStyles...)
 	a.theme = cfg.Theme
 	a.aspectRatio = orDefault(cfg.AspectRatio, comicPageAspectRatio)
 	a.language = orDefault(cfg.Language, a.language)
@@ -98,7 +122,7 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	if cfg.StoryPages > 0 {
 		a.storyPages = cfg.StoryPages
 	}
-	if cfg.GalleryPages > 0 {
+	if cfg.GalleryPages >= 0 {
 		a.galleryPages = cfg.GalleryPages
 	}
 	if cfg.PanelsPerPage > 0 {
@@ -128,7 +152,18 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	}
 	style := a.style
 	if style == "" {
-		style = pickStyle(a.comicStyles, a.realisticStyles, a.ultraRealistic)
+		style = pickStyle(
+			a.comicStyles,
+			a.realisticStyles,
+			a.cartoonStyles,
+			a.action90sStyles,
+			a.mangaStyles,
+			a.cyberpunkStyles,
+			a.goldenAgeStyles,
+			a.horrorStyles,
+			a.watercolorStyles,
+			a.styleMode,
+		)
 	}
 	fmt.Printf("  Comic style: %s\n", style)
 
