@@ -241,6 +241,10 @@ To compare **every** line in `styles.*` plus **every** `story.genres` entry on o
 go run ./cmd/stylegrid --config config.yaml --output stylegrid.png
 ```
 
-Flags: `--scene` (override the shared scene), `--aspect-ratio` (default `16:9`), `--timeout` (default 45m). With default `config` this produces **14** style variants + **3** genre panels = **17** images. Regenerate after editing style or genre lists in YAML.
+Flags: `--scene` (override the shared scene), `--aspect-ratio` (default `16:9`), `--timeout` (default 45m). With default `config` this produces **24** style variants + **3** genre panels = **27** images. Regenerate after editing style or genre lists in YAML.
 
 `mage stylegrid` writes `stylegrid.png` in the repo root via the same command.
+
+Example preview (downscaled JPEG for README; full-resolution grid is much larger):
+
+![Stylegrid preview](assets/stylegrid-all-styles-and-themes-small.jpg)
