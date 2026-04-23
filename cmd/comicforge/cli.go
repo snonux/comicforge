@@ -47,6 +47,10 @@ type cliFlags struct {
 	ultraRealistic   bool
 	noUltraRealistic bool
 	version          bool
+	pageFormat       string
+	aspectRatio      string
+	pdfJPEGQuality   int
+	pdfPresentation  string
 }
 
 func defaultCommandDeps() commandDeps {
@@ -86,6 +90,12 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 			if err := validateUltraRealisticFlags(flags); err != nil {
 				return err
 			}
+			if err := validatePageFormatFlag(cmd, flags); err != nil {
+				return err
+			}
+			if err := validatePDFCLIOnlyFlags(cmd, flags); err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("prompt") && strings.TrimSpace(flags.prompt) == "" {
 				return fmt.Errorf("--prompt is required when set")
 			}
@@ -122,6 +132,10 @@ func newRootCommandWithDeps(deps commandDeps) *cobra.Command {
 	cmd.Flags().StringVar(&flags.imageModel, "image-model", "", "image model override")
 	cmd.Flags().StringVar(&flags.imageTextModel, "image-text-model", "", "image text model override")
 	cmd.Flags().StringVar(&flags.ttsModel, "tts-model", "", "text-to-speech model override")
+	cmd.Flags().StringVar(&flags.pageFormat, "page-format", "", "page shape preset: screen (16:9) or comic (2:3); ignored if --aspect-ratio is set")
+	cmd.Flags().StringVar(&flags.aspectRatio, "aspect-ratio", "", "override Gemini image aspect ratio (e.g. 16:9, 2:3, 3:4); wins over --page-format and config")
+	cmd.Flags().IntVar(&flags.pdfJPEGQuality, "pdf-jpeg-quality", 0, "if 1–100, JPEG-compress the assembled PDF for smaller files; 0 keeps default encoding")
+	cmd.Flags().StringVar(&flags.pdfPresentation, "pdf-presentation", "", "PDF framing: none, print (matte + ISO A4 pages), or book (aged, tilt, shadow, thick edge + ISO A4 pages)")
 
 	return cmd
 }
@@ -137,6 +151,7 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 	}
 
 	applyConfigOverrides(cmd, cfg, flags)
+	applyOutputFlags(cmd, cfg, flags)
 	voice := resolveNarratorVoice(flags, cfg)
 
 	textProvider, err := deps.newTextProvider(cfg)
@@ -186,6 +201,11 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 		StoryPages:            cfg.Comic.StoryPages,
 		GalleryPages:          cfg.Comic.GalleryPages,
 		PanelsPerPage:         cfg.Comic.PanelsPerPage,
+		PDF: comic.PDFAssembleOptions{
+			Density:      cfg.PDF.Density,
+			JPEGQuality:  cfg.PDF.JPEGQuality,
+			Presentation: cfg.PDF.Presentation,
+		},
 	})
 
 	return runner.Run(ctx, flags.vocab)
@@ -202,6 +222,7 @@ func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps,
 	}
 
 	applyConfigOverrides(cmd, cfg, flags)
+	applyOutputFlags(cmd, cfg, flags)
 	textProvider, err := deps.newTextProvider(cfg)
 	if err != nil {
 		return fmt.Errorf("build text provider: %w", err)
@@ -234,6 +255,11 @@ func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps,
 		PromptMaxChars:   cfg.Comic.PromptMaxChars,
 		PageMaxRetries:   cfg.Comic.PageMaxRetries,
 		PageRetryBase:    time.Duration(cfg.Comic.PageRetryBaseSeconds) * time.Second,
+		PDF: comic.PDFAssembleOptions{
+			Density:      cfg.PDF.Density,
+			JPEGQuality:  cfg.PDF.JPEGQuality,
+			Presentation: cfg.PDF.Presentation,
+		},
 	})
 
 	return runner.RunPrompt(ctx, flags.prompt)
@@ -244,6 +270,60 @@ func validateUltraRealisticFlags(flags cliFlags) error {
 		return fmt.Errorf("only one of --ultra-realistic and --no-ultra-realistic may be set")
 	}
 	return nil
+}
+
+func validatePageFormatFlag(cmd *cobra.Command, flags cliFlags) error {
+	if !cmd.Flags().Changed("page-format") {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(flags.pageFormat)) {
+	case "screen", "comic":
+		return nil
+	default:
+		return fmt.Errorf("--page-format must be screen or comic")
+	}
+}
+
+func validatePDFCLIOnlyFlags(cmd *cobra.Command, flags cliFlags) error {
+	if cmd.Flags().Changed("pdf-presentation") && strings.TrimSpace(flags.pdfPresentation) != "" {
+		switch strings.ToLower(strings.TrimSpace(flags.pdfPresentation)) {
+		case "none", "print", "book":
+		default:
+			return fmt.Errorf("--pdf-presentation must be none, print, or book")
+		}
+	}
+	if cmd.Flags().Changed("pdf-jpeg-quality") {
+		if flags.pdfJPEGQuality < 0 || flags.pdfJPEGQuality > 100 {
+			return fmt.Errorf("--pdf-jpeg-quality must be between 0 and 100")
+		}
+	}
+	return nil
+}
+
+func applyOutputFlags(cmd *cobra.Command, cfg *config.Config, flags cliFlags) {
+	if cfg == nil {
+		return
+	}
+	if cmd.Flags().Changed("pdf-jpeg-quality") {
+		cfg.PDF.JPEGQuality = flags.pdfJPEGQuality
+	}
+	if cmd.Flags().Changed("pdf-presentation") && strings.TrimSpace(flags.pdfPresentation) != "" {
+		cfg.PDF.Presentation = strings.ToLower(strings.TrimSpace(flags.pdfPresentation))
+	}
+
+	// Print/book PDF: ISO A4 portrait pages — force Gemini 3:4 (closest ratio to 210×297 mm) unless --aspect-ratio is set.
+	if cmd.Flags().Changed("aspect-ratio") && strings.TrimSpace(flags.aspectRatio) != "" {
+		cfg.Comic.AspectRatio = strings.TrimSpace(flags.aspectRatio)
+	} else if comic.IsDINA4ClassPDFPresentation(cfg.PDF.Presentation) {
+		cfg.Comic.AspectRatio = comic.BookPageAspectRatio
+	} else if cmd.Flags().Changed("page-format") {
+		switch strings.ToLower(strings.TrimSpace(flags.pageFormat)) {
+		case "screen":
+			cfg.Comic.AspectRatio = "16:9"
+		case "comic":
+			cfg.Comic.AspectRatio = "2:3"
+		}
+	}
 }
 
 func applyConfigOverrides(cmd *cobra.Command, cfg *config.Config, flags cliFlags) {

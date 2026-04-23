@@ -54,6 +54,7 @@ type RunnerConfig struct {
 	StoryPages            int
 	GalleryPages          int
 	PanelsPerPage         int
+	PDF                   PDFAssembleOptions
 }
 
 // Runner orchestrates the full pipeline.
@@ -62,7 +63,7 @@ type Runner struct {
 	generator   *Generator
 	artist      *Artist
 	narrator    *Narrator
-	assemblePDF func(outputDir, titleSlug string, imagePaths []string) (string, error)
+	assemblePDF func(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
 }
 
 // NewRunner wires together the generator, artist, and narrator.
@@ -113,6 +114,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		StoryPages:       cfg.StoryPages,
 		GalleryPages:     cfg.GalleryPages,
 		PanelsPerPage:    cfg.PanelsPerPage,
+		DINA4PDF:         IsDINA4ClassPDFPresentation(cfg.PDF.Presentation),
 	})
 	r.narrator = NewNarrator(&NarratorConfig{
 		TextProvider:       cfg.TextProvider,
@@ -190,7 +192,7 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
 	}
 	if len(paths) > 0 {
-		pdfPath, err := r.assemblePDF(comicsPDFDir(dir), slug, paths)
+		pdfPath, err := r.assemblePDF(comicsPDFDir(dir), slug, paths, r.config.PDF)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
 		} else {

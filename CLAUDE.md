@@ -13,3 +13,7 @@
 - Put application logic under `internal/`.
 - Use `mage` for project tasks.
 
+## Page shape and PDF
+
+- Documented in `README.md` (**Page shape and PDF export** and **Usage**): `--page-format`, `--aspect-ratio`, `comic.aspect_ratio`, `pdf.*` / `--pdf-*` (`print` / `book`: ISO A4 portrait PDF pages; `book` adds aged art, tilt, shadow, thick edge), language env vars for vocab/script alignment, and matching `COMICFORGE_` env vars.
+

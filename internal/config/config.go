@@ -35,6 +35,7 @@ type Config struct {
 	Story     StoryConfig     `mapstructure:"story" yaml:"story"`
 	Styles    StyleConfig     `mapstructure:"styles" yaml:"styles"`
 	Narration NarrationConfig `mapstructure:"narration" yaml:"narration"`
+	PDF       PDFConfig       `mapstructure:"pdf" yaml:"pdf"`
 
 	PromptsDir string `mapstructure:"prompts_dir" yaml:"prompts_dir"`
 }
@@ -108,6 +109,16 @@ type StyleConfig struct {
 type NarrationConfig struct {
 	Voices     []string `mapstructure:"voices" yaml:"voices"`
 	ChunkWords int      `mapstructure:"chunk_words" yaml:"chunk_words"`
+}
+
+// PDFConfig controls final PDF assembly (ImageMagick).
+type PDFConfig struct {
+	// Density is the ImageMagick -density value (DPI hint for the PDF).
+	Density int `mapstructure:"density" yaml:"density"`
+	// JPEGQuality is 0 for default encoding, or 1–100 to JPEG-compress the PDF (smaller files).
+	JPEGQuality int `mapstructure:"jpeg_quality" yaml:"jpeg_quality"`
+	// Presentation is "none", "print" (matte + ISO A4 portrait pages), or "book" (aged tilt + ISO A4 portrait pages).
+	Presentation string `mapstructure:"presentation" yaml:"presentation"`
 }
 
 // DefaultConfig returns a configuration populated with the initial Gemini-first defaults.
@@ -184,6 +195,11 @@ func DefaultConfig() *Config {
 				"Fenrir",
 			},
 			ChunkWords: 100,
+		},
+		PDF: PDFConfig{
+			Density:      150,
+			JPEGQuality:  0,
+			Presentation: "none",
 		},
 		PromptsDir: DefaultPromptsDir,
 	}
@@ -367,6 +383,20 @@ func (c *Config) normalize() {
 	if c.PromptsDir == "" {
 		c.PromptsDir = DefaultPromptsDir
 	}
+
+	if c.PDF.Density <= 0 {
+		c.PDF.Density = 150
+	}
+	if c.PDF.JPEGQuality < 0 {
+		c.PDF.JPEGQuality = 0
+	}
+	if c.PDF.JPEGQuality > 100 {
+		c.PDF.JPEGQuality = 100
+	}
+	c.PDF.Presentation = strings.ToLower(strings.TrimSpace(c.PDF.Presentation))
+	if c.PDF.Presentation == "" {
+		c.PDF.Presentation = "none"
+	}
 }
 
 func (c *Config) validate() error {
@@ -378,6 +408,12 @@ func (c *Config) validate() error {
 	}
 	if !tts.DefaultRegistry().Has(c.Provider.TTS) {
 		return fmt.Errorf("unknown TTS provider: %s", c.Provider.TTS)
+	}
+
+	switch c.PDF.Presentation {
+	case "none", "print", "book":
+	default:
+		return fmt.Errorf("unknown pdf.presentation %q (use none, print, or book)", c.PDF.Presentation)
 	}
 
 	return nil
@@ -421,6 +457,10 @@ func setDefaults(v *viper.Viper, cfg *Config) {
 
 	v.SetDefault("narration.voices", cfg.Narration.Voices)
 	v.SetDefault("narration.chunk_words", cfg.Narration.ChunkWords)
+
+	v.SetDefault("pdf.density", cfg.PDF.Density)
+	v.SetDefault("pdf.jpeg_quality", cfg.PDF.JPEGQuality)
+	v.SetDefault("pdf.presentation", cfg.PDF.Presentation)
 
 	v.SetDefault("prompts_dir", cfg.PromptsDir)
 }

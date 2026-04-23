@@ -1,4 +1,5 @@
 This comic page is in {{.LanguageName}}. All speech, thoughts, captions, and labels inside panels must use {{.ScriptName}} script only.
+Page dimensions: {{.PageFrame}}.
 
 UNIQUE STORY PAGE {{.PageNum}} OF {{.TotalPages}} — render this page as a NEW story beat, not a repeat of any previous page.
 The exact page-specific panel plan is the highest priority instruction:

@@ -489,5 +489,5 @@ comics/
 
 - **New AI Providers**: Implement `TextProvider`/`ImageProvider`/`TTSProvider` and register in the respective registries
 - **New Style Modes**: Add to `StyleConfig` and update `pickStyle()` in `types.go`
-- **Custom Output Formats**: The `assemblePDF` field in `Runner` is injectable for alternative exporters
+- **Custom Output Formats**: The `assemblePDF` field in `Runner` is injectable for alternative exporters; the default implementation takes `PDFAssembleOptions` (density, JPEG quality, print-style matting)
 - **Additional Languages**: Extend `localization.go` with new script/language mappings

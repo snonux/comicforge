@@ -9,8 +9,9 @@ VARIETY REQUIREMENTS:
   • This gallery image should feel like a distinct portfolio shot from a different moment in the story world.
 
 Style: {{.Style}}.{{.RenderingRequirement}}
-One full-frame {{if .RenderingRequirement}}photograph that looks 100% like a real camera shot{{else}}illustration{{end}} in landscape 16:9 format.
-Do not split the image into panels or sections. The entire canvas is one single scene.
+One full-frame {{if .RenderingRequirement}}photograph that looks 100% like a real camera shot{{else}}illustration{{end}} in {{.PageFrame}}.
+{{if .DINA4PDF}}This file is one ISO A4–class portrait page in the final PDF: one continuous scene must fill the whole canvas edge to edge (never multiple physical sheets, comic spreads, or stacked pages in-frame).
+{{end}}Do not split the image into panels or sections. The entire canvas is one single scene.
 No text of any kind. No title, labels, speech bubbles, panel borders, or UI elements.
 {{if .Bible}}CHARACTER AND SETTING REFERENCE:
 {{.Bible}}

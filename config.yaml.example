@@ -23,7 +23,9 @@ models:
 comic:
   story_pages: 5
   gallery_pages: 5
+  # 4 panels → prompt asks for ≥3 horizontal rows (not a 2×2-only layout).
   panels_per_page: 4
+  # Gemini image aspect ratio. CLI: --aspect-ratio wins. With pdf.presentation print|book, defaults to 3:4 (A4-class) unless --aspect-ratio is set.
   aspect_ratio: "16:9"
   prompt_max_chars: 900
   page_max_retries: 5
@@ -32,7 +34,9 @@ comic:
 language:
   input: Vocabulary
   output: Story
-  # Language used for story and narration prompts.
+  # Language used for story and narration prompts. Must match the script of visible text
+  # (e.g. English story + Latin script for English vocab; Cyrillic for Bulgarian).
+  # Env: COMICFORGE_LANGUAGE_STORY_LANGUAGE, COMICFORGE_LANGUAGE_SCRIPT
   story_language: Bulgarian
   script: Latin
 
@@ -71,6 +75,15 @@ narration:
     - Charon
     - Fenrir
   chunk_words: 100
+
+# Final PDF assembly (ImageMagick `convert` on PATH). CLI: --pdf-jpeg-quality, --pdf-presentation.
+# Env: COMICFORGE_PDF_DENSITY, COMICFORGE_PDF_JPEG_QUALITY, COMICFORGE_PDF_PRESENTATION
+pdf:
+  density: 150
+  # 0 = default; 1–100 = JPEG inside PDF (smaller file).
+  jpeg_quality: 0
+  # none | print | book — print/book output ISO A4 portrait PDF pages; book also ages, tilts, shadows, thick edge.
+  presentation: none
 
 # Directory that ComicForge uses for prompt templates.
 prompts_dir: ./prompts

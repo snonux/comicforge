@@ -74,6 +74,18 @@ func TestBuildPanelLayoutUsesFallbackExcerpt(t *testing.T) {
 	}
 }
 
+func TestPanelLayoutLeadFourPanelsUsesAtLeastThreeRows(t *testing.T) {
+	t.Parallel()
+	got := panelLayoutLead(4)
+	if !strings.Contains(strings.ToLower(got), "three horizontal rows") {
+		t.Fatalf("panelLayoutLead(4) = %q, want at least three horizontal rows", got)
+	}
+	// Reject the old two-row prescription, not the phrase "do not use 2×2".
+	if strings.Contains(got, "in a 2×2 grid") || strings.Contains(got, "in a 2x2 grid") {
+		t.Fatalf("panelLayoutLead(4) = %q, must not prescribe a 2×2 grid layout", got)
+	}
+}
+
 func TestSplitIntoSectionsUsesRuneBoundaries(t *testing.T) {
 	t.Parallel()
 
@@ -432,7 +444,7 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 		NarrateEnabled:        true,
 		GalleryPages:          1,
 	})
-	runner.assemblePDF = func(outputDir, titleSlug string, imagePaths []string) (string, error) {
+	runner.assemblePDF = func(outputDir, titleSlug string, imagePaths []string, _ PDFAssembleOptions) (string, error) {
 		path := filepath.Join(outputDir, titleSlug+".pdf")
 		return path, os.WriteFile(path, []byte("pdf"), 0o644)
 	}
@@ -740,7 +752,7 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 		Slug:                  "forced-slug",
 		NarrateEnabled:        false,
 	})
-	runner.assemblePDF = func(string, string, []string) (string, error) {
+	runner.assemblePDF = func(string, string, []string, PDFAssembleOptions) (string, error) {
 		t.Fatal("assemblePDF should not be called on render failure")
 		return "", nil
 	}

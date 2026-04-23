@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"codeberg.org/snonux/comicforge/internal/comic"
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
 
@@ -242,6 +243,7 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"ScriptName":              "кирилица",
 		"Genre":                   "a mystery with a surprising twist",
 		"Style":                   "cinematic realism",
+		"PageFrame":               comic.DescribePageFrame("16:9"),
 		"Theme":                   "mystery",
 		"Prompt":                  "a robot reading a newspaper",
 		"Words":                   "- ябълка\n- книга\n",
@@ -266,6 +268,7 @@ func TestEmbeddedPromptTemplatesRender(t *testing.T) {
 		"Pose":                    "extreme close-up portrait",
 		"GalleryNum":              1,
 		"TotalGalleryPages":       5,
+		"DINA4PDF":                false,
 	}
 
 	for _, name := range []string{

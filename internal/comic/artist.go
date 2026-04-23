@@ -38,6 +38,8 @@ type ArtistConfig struct {
 	PromptMaxChars   int
 	PageMaxRetries   int
 	PageRetryBase    time.Duration
+	// DINA4PDF is true when pdf.presentation is print or book (ISO A4 portrait PDF pages).
+	DINA4PDF bool
 }
 
 // Artist generates comic-book pages.
@@ -57,6 +59,7 @@ type Artist struct {
 	watercolorStyles []string
 	theme            string
 	aspectRatio      string
+	pageFrame        string
 	language         string
 	script           string
 	ultraRealistic   bool
@@ -66,6 +69,7 @@ type Artist struct {
 	promptMaxChars   int
 	pageMaxRetries   int
 	pageRetryBase    time.Duration
+	dina4PDF         bool
 	initErr          error
 }
 
@@ -110,6 +114,7 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	a.watercolorStyles = append([]string(nil), cfg.WatercolorStyles...)
 	a.theme = cfg.Theme
 	a.aspectRatio = orDefault(cfg.AspectRatio, comicPageAspectRatio)
+	a.pageFrame = DescribePageFrame(a.aspectRatio)
 	a.language = orDefault(cfg.Language, a.language)
 	a.script = orDefault(cfg.Script, a.script)
 	a.ultraRealistic = cfg.UltraRealistic
@@ -129,6 +134,7 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	} else {
 		a.pageRetryBase = pageRetryBase
 	}
+	a.dina4PDF = cfg.DINA4PDF
 
 	if a.imageProvider == nil {
 		a.initErr = fmt.Errorf("%w: image provider", ErrMissingProvider)
@@ -348,6 +354,8 @@ func (a *Artist) coverPromptData(storyText, style, bible string) map[string]any 
 		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
 		"ScriptName":              localizedScriptName(a.script),
+		"PageFrame":               a.pageFrame,
+		"DINA4PDF":                a.dina4PDF,
 		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"Subtitle":                localizedBrandName(a.language, a.script),
@@ -363,6 +371,7 @@ func (a *Artist) storyPagePromptData(section string, pageNum int, style, bible s
 		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
 		"ScriptName":              localizedScriptName(a.script),
+		"PageFrame":               a.pageFrame,
 		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"Words":                   buildWordList(entries, ""),
@@ -384,6 +393,8 @@ func (a *Artist) galleryPromptData(style, bible string, galleryNum int) map[stri
 		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
 		"ScriptName":              localizedScriptName(a.script),
+		"PageFrame":               a.pageFrame,
+		"DINA4PDF":                a.dina4PDF,
 		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"GalleryNum":              galleryNum,
@@ -400,6 +411,8 @@ func (a *Artist) backPromptData(storyText, style, bible, blurb string) map[strin
 		"LanguageName":            localizedLanguageName(a.language, a.script),
 		"Script":                  a.script,
 		"ScriptName":              localizedScriptName(a.script),
+		"PageFrame":               a.pageFrame,
+		"DINA4PDF":                a.dina4PDF,
 		"Style":                   localizedStylePrompt(style, a.language, a.script),
 		"Bible":                   bible,
 		"BlurbBox":                blurbBoxInstruction(blurb),
@@ -413,6 +426,7 @@ func (a *Artist) backPromptData(storyText, style, bible, blurb string) map[strin
 func (a *Artist) manualPromptData(prompt string) map[string]any {
 	return map[string]any{
 		"Prompt":                  strings.TrimSpace(prompt),
+		"PageFrame":               a.pageFrame,
 		"Style":                   localizedStylePrompt(a.style, a.language, a.script),
 		"Theme":                   a.theme,
 		"RenderingRequirement":    a.renderingRequirement(),
@@ -491,11 +505,15 @@ func panelLayoutLead(panelCount int) string {
 	case 2:
 		return "Divide the image into exactly 2 distinct panels in a balanced two-panel layout."
 	case 3:
-		return "Divide the image into exactly 3 distinct panels in a balanced three-panel layout."
+		return "Divide the image into exactly 3 distinct panels in three horizontal rows (three stacked tiers, one panel per row)."
 	case 4:
-		return "Divide the image into exactly 4 distinct panels in a 2x2 grid."
+		return "Divide the image into exactly 4 distinct panels in a layout with AT LEAST THREE horizontal rows — for example four stacked tiers (one panel per row), or banding such as 2+1+1, 1+2+1, or 1+1+2. Do NOT use a 2×2 grid with only two rows."
+	case 5:
+		return "Divide the image into exactly 5 distinct panels in a layout with at least three horizontal rows (for example 2+2+1, 1+2+2, or 2+1+2 banding)."
+	case 6:
+		return "Divide the image into exactly 6 distinct panels in a 3-row × 2-column grid (three horizontal rows, two panels wide), or another layout with at least three horizontal rows."
 	default:
-		return fmt.Sprintf("Divide the image into exactly %d distinct panels in a balanced grid.", panelCount)
+		return fmt.Sprintf("Divide the image into exactly %d distinct panels in a balanced grid with at least three horizontal rows.", panelCount)
 	}
 }
 

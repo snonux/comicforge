@@ -184,6 +184,110 @@ prompts_dir: ./config-prompts
 	}
 }
 
+func TestPDFPresentationPrintAndBookForcesA4AspectRatio(t *testing.T) {
+	for _, presentation := range []string{"print", "book"} {
+		t.Run(presentation, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yaml")
+			if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+comic:
+  aspect_ratio: "16:9"
+pdf:
+  presentation: none
+`)), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+			vocabPath := filepath.Join(tmpDir, "vocab.txt")
+			if err := os.WriteFile(vocabPath, []byte("ябълка = apple\n"), 0o644); err != nil {
+				t.Fatalf("write vocab: %v", err)
+			}
+
+			var gotRunnerCfg *comic.RunnerConfig
+			cmd := newRootCommandWithDeps(commandDeps{
+				loadConfig: func(path string) (*config.Config, error) {
+					return config.Load(path)
+				},
+				newTextProvider:  func(*config.Config) (provider.TextProvider, error) { return noopProvider{}, nil },
+				newImageProvider: func(*config.Config) (provider.ImageProvider, error) { return noopProvider{}, nil },
+				newTTSProvider:   func(*config.Config, string) (provider.TTSProvider, error) { return noopProvider{}, nil },
+				newRunner: func(cfg *comic.RunnerConfig) comic.StoryRunner {
+					gotRunnerCfg = cfg
+					return &recordingRunner{}
+				},
+			})
+			buf := &bytes.Buffer{}
+			cmd.SetOut(buf)
+			cmd.SetErr(buf)
+			cmd.SetArgs([]string{
+				"--config", configPath,
+				"--vocab", vocabPath,
+				"--pdf-presentation", presentation,
+			})
+
+			if err := cmd.ExecuteContext(context.Background()); err != nil {
+				t.Fatalf("ExecuteContext() error = %v\n%s", err, buf.String())
+			}
+			if gotRunnerCfg == nil {
+				t.Fatal("runner config was not captured")
+			}
+			if got, want := gotRunnerCfg.AspectRatio, comic.BookPageAspectRatio; got != want {
+				t.Fatalf("aspect ratio = %q, want %q (A4-class 3:4)", got, want)
+			}
+			if got, want := gotRunnerCfg.PDF.Presentation, presentation; got != want {
+				t.Fatalf("pdf presentation = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestPDFPresentationExplicitAspectRatioOverridesA4Default(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+comic:
+  aspect_ratio: "16:9"
+`)), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	vocabPath := filepath.Join(tmpDir, "vocab.txt")
+	if err := os.WriteFile(vocabPath, []byte("ябълка = apple\n"), 0o644); err != nil {
+		t.Fatalf("write vocab: %v", err)
+	}
+
+	var gotRunnerCfg *comic.RunnerConfig
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(path string) (*config.Config, error) {
+			return config.Load(path)
+		},
+		newTextProvider:  func(*config.Config) (provider.TextProvider, error) { return noopProvider{}, nil },
+		newImageProvider: func(*config.Config) (provider.ImageProvider, error) { return noopProvider{}, nil },
+		newTTSProvider:   func(*config.Config, string) (provider.TTSProvider, error) { return noopProvider{}, nil },
+		newRunner: func(cfg *comic.RunnerConfig) comic.StoryRunner {
+			gotRunnerCfg = cfg
+			return &recordingRunner{}
+		},
+	})
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{
+		"--config", configPath,
+		"--vocab", vocabPath,
+		"--pdf-presentation", "print",
+		"--aspect-ratio", "21:9",
+	})
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext() error = %v\n%s", err, buf.String())
+	}
+	if gotRunnerCfg == nil {
+		t.Fatal("runner config was not captured")
+	}
+	if got, want := gotRunnerCfg.AspectRatio, "21:9"; got != want {
+		t.Fatalf("aspect ratio = %q, want %q", got, want)
+	}
+}
+
 func TestRootCommandUsesRealisticWeightWhenUltraModeUnset(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")

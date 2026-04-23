@@ -2,6 +2,7 @@ Create a single image based on this prompt:
 
 {{.Prompt}}
 
+Target page shape: {{.PageFrame}}.
 {{if .Style}}Visual style: {{.Style}}.
 {{end}}{{if .Theme}}Theme context: {{.Theme}}.
 {{end}}{{if .RenderingRequirement}}{{.RenderingRequirement}}
