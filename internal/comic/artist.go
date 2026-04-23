@@ -27,6 +27,11 @@ type ArtistConfig struct {
 	MangaStyles      []string
 	HorrorStyles     []string
 	WatercolorStyles []string
+	PulpStyles       []string
+	MechaStyles      []string
+	PixelArtStyles   []string
+	InkWashStyles    []string
+	ClayStyles       []string
 	Theme            string
 	AspectRatio      string
 	Language         string
@@ -57,6 +62,11 @@ type Artist struct {
 	mangaStyles      []string
 	horrorStyles     []string
 	watercolorStyles []string
+	pulpStyles       []string
+	mechaStyles      []string
+	pixelArtStyles   []string
+	inkWashStyles    []string
+	clayStyles       []string
 	theme            string
 	aspectRatio      string
 	pageFrame        string
@@ -112,6 +122,11 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	a.mangaStyles = append([]string(nil), cfg.MangaStyles...)
 	a.horrorStyles = append([]string(nil), cfg.HorrorStyles...)
 	a.watercolorStyles = append([]string(nil), cfg.WatercolorStyles...)
+	a.pulpStyles = append([]string(nil), cfg.PulpStyles...)
+	a.mechaStyles = append([]string(nil), cfg.MechaStyles...)
+	a.pixelArtStyles = append([]string(nil), cfg.PixelArtStyles...)
+	a.inkWashStyles = append([]string(nil), cfg.InkWashStyles...)
+	a.clayStyles = append([]string(nil), cfg.ClayStyles...)
 	a.theme = cfg.Theme
 	a.aspectRatio = orDefault(cfg.AspectRatio, comicPageAspectRatio)
 	a.pageFrame = DescribePageFrame(a.aspectRatio)
@@ -160,6 +175,11 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 			a.mangaStyles,
 			a.horrorStyles,
 			a.watercolorStyles,
+			a.pulpStyles,
+			a.mechaStyles,
+			a.pixelArtStyles,
+			a.inkWashStyles,
+			a.clayStyles,
 			a.styleMode,
 		)
 	}

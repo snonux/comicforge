@@ -48,6 +48,11 @@ func Clean() error {
 	return sh.RunV("rm", "-f", binaryName)
 }
 
+// Stylegrid renders stylegrid.png (all style lines + story genres from config) via Gemini; requires ImageMagick montage.
+func Stylegrid() error {
+	return sh.RunV("go", "run", "./cmd/stylegrid", "--output", "stylegrid.png")
+}
+
 func resolveGOPATH() (string, error) {
 	if gopath := os.Getenv("GOPATH"); gopath != "" {
 		return gopath, nil

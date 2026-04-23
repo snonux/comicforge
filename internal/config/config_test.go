@@ -58,6 +58,16 @@ styles:
     - custom horror
   watercolor:
     - custom watercolor
+  pulp:
+    - custom pulp
+  mecha:
+    - custom mecha
+  pixel_art:
+    - custom pixel art
+  ink_wash:
+    - custom ink wash
+  clay:
+    - custom clay
 narration:
   chunk_words: 42
 `)), 0o644); err != nil {
@@ -118,6 +128,21 @@ narration:
 	}
 	if got, want := len(cfg.Styles.Watercolor), 1; got != want || cfg.Styles.Watercolor[0] != "custom watercolor" {
 		t.Fatalf("Styles.Watercolor = %#v, want %q", cfg.Styles.Watercolor, "custom watercolor")
+	}
+	if got, want := len(cfg.Styles.Pulp), 1; got != want || cfg.Styles.Pulp[0] != "custom pulp" {
+		t.Fatalf("Styles.Pulp = %#v, want %q", cfg.Styles.Pulp, "custom pulp")
+	}
+	if got, want := len(cfg.Styles.Mecha), 1; got != want || cfg.Styles.Mecha[0] != "custom mecha" {
+		t.Fatalf("Styles.Mecha = %#v, want %q", cfg.Styles.Mecha, "custom mecha")
+	}
+	if got, want := len(cfg.Styles.PixelArt), 1; got != want || cfg.Styles.PixelArt[0] != "custom pixel art" {
+		t.Fatalf("Styles.PixelArt = %#v, want %q", cfg.Styles.PixelArt, "custom pixel art")
+	}
+	if got, want := len(cfg.Styles.InkWash), 1; got != want || cfg.Styles.InkWash[0] != "custom ink wash" {
+		t.Fatalf("Styles.InkWash = %#v, want %q", cfg.Styles.InkWash, "custom ink wash")
+	}
+	if got, want := len(cfg.Styles.Clay), 1; got != want || cfg.Styles.Clay[0] != "custom clay" {
+		t.Fatalf("Styles.Clay = %#v, want %q", cfg.Styles.Clay, "custom clay")
 	}
 	if got, want := cfg.Narration.ChunkWords, 42; got != want {
 		t.Fatalf("Narration.ChunkWords = %d, want %d", got, want)

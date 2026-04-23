@@ -111,6 +111,26 @@ var (
 		"hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering",
 		"storybook watercolor fantasy comic style, washed paper texture, transparent layered color, soft backruns and blossoms, feathered brush edges, muted handmade palette, tender expressions, dreamy illustrated settings, visibly painted on paper",
 	}
+	defaultPulpStyles = []string{
+		"retro pulp adventure cover style, painted poster energy, dramatic rim light, saturated inks, worn paper grain, bold composition, vintage print imperfections",
+		"mid-century pulp sci-fi comic style, chromatic airbrushed highlights, atomic-age props, bold diagonals, distressed halftone texture, high adventure mood",
+	}
+	defaultMechaStyles = []string{
+		"high-detail mecha comic style, hard-surface armor plates, mechanical joints, cockpit glass reflections, technical line art, industrial lighting",
+		"anime mecha action page style, towering robots, dynamic perspective, panel-like motion energy, sparks and smoke, crisp cel-shaded rendering",
+	}
+	defaultPixelArtStyles = []string{
+		"16-bit pixel-art comic scene, limited palette, clean pixel clusters, deliberate dithering, retro game-era perspective, sharp pixel edges",
+		"retro pixel-art storyboard style, chunky sprites, high-contrast palette ramps, tiled-environment texture, no anti-aliasing, classic console look",
+	}
+	defaultInkWashStyles = []string{
+		"ink-wash brush painting style, sumi-e inspired strokes, expressive black ink gradients, controlled bleed on paper, minimal but dramatic composition",
+		"monochrome ink-and-wash comic style, calligraphic brush lines, soft gray washes, negative-space storytelling, textured rice-paper feel",
+	}
+	defaultClayStyles = []string{
+		"stop-motion clay diorama style, hand-sculpted clay characters, thumbprint texture, miniature set lighting, tactile handcrafted look",
+		"plasticine comic tableau style, sculpted figures, soft studio shadows, practical miniature props, playful clay surface detail",
+	}
 
 	realisticStyles  = defaultRealisticStyles
 	comicStyles      = defaultComicStyles
@@ -119,6 +139,11 @@ var (
 	mangaStyles      = defaultMangaStyles
 	horrorStyles     = defaultHorrorStyles
 	watercolorStyles = defaultWatercolorStyles
+	pulpStyles       = defaultPulpStyles
+	mechaStyles      = defaultMechaStyles
+	pixelArtStyles   = defaultPixelArtStyles
+	inkWashStyles    = defaultInkWashStyles
+	clayStyles       = defaultClayStyles
 
 	galleryPoses = []string{
 		"close-up portrait of face and shoulders, dramatic three-quarter lighting, clear gaze toward the viewer, sharp eyes and expressive face",
@@ -137,6 +162,11 @@ const (
 	styleModeManga      = "manga"
 	styleModeHorror     = "horror"
 	styleModeWatercolor = "watercolor"
+	styleModePulp       = "pulp"
+	styleModeMecha      = "mecha"
+	styleModePixelArt   = "pixel_art"
+	styleModeInkWash    = "ink_wash"
+	styleModeClay       = "clay"
 )
 
 // PromptRenderer renders external or embedded prompt templates.
@@ -200,6 +230,11 @@ func pickStyleMode(forcedUltra *bool) string {
 		styleModeManga,
 		styleModeHorror,
 		styleModeWatercolor,
+		styleModePulp,
+		styleModeMecha,
+		styleModePixelArt,
+		styleModeInkWash,
+		styleModeClay,
 	}
 	return modes[rand.IntN(len(modes))]
 }
@@ -211,7 +246,12 @@ func pickStyle(
 	action90sStyles,
 	mangaStyles,
 	horrorStyles,
-	watercolorStyles []string,
+	watercolorStyles,
+	pulpStyles,
+	mechaStyles,
+	pixelArtStyles,
+	inkWashStyles,
+	clayStyles []string,
 	mode string,
 ) string {
 	switch mode {
@@ -263,6 +303,46 @@ func pickStyle(
 			return ""
 		}
 		return watercolorStyles[rand.IntN(len(watercolorStyles))]
+	case styleModePulp:
+		if len(pulpStyles) == 0 {
+			pulpStyles = defaultPulpStyles
+		}
+		if len(pulpStyles) == 0 {
+			return ""
+		}
+		return pulpStyles[rand.IntN(len(pulpStyles))]
+	case styleModeMecha:
+		if len(mechaStyles) == 0 {
+			mechaStyles = defaultMechaStyles
+		}
+		if len(mechaStyles) == 0 {
+			return ""
+		}
+		return mechaStyles[rand.IntN(len(mechaStyles))]
+	case styleModePixelArt:
+		if len(pixelArtStyles) == 0 {
+			pixelArtStyles = defaultPixelArtStyles
+		}
+		if len(pixelArtStyles) == 0 {
+			return ""
+		}
+		return pixelArtStyles[rand.IntN(len(pixelArtStyles))]
+	case styleModeInkWash:
+		if len(inkWashStyles) == 0 {
+			inkWashStyles = defaultInkWashStyles
+		}
+		if len(inkWashStyles) == 0 {
+			return ""
+		}
+		return inkWashStyles[rand.IntN(len(inkWashStyles))]
+	case styleModeClay:
+		if len(clayStyles) == 0 {
+			clayStyles = defaultClayStyles
+		}
+		if len(clayStyles) == 0 {
+			return ""
+		}
+		return clayStyles[rand.IntN(len(clayStyles))]
 	}
 	if len(comicStyles) == 0 {
 		comicStyles = defaultComicStyles

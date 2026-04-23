@@ -232,3 +232,15 @@ comicforge --prompt "a robot reading a newspaper" --output out --slug manual-rob
 This writes a single image to `out/comics/assets/manual-robot/prompt.png`. Without `--slug`, ComicForge asks the text model for a short title and uses that as the directory slug, with a short deterministic fallback if title generation fails.
 
 Manual prompt mode can be combined with `--style`, `--theme`, `--page-format`, `--aspect-ratio`, and the ultra-realistic flags to shape the generated image prompt (page-shape flags affect the image API and the manual prompt template; PDF flags have no effect because no PDF is built).
+
+### Style and theme reference sheet (`stylegrid`)
+
+To compare **every** line in `styles.*` plus **every** `story.genres` entry on one montage (shared test scene, header above each cell), use the helper command. It calls the configured image provider once per cell and requires ImageMagick **`montage`** as well as **`convert`**.
+
+```bash
+go run ./cmd/stylegrid --config config.yaml --output stylegrid.png
+```
+
+Flags: `--scene` (override the shared scene), `--aspect-ratio` (default `16:9`), `--timeout` (default 45m). With default `config` this produces **14** style variants + **3** genre panels = **17** images. Regenerate after editing style or genre lists in YAML.
+
+`mage stylegrid` writes `stylegrid.png` in the repo root via the same command.

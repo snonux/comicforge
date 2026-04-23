@@ -12,6 +12,7 @@
 - Keep `cmd/comicforge/main.go` small: flag parsing and command wiring only.
 - Put application logic under `internal/`.
 - Use `mage` for project tasks.
+- `cmd/stylegrid` + `internal/stylegrid`: montage of all configured `styles.*` lines and `story.genres` (`mage stylegrid` / `go run ./cmd/stylegrid`).
 
 ## Page shape and PDF
 

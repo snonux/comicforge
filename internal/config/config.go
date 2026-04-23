@@ -103,6 +103,11 @@ type StyleConfig struct {
 	Manga      []string `mapstructure:"manga" yaml:"manga"`
 	Horror     []string `mapstructure:"horror" yaml:"horror"`
 	Watercolor []string `mapstructure:"watercolor" yaml:"watercolor"`
+	Pulp       []string `mapstructure:"pulp" yaml:"pulp"`
+	Mecha      []string `mapstructure:"mecha" yaml:"mecha"`
+	PixelArt   []string `mapstructure:"pixel_art" yaml:"pixel_art"`
+	InkWash    []string `mapstructure:"ink_wash" yaml:"ink_wash"`
+	Clay       []string `mapstructure:"clay" yaml:"clay"`
 }
 
 // NarrationConfig stores narration prompt knobs.
@@ -187,6 +192,26 @@ func DefaultConfig() *Config {
 			Watercolor: []string{
 				"pure transparent watercolor storybook comic style, visible cold-press paper grain, watery pigment blooms, uneven wash edges, granulation, soft bleeding colors, pale layered washes, loose pencil underdrawing, no digital airbrush, no oil-paint texture, no glossy comic coloring",
 				"hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering",
+			},
+			Pulp: []string{
+				"retro pulp adventure cover style, painted poster energy, dramatic rim light, saturated inks, worn paper grain, bold composition, vintage print imperfections",
+				"mid-century pulp sci-fi comic style, chromatic airbrushed highlights, atomic-age props, bold diagonals, distressed halftone texture, high adventure mood",
+			},
+			Mecha: []string{
+				"high-detail mecha comic style, hard-surface armor plates, mechanical joints, cockpit glass reflections, technical line art, industrial lighting",
+				"anime mecha action page style, towering robots, dynamic perspective, panel-like motion energy, sparks and smoke, crisp cel-shaded rendering",
+			},
+			PixelArt: []string{
+				"16-bit pixel-art comic scene, limited palette, clean pixel clusters, deliberate dithering, retro game-era perspective, sharp pixel edges",
+				"retro pixel-art storyboard style, chunky sprites, high-contrast palette ramps, tiled-environment texture, no anti-aliasing, classic console look",
+			},
+			InkWash: []string{
+				"ink-wash brush painting style, sumi-e inspired strokes, expressive black ink gradients, controlled bleed on paper, minimal but dramatic composition",
+				"monochrome ink-and-wash comic style, calligraphic brush lines, soft gray washes, negative-space storytelling, textured rice-paper feel",
+			},
+			Clay: []string{
+				"stop-motion clay diorama style, hand-sculpted clay characters, thumbprint texture, miniature set lighting, tactile handcrafted look",
+				"plasticine comic tableau style, sculpted figures, soft studio shadows, practical miniature props, playful clay surface detail",
 			},
 		},
 		Narration: NarrationConfig{
@@ -454,6 +479,11 @@ func setDefaults(v *viper.Viper, cfg *Config) {
 	v.SetDefault("styles.manga", cfg.Styles.Manga)
 	v.SetDefault("styles.horror", cfg.Styles.Horror)
 	v.SetDefault("styles.watercolor", cfg.Styles.Watercolor)
+	v.SetDefault("styles.pulp", cfg.Styles.Pulp)
+	v.SetDefault("styles.mecha", cfg.Styles.Mecha)
+	v.SetDefault("styles.pixel_art", cfg.Styles.PixelArt)
+	v.SetDefault("styles.ink_wash", cfg.Styles.InkWash)
+	v.SetDefault("styles.clay", cfg.Styles.Clay)
 
 	v.SetDefault("narration.voices", cfg.Narration.Voices)
 	v.SetDefault("narration.chunk_words", cfg.Narration.ChunkWords)

@@ -46,6 +46,11 @@ type RunnerConfig struct {
 	MangaStyles           []string
 	HorrorStyles          []string
 	WatercolorStyles      []string
+	PulpStyles            []string
+	MechaStyles           []string
+	PixelArtStyles        []string
+	InkWashStyles         []string
+	ClayStyles            []string
 	AspectRatio           string
 	PromptMaxChars        int
 	PageMaxRetries        int
@@ -103,6 +108,11 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		MangaStyles:      cfg.MangaStyles,
 		HorrorStyles:     cfg.HorrorStyles,
 		WatercolorStyles: cfg.WatercolorStyles,
+		PulpStyles:       cfg.PulpStyles,
+		MechaStyles:      cfg.MechaStyles,
+		PixelArtStyles:   cfg.PixelArtStyles,
+		InkWashStyles:    cfg.InkWashStyles,
+		ClayStyles:       cfg.ClayStyles,
 		Theme:            cfg.Theme,
 		AspectRatio:      cfg.AspectRatio,
 		Language:         cfg.Language,

@@ -852,6 +852,11 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 		{name: "manga", styleMode: styleModeManga, wantStyle: "manga-ink"},
 		{name: "horror", styleMode: styleModeHorror, wantStyle: "horror-ink"},
 		{name: "watercolor", styleMode: styleModeWatercolor, wantStyle: "watercolor-ink"},
+		{name: "pulp", styleMode: styleModePulp, wantStyle: "pulp-ink"},
+		{name: "mecha", styleMode: styleModeMecha, wantStyle: "mecha-ink"},
+		{name: "pixel-art", styleMode: styleModePixelArt, wantStyle: "pixel-ink"},
+		{name: "ink-wash", styleMode: styleModeInkWash, wantStyle: "inkwash-ink"},
+		{name: "clay", styleMode: styleModeClay, wantStyle: "clay-ink"},
 	}
 
 	for _, tt := range tests {
@@ -869,6 +874,11 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 				MangaStyles:      []string{"manga-ink"},
 				HorrorStyles:     []string{"horror-ink"},
 				WatercolorStyles: []string{"watercolor-ink"},
+				PulpStyles:       []string{"pulp-ink"},
+				MechaStyles:      []string{"mecha-ink"},
+				PixelArtStyles:   []string{"pixel-ink"},
+				InkWashStyles:    []string{"inkwash-ink"},
+				ClayStyles:       []string{"clay-ink"},
 				Language:         "English",
 				Script:           "Latin",
 				PanelsPerPage:    2,
