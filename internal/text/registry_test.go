@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"codeberg.org/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 func TestDefaultRegistryNewFromConfig(t *testing.T) {

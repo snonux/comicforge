@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"codeberg.org/snonux/comicforge/internal/comic"
-	"codeberg.org/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/comic"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 func TestLoadReturnsDefaultsWhenConfigMissing(t *testing.T) {

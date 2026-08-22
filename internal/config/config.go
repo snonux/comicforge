@@ -13,11 +13,11 @@ import (
 
 	"github.com/spf13/viper"
 
-	"codeberg.org/snonux/comicforge/internal/image"
-	"codeberg.org/snonux/comicforge/internal/provider"
-	"codeberg.org/snonux/comicforge/internal/text"
-	"codeberg.org/snonux/comicforge/internal/tts"
-	"codeberg.org/snonux/comicforge/prompts"
+	"github.com/snonux/comicforge/internal/image"
+	"github.com/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/text"
+	"github.com/snonux/comicforge/internal/tts"
+	"github.com/snonux/comicforge/prompts"
 )
 
 const (

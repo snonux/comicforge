@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"codeberg.org/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 // ArtistConfig configures comic page generation.

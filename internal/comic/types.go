@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/snonux/comicforge/internal/vocab"
+	"github.com/snonux/comicforge/internal/vocab"
 )
 
 const (

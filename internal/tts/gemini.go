@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/genai"
 
-	"codeberg.org/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 const (

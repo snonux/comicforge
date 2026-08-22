@@ -10,7 +10,7 @@ import (
 
 	"google.golang.org/genai"
 
-	"codeberg.org/snonux/comicforge/internal/httpctx"
+	"github.com/snonux/comicforge/internal/httpctx"
 )
 
 const (

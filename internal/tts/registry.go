@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"codeberg.org/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 // Config exposes the configured TTS provider settings.

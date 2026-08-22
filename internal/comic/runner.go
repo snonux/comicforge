@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"codeberg.org/snonux/comicforge/internal/provider"
-	"codeberg.org/snonux/comicforge/internal/vocab"
+	"github.com/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/vocab"
 )
 
 const ttsTodoContent = `# Story Narration - Fallback Placeholder

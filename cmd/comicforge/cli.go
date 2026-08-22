@@ -9,13 +9,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	version "codeberg.org/snonux/comicforge/internal"
-	"codeberg.org/snonux/comicforge/internal/comic"
-	"codeberg.org/snonux/comicforge/internal/config"
-	"codeberg.org/snonux/comicforge/internal/image"
-	"codeberg.org/snonux/comicforge/internal/provider"
-	textprovider "codeberg.org/snonux/comicforge/internal/text"
-	"codeberg.org/snonux/comicforge/internal/tts"
+	version "github.com/snonux/comicforge/internal"
+	"github.com/snonux/comicforge/internal/comic"
+	"github.com/snonux/comicforge/internal/config"
+	"github.com/snonux/comicforge/internal/image"
+	"github.com/snonux/comicforge/internal/provider"
+	textprovider "github.com/snonux/comicforge/internal/text"
+	"github.com/snonux/comicforge/internal/tts"
 )
 
 type commandDeps struct {

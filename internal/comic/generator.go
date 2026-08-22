@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"codeberg.org/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 // GeneratorConfig configures story generation.

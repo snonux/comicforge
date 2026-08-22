@@ -3,7 +3,7 @@ package stylegrid
 import (
 	"testing"
 
-	"codeberg.org/snonux/comicforge/internal/config"
+	"github.com/snonux/comicforge/internal/config"
 )
 
 func TestBuildJobsDefaultConfig(t *testing.T) {

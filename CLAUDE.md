@@ -2,7 +2,7 @@
 
 ## Repository Notes
 
-- Go module: `codeberg.org/snonux/comicforge`
+- Go module: `github.com/snonux/comicforge`
 - Binary entrypoint: `cmd/comicforge/main.go`
 - Build, test, install, and clean tasks live in `Magefile.go`
 - Version is defined in `internal/version.go`

@@ -481,7 +481,7 @@ comics/
 | PDF Generation | Custom assembly via `internal/comic/pdf.go` |
 | Audio Processing | `ffmpeg` (external dependency) |
 | Testing | Go standard testing + test tables |
-| Module Path | `codeberg.org/snonux/comicforge` |
+| Module Path | `github.com/snonux/comicforge` |
 
 ---
 

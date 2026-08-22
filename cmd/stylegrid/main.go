@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"codeberg.org/snonux/comicforge/internal/stylegrid"
+	"github.com/snonux/comicforge/internal/stylegrid"
 )
 
 func main() {

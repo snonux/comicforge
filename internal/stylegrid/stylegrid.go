@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"codeberg.org/snonux/comicforge/internal/config"
-	"codeberg.org/snonux/comicforge/internal/image"
-	"codeberg.org/snonux/comicforge/internal/provider"
+	"github.com/snonux/comicforge/internal/config"
+	"github.com/snonux/comicforge/internal/image"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 // DefaultScene is the shared composition so style differences stay comparable.

@@ -12,10 +12,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	version "codeberg.org/snonux/comicforge/internal"
-	"codeberg.org/snonux/comicforge/internal/comic"
-	"codeberg.org/snonux/comicforge/internal/config"
-	"codeberg.org/snonux/comicforge/internal/provider"
+	version "github.com/snonux/comicforge/internal"
+	"github.com/snonux/comicforge/internal/comic"
+	"github.com/snonux/comicforge/internal/config"
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 func TestRootCommandAppliesConfigAndFlagOverrides(t *testing.T) {

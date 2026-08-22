@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/genai"
 
-	"codeberg.org/snonux/comicforge/internal/apicircuit"
+	"github.com/snonux/comicforge/internal/apicircuit"
 )
 
 func (c *GeminiProvider) generateText(ctx context.Context, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {

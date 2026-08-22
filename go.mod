@@ -1,4 +1,4 @@
-module codeberg.org/snonux/comicforge
+module github.com/snonux/comicforge
 
 go 1.25.0
 
