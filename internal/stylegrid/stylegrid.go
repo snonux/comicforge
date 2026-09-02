@@ -100,20 +100,8 @@ func defaultMontageOptions(nCells int) MontageOptions {
 
 // GenerateMontage renders each job with img, labels tiles, and runs ImageMagick montage.
 func GenerateMontage(ctx context.Context, img provider.ImageProvider, aspectRatio string, jobs []Job, outPath string, opts MontageOptions) error {
-	if len(jobs) == 0 {
-		return fmt.Errorf("no style/theme jobs (empty config lists?)")
-	}
-	if _, err := exec.LookPath("convert"); err != nil {
-		return fmt.Errorf("ImageMagick convert not found: %w", err)
-	}
-	if _, err := exec.LookPath("montage"); err != nil {
-		return fmt.Errorf("ImageMagick montage not found: %w", err)
-	}
-	arImg, ok := img.(provider.AspectRatioImageProvider)
-	if !ok {
-		return fmt.Errorf("image provider %q does not support aspect ratio", img.Name())
-	}
-	if err := img.IsAvailable(); err != nil {
+	arImg, err := validateMontageInputs(img, jobs)
+	if err != nil {
 		return err
 	}
 
@@ -123,6 +111,33 @@ func GenerateMontage(ctx context.Context, img provider.ImageProvider, aspectRati
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
+	if err := renderMontageTiles(ctx, arImg, aspectRatio, jobs, tmpDir, opts); err != nil {
+		return err
+	}
+	return runMontageCommand(ctx, tmpDir, outPath, opts)
+}
+
+func validateMontageInputs(img provider.ImageProvider, jobs []Job) (provider.AspectRatioImageProvider, error) {
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("no style/theme jobs (empty config lists?)")
+	}
+	if _, err := exec.LookPath("convert"); err != nil {
+		return nil, fmt.Errorf("ImageMagick convert not found: %w", err)
+	}
+	if _, err := exec.LookPath("montage"); err != nil {
+		return nil, fmt.Errorf("ImageMagick montage not found: %w", err)
+	}
+	arImg, ok := img.(provider.AspectRatioImageProvider)
+	if !ok {
+		return nil, fmt.Errorf("image provider %q does not support aspect ratio", img.Name())
+	}
+	if err := img.IsAvailable(); err != nil {
+		return nil, err
+	}
+	return arImg, nil
+}
+
+func renderMontageTiles(ctx context.Context, arImg provider.AspectRatioImageProvider, aspectRatio string, jobs []Job, tmpDir string, opts MontageOptions) error {
 	for i := range jobs {
 		raw := filepath.Join(tmpDir, fmt.Sprintf("raw_%03d.png", i))
 		if err := arImg.GenerateImageWithAspectRatio(ctx, jobs[i].Prompt, raw, aspectRatio); err != nil {
@@ -141,17 +156,18 @@ func GenerateMontage(ctx context.Context, img provider.ImageProvider, aspectRati
 			return fmt.Errorf("header %d: %w", i, err)
 		}
 	}
+	return nil
+}
 
+func runMontageCommand(ctx context.Context, tmpDir, outPath string, opts MontageOptions) error {
 	labeledPaths, err := filepath.Glob(filepath.Join(tmpDir, "labeled_*.png"))
 	if err != nil {
 		return err
 	}
 	sort.Strings(labeledPaths)
 
-	args := []string{}
-	for _, p := range labeledPaths {
-		args = append(args, p)
-	}
+	args := make([]string, 0, len(labeledPaths)+6)
+	args = append(args, labeledPaths...)
 	args = append(args,
 		"-tile", fmt.Sprintf("%dx", opts.TileX),
 		"-geometry", fmt.Sprintf("+%d+%d", opts.Gutter, opts.Gutter),

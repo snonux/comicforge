@@ -51,43 +51,12 @@ func (a *ImageMagickPDFAssembler) Assemble(ctx context.Context, outputDir, title
 	opts = normalizePDFAssembleOptions(opts)
 	pdfPath := filepath.Join(outputDir, titleSlug+".pdf")
 
-	inputs := imagePaths
-	if opts.Presentation == pdfPresentationPrint || opts.Presentation == pdfPresentationBook {
-		tmpDir, err := os.MkdirTemp("", "comicforge-pdf-*")
-		if err != nil {
-			return "", fmt.Errorf("temp dir for pdf frames: %w", err)
-		}
-		defer func() { _ = os.RemoveAll(tmpDir) }()
-
-		inputs = make([]string, len(imagePaths))
-		for i, src := range imagePaths {
-			dst := filepath.Join(tmpDir, fmt.Sprintf("frame_%04d.png", i))
-			var ferr error
-			switch opts.Presentation {
-			case pdfPresentationPrint:
-				ferr = a.renderPrintFrame(ctx, src, dst)
-			case pdfPresentationBook:
-				ferr = a.renderBookFrame(ctx, src, dst, tmpDir, i)
-			}
-			if ferr != nil {
-				return "", ferr
-			}
-			inputs[i] = dst
-		}
-
-		fitBG := printMatteColor
-		if opts.Presentation == pdfPresentationBook {
-			fitBG = bookDeskColor
-		}
-		fitted := make([]string, len(inputs))
-		for i, p := range inputs {
-			out := filepath.Join(tmpDir, fmt.Sprintf("din_a4_%04d.png", i))
-			if err := a.fitRasterPageToDINA4(ctx, p, out, opts.Density, fitBG); err != nil {
-				return "", err
-			}
-			fitted[i] = out
-		}
-		inputs = fitted
+	inputs, cleanup, err := a.preparePresentationInputs(ctx, imagePaths, opts)
+	if err != nil {
+		return "", err
+	}
+	if cleanup != nil {
+		defer cleanup()
 	}
 
 	args := []string{"-density", fmt.Sprintf("%d", opts.Density)}
@@ -102,6 +71,67 @@ func (a *ImageMagickPDFAssembler) Assemble(ctx context.Context, outputDir, title
 		return "", fmt.Errorf("convert failed: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
 	return pdfPath, nil
+}
+
+// preparePresentationInputs frames/fits pages for print or book presentation.
+// cleanup removes any temp dir; callers must defer it when non-nil.
+func (a *ImageMagickPDFAssembler) preparePresentationInputs(ctx context.Context, imagePaths []string, opts PDFAssembleOptions) ([]string, func(), error) {
+	if opts.Presentation != pdfPresentationPrint && opts.Presentation != pdfPresentationBook {
+		return imagePaths, nil, nil
+	}
+
+	tmpDir, err := os.MkdirTemp("", "comicforge-pdf-*")
+	if err != nil {
+		return nil, nil, fmt.Errorf("temp dir for pdf frames: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
+
+	framed, err := a.renderPresentationFrames(ctx, imagePaths, opts, tmpDir)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	fitted, err := a.fitFramesToDINA4(ctx, framed, opts, tmpDir)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	return fitted, cleanup, nil
+}
+
+func (a *ImageMagickPDFAssembler) renderPresentationFrames(ctx context.Context, imagePaths []string, opts PDFAssembleOptions, tmpDir string) ([]string, error) {
+	inputs := make([]string, len(imagePaths))
+	for i, src := range imagePaths {
+		dst := filepath.Join(tmpDir, fmt.Sprintf("frame_%04d.png", i))
+		var ferr error
+		switch opts.Presentation {
+		case pdfPresentationPrint:
+			ferr = a.renderPrintFrame(ctx, src, dst)
+		case pdfPresentationBook:
+			ferr = a.renderBookFrame(ctx, src, dst, tmpDir, i)
+		}
+		if ferr != nil {
+			return nil, ferr
+		}
+		inputs[i] = dst
+	}
+	return inputs, nil
+}
+
+func (a *ImageMagickPDFAssembler) fitFramesToDINA4(ctx context.Context, inputs []string, opts PDFAssembleOptions, tmpDir string) ([]string, error) {
+	fitBG := printMatteColor
+	if opts.Presentation == pdfPresentationBook {
+		fitBG = bookDeskColor
+	}
+	fitted := make([]string, len(inputs))
+	for i, p := range inputs {
+		out := filepath.Join(tmpDir, fmt.Sprintf("din_a4_%04d.png", i))
+		if err := a.fitRasterPageToDINA4(ctx, p, out, opts.Density, fitBG); err != nil {
+			return nil, err
+		}
+		fitted[i] = out
+	}
+	return fitted, nil
 }
 
 func (a *ImageMagickPDFAssembler) resolveConvert() (string, error) {

@@ -132,60 +132,68 @@ func truncateToRuneBoundary(text string, maxBytes int) string {
 // pre-chosen artistic style, an optional scene description, and the word subject.
 func buildEducationalPrompt(style, scene, subject string) string {
 	var prompt string
-
 	if scene != "" {
-		fullPrompt := fmt.Sprintf(
-			"Generate a %s educational flashcard image illustrating \"%s\". Scene: %s "+
-				"The image should be educational and suitable for language learning flashcards. "+
-				"Requirements: The main subject or concept must be clearly visible, easily recognizable, and prominent in the image. It should occupy the central area with sharp focus and proper lighting. Ensure the scene makes \"%s\" immediately identifiable. "+
-				"IMPORTANT: No text whatsoever. Do not include any words, letters, typography, labels, captions, or writing of any kind. Image only, without any text elements.",
-			style, subject, withTerminalPunctuation(scene), subject,
-		)
-
-		if len(fullPrompt) <= maxImagePromptChars {
-			prompt = fullPrompt
-		} else {
-			prompt = fmt.Sprintf(
-				"Generate a %s flashcard image illustrating \"%s\". Scene: %s "+
-					"The image should be educational and suitable for language learning flashcards. "+
-					"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
-				style, subject, withTerminalPunctuation(scene),
-			)
-
-			if len(prompt) > maxImagePromptChars {
-				template := fmt.Sprintf(
-					"Generate a %s flashcard image illustrating \"%s\". Scene:  "+
-						"The image should be educational and suitable for language learning flashcards. "+
-						"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
-					style, subject,
-				)
-				maxSceneLen := maxImagePromptChars - len(template)
-				if maxSceneLen > 3 && len(scene) > maxSceneLen {
-					scene = truncateToByteLimit(scene, maxSceneLen)
-				}
-				prompt = fmt.Sprintf(
-					"Generate a %s flashcard image illustrating \"%s\". Scene: %s "+
-						"The image should be educational and suitable for language learning flashcards. "+
-						"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
-					style, subject, withTerminalPunctuation(scene),
-				)
-			}
-		}
+		prompt = buildSceneEducationalPrompt(style, scene, subject)
 	} else {
-		prompt = fmt.Sprintf(
-			"Generate a %s educational flashcard image illustrating \"%s\". %s "+
-				"The image should be educational and suitable for language learning flashcards. "+
-				"Requirements: The main subject or concept must be clearly visible, easily recognizable, and prominent in the image. Show it prominently centered with excellent lighting and sharp focus. "+
-				"IMPORTANT: No text whatsoever. Do not include any words, letters, typography, labels, captions, or writing of any kind. Image only, without any text elements.",
-			style, subject, fallbackVisualDirection(subject),
-		)
+		prompt = buildSubjectOnlyEducationalPrompt(style, subject)
 	}
-
 	if len(prompt) > maxImagePromptChars {
 		prompt = truncateToByteLimit(prompt, maxImagePromptChars)
 	}
-
 	return prompt
+}
+
+func buildSceneEducationalPrompt(style, scene, subject string) string {
+	fullPrompt := fmt.Sprintf(
+		"Generate a %s educational flashcard image illustrating \"%s\". Scene: %s "+
+			"The image should be educational and suitable for language learning flashcards. "+
+			"Requirements: The main subject or concept must be clearly visible, easily recognizable, and prominent in the image. It should occupy the central area with sharp focus and proper lighting. Ensure the scene makes \"%s\" immediately identifiable. "+
+			"IMPORTANT: No text whatsoever. Do not include any words, letters, typography, labels, captions, or writing of any kind. Image only, without any text elements.",
+		style, subject, withTerminalPunctuation(scene), subject,
+	)
+	if len(fullPrompt) <= maxImagePromptChars {
+		return fullPrompt
+	}
+	return fitSceneEducationalPrompt(style, scene, subject)
+}
+
+func fitSceneEducationalPrompt(style, scene, subject string) string {
+	prompt := fmt.Sprintf(
+		"Generate a %s flashcard image illustrating \"%s\". Scene: %s "+
+			"The image should be educational and suitable for language learning flashcards. "+
+			"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
+		style, subject, withTerminalPunctuation(scene),
+	)
+	if len(prompt) <= maxImagePromptChars {
+		return prompt
+	}
+
+	template := fmt.Sprintf(
+		"Generate a %s flashcard image illustrating \"%s\". Scene:  "+
+			"The image should be educational and suitable for language learning flashcards. "+
+			"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
+		style, subject,
+	)
+	maxSceneLen := maxImagePromptChars - len(template)
+	if maxSceneLen > 3 && len(scene) > maxSceneLen {
+		scene = truncateToByteLimit(scene, maxSceneLen)
+	}
+	return fmt.Sprintf(
+		"Generate a %s flashcard image illustrating \"%s\". Scene: %s "+
+			"The image should be educational and suitable for language learning flashcards. "+
+			"Requirements: The main subject or concept must be clearly visible, centered, well lit, and easy to identify.",
+		style, subject, withTerminalPunctuation(scene),
+	)
+}
+
+func buildSubjectOnlyEducationalPrompt(style, subject string) string {
+	return fmt.Sprintf(
+		"Generate a %s educational flashcard image illustrating \"%s\". %s "+
+			"The image should be educational and suitable for language learning flashcards. "+
+			"Requirements: The main subject or concept must be clearly visible, easily recognizable, and prominent in the image. Show it prominently centered with excellent lighting and sharp focus. "+
+			"IMPORTANT: No text whatsoever. Do not include any words, letters, typography, labels, captions, or writing of any kind. Image only, without any text elements.",
+		style, subject, fallbackVisualDirection(subject),
+	)
 }
 
 func fallbackVisualDirection(subject string) string {

@@ -53,59 +53,60 @@ func parseLine(line string) *WordEntry {
 	if trimmed == "" {
 		return nil
 	}
-
 	if strings.Contains(trimmed, "==") {
-		parts := strings.SplitN(trimmed, "==", 2)
-		if len(parts) != 2 {
-			return nil
-		}
-
-		word := strings.TrimSpace(parts[0])
-		translation := strings.TrimSpace(parts[1])
-		if word == "" || translation == "" {
-			return nil
-		}
-
-		return &WordEntry{
-			Word:             word,
-			Translation:      translation,
-			NeedsTranslation: false,
-			CardType:         CardTypeDefinition,
-		}
+		return parseDefinitionEntry(trimmed)
 	}
-
 	if strings.Contains(trimmed, "=") {
-		parts := strings.SplitN(trimmed, "=", 2)
-		if len(parts) != 2 {
-			return nil
-		}
-
-		word := strings.TrimSpace(parts[0])
-		translation := strings.TrimSpace(parts[1])
-		if word == "" && translation != "" {
-			return &WordEntry{
-				Word:             "",
-				Translation:      translation,
-				NeedsTranslation: true,
-				CardType:         CardTypeTranslation,
-			}
-		}
-		if word != "" && translation != "" {
-			return &WordEntry{
-				Word:             word,
-				Translation:      translation,
-				NeedsTranslation: false,
-				CardType:         CardTypeTranslation,
-			}
-		}
-
-		return nil
+		return parseTranslationEntry(trimmed)
 	}
-
 	return &WordEntry{
 		Word:             trimmed,
 		Translation:      "",
 		NeedsTranslation: false,
 		CardType:         CardTypeTranslation,
 	}
+}
+
+func parseDefinitionEntry(trimmed string) *WordEntry {
+	parts := strings.SplitN(trimmed, "==", 2)
+	if len(parts) != 2 {
+		return nil
+	}
+	word := strings.TrimSpace(parts[0])
+	translation := strings.TrimSpace(parts[1])
+	if word == "" || translation == "" {
+		return nil
+	}
+	return &WordEntry{
+		Word:             word,
+		Translation:      translation,
+		NeedsTranslation: false,
+		CardType:         CardTypeDefinition,
+	}
+}
+
+func parseTranslationEntry(trimmed string) *WordEntry {
+	parts := strings.SplitN(trimmed, "=", 2)
+	if len(parts) != 2 {
+		return nil
+	}
+	word := strings.TrimSpace(parts[0])
+	translation := strings.TrimSpace(parts[1])
+	if word == "" && translation != "" {
+		return &WordEntry{
+			Word:             "",
+			Translation:      translation,
+			NeedsTranslation: true,
+			CardType:         CardTypeTranslation,
+		}
+	}
+	if word != "" && translation != "" {
+		return &WordEntry{
+			Word:             word,
+			Translation:      translation,
+			NeedsTranslation: false,
+			CardType:         CardTypeTranslation,
+		}
+	}
+	return nil
 }

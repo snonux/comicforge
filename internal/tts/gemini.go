@@ -165,39 +165,55 @@ func encodePCMToMP3(data []byte, mimeType, outputFile string) error {
 		return fmt.Errorf("ffmpeg not found for audio conversion: %w", err)
 	}
 
-	rate := 24000
-	if idx := strings.Index(mimeType, "rate="); idx >= 0 {
-		value := mimeType[idx+len("rate="):]
-		for i, r := range value {
-			if r < '0' || r > '9' {
-				value = value[:i]
-				break
-			}
-		}
-		if parsed, parseErr := strconv.Atoi(value); parseErr == nil && parsed > 0 {
-			rate = parsed
-		}
-	}
-
-	tmpDir := filepath.Dir(outputFile)
-	rawFile, err := os.CreateTemp(tmpDir, "comicforge-tts-*.pcm")
+	rawPath, err := writeTempPCM(data, outputFile)
 	if err != nil {
-		return fmt.Errorf("create temporary audio file: %w", err)
-	}
-	rawPath := rawFile.Name()
-	if _, err := rawFile.Write(data); err != nil {
-		_ = rawFile.Close()
-		_ = os.Remove(rawPath)
-		return fmt.Errorf("write temporary audio file: %w", err)
-	}
-	if err := rawFile.Close(); err != nil {
-		_ = os.Remove(rawPath)
-		return fmt.Errorf("close temporary audio file: %w", err)
+		return err
 	}
 	defer func() {
 		_ = os.Remove(rawPath)
 	}()
 
+	return convertPCMFileToMP3(ffmpegPath, rawPath, pcmSampleRate(mimeType), outputFile)
+}
+
+func pcmSampleRate(mimeType string) int {
+	rate := 24000
+	idx := strings.Index(mimeType, "rate=")
+	if idx < 0 {
+		return rate
+	}
+	value := mimeType[idx+len("rate="):]
+	for i, r := range value {
+		if r < '0' || r > '9' {
+			value = value[:i]
+			break
+		}
+	}
+	if parsed, parseErr := strconv.Atoi(value); parseErr == nil && parsed > 0 {
+		return parsed
+	}
+	return rate
+}
+
+func writeTempPCM(data []byte, outputFile string) (string, error) {
+	rawFile, err := os.CreateTemp(filepath.Dir(outputFile), "comicforge-tts-*.pcm")
+	if err != nil {
+		return "", fmt.Errorf("create temporary audio file: %w", err)
+	}
+	rawPath := rawFile.Name()
+	if _, err := rawFile.Write(data); err != nil {
+		_ = rawFile.Close()
+		_ = os.Remove(rawPath)
+		return "", fmt.Errorf("write temporary audio file: %w", err)
+	}
+	if err := rawFile.Close(); err != nil {
+		_ = os.Remove(rawPath)
+		return "", fmt.Errorf("close temporary audio file: %w", err)
+	}
+	return rawPath, nil
+}
+
+func convertPCMFileToMP3(ffmpegPath, rawPath string, rate int, outputFile string) error {
 	cmd := ffmpegutil.Command(ffmpegPath,
 		"-y",
 		"-f", "s16le",

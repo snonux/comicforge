@@ -121,27 +121,39 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 	if err != nil {
 		return nil, err
 	}
-
 	c.lastPrompt = prompt
 	if c.PromptCallback != nil {
 		c.PromptCallback(prompt)
 	}
 
+	aspectRatio := c.resolveSearchAspectRatio(opts)
+	fmt.Printf("Gemini Image Generation Prompt (%d chars): %s\n", len(prompt), prompt)
+	fmt.Printf("Gemini Image Generation: Using model %q with aspect ratio %q\n", c.modelName(), aspectRatio)
+
+	imageBytes, mimeType, err := c.generateSearchImage(ctx, prompt, aspectRatio, opts.ReferenceImages)
+	if err != nil {
+		return nil, err
+	}
+	return c.assembleSearchResult(opts.Query, translatedWord, prompt, imageBytes, mimeType)
+}
+
+func (c *GeminiProvider) resolveSearchAspectRatio(opts *SearchOptions) string {
 	aspectRatio := geminiAspectRatio
 	if c.config != nil && strings.TrimSpace(c.config.AspectRatio) != "" {
 		aspectRatio = strings.TrimSpace(c.config.AspectRatio)
 	}
-	if opts.AspectRatio != "" {
+	if opts != nil && opts.AspectRatio != "" {
 		aspectRatio = opts.AspectRatio
 	}
+	return aspectRatio
+}
 
-	fmt.Printf("Gemini Image Generation Prompt (%d chars): %s\n", len(prompt), prompt)
-	fmt.Printf("Gemini Image Generation: Using model %q with aspect ratio %q\n", c.modelName(), aspectRatio)
-
+func (c *GeminiProvider) generateSearchImage(ctx context.Context, prompt, aspectRatio string, refs [][]byte) ([]byte, string, error) {
 	var imageBytes []byte
 	var mimeType string
-	if len(opts.ReferenceImages) > 0 {
-		imageBytes, mimeType, err = c.generateImageWithRefs(ctx, prompt, aspectRatio, opts.ReferenceImages)
+	var err error
+	if len(refs) > 0 {
+		imageBytes, mimeType, err = c.generateImageWithRefs(ctx, prompt, aspectRatio, refs)
 	} else {
 		genImage := c.generateImage
 		if genImage == nil {
@@ -151,15 +163,18 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 	}
 	if err != nil {
 		if searchErr, ok := err.(*SearchError); ok {
-			return nil, searchErr
+			return nil, "", searchErr
 		}
-		return nil, &SearchError{
+		return nil, "", &SearchError{
 			Provider: geminiSource,
 			Code:     "API_ERROR",
 			Message:  fmt.Sprintf("failed to generate image: %v", err),
 		}
 	}
+	return imageBytes, mimeType, nil
+}
 
+func (c *GeminiProvider) assembleSearchResult(query, translatedWord, prompt string, imageBytes []byte, mimeType string) ([]SearchResult, error) {
 	dataURL, err := encodeDataURL(imageBytes, mimeType)
 	if err != nil {
 		return nil, err
@@ -169,13 +184,13 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 		return nil, err
 	}
 
-	description := fmt.Sprintf("Generated educational image for %s", opts.Query)
+	description := fmt.Sprintf("Generated educational image for %s", query)
 	if translatedWord != "" {
 		description = fmt.Sprintf("%s (%s)", description, translatedWord)
 	}
 
 	result := SearchResult{
-		ID:           c.generateImageID(opts.Query),
+		ID:           c.generateImageID(query),
 		URL:          dataURL,
 		ThumbnailURL: dataURL,
 		Width:        width,
@@ -184,7 +199,6 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 		Source:       geminiSource,
 	}
 	result.Attribution = c.buildAttribution(&result, prompt)
-
 	return []SearchResult{result}, nil
 }
 

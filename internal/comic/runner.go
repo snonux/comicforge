@@ -132,38 +132,60 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 	}
 
 	dir := orDefault(r.config.OutputDir, ".")
-	entries, err := vocab.ReadVocabularyFile(batchFile)
+	entries, result, err := r.loadBatchAndGenerate(ctx, batchFile)
 	if err != nil {
-		return fmt.Errorf("failed to read batch file: %w", err)
+		return err
 	}
-	if len(entries) == 0 {
-		return fmt.Errorf("batch file %q contains no words", batchFile)
-	}
-
-	fmt.Printf("Generating story for %d words...\n", len(entries))
-	result, err := r.generator.GenerateFull(ctx, entries)
-	if err != nil {
-		return fmt.Errorf("story generation failed: %w", err)
-	}
-
-	slug := slugify(result.Title)
-	if strings.TrimSpace(r.config.Slug) != "" {
-		slug = r.config.Slug
-		fmt.Printf("  Comic title: %q (slug forced: %s)\n", result.Title, slug)
-	} else if result.Title != "" {
-		fmt.Printf("  Comic title: %q (slug: %s)\n", result.Title, slug)
-	}
+	slug := resolveComicSlug(result.Title, r.config.Slug)
 
 	assetsDir, err := r.assetStore.PrepareOutputDirs(dir, slug)
 	if err != nil {
 		return err
 	}
 	r.artist.outputDir = assetsDir
-
 	if err := r.persistTextArtifacts(result.StoryText, entries, slug, assetsDir); err != nil {
 		return err
 	}
+	if err := r.renderPagesAndPDF(ctx, dir, slug, result, entries); err != nil {
+		return err
+	}
 
+	if !r.config.NarrateEnabled {
+		fmt.Println("Narration skipped (enable narration in config to produce audio).")
+		return nil
+	}
+	return r.handleNarration(ctx, result.StoryText, slug, assetsDir)
+}
+
+func (r *Runner) loadBatchAndGenerate(ctx context.Context, batchFile string) ([]vocab.WordEntry, GenerateResult, error) {
+	entries, err := vocab.ReadVocabularyFile(batchFile)
+	if err != nil {
+		return nil, GenerateResult{}, fmt.Errorf("failed to read batch file: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, GenerateResult{}, fmt.Errorf("batch file %q contains no words", batchFile)
+	}
+
+	fmt.Printf("Generating story for %d words...\n", len(entries))
+	result, err := r.generator.GenerateFull(ctx, entries)
+	if err != nil {
+		return nil, GenerateResult{}, fmt.Errorf("story generation failed: %w", err)
+	}
+	return entries, result, nil
+}
+
+func resolveComicSlug(title, forcedSlug string) string {
+	slug := slugify(title)
+	if strings.TrimSpace(forcedSlug) != "" {
+		slug = forcedSlug
+		fmt.Printf("  Comic title: %q (slug forced: %s)\n", title, slug)
+	} else if title != "" {
+		fmt.Printf("  Comic title: %q (slug: %s)\n", title, slug)
+	}
+	return slug
+}
+
+func (r *Runner) renderPagesAndPDF(ctx context.Context, dir, slug string, result GenerateResult, entries []vocab.WordEntry) error {
 	paths, err := r.artist.DrawComicPages(ctx, result.StoryText, result.Bible, slug, entries, result.PanelScript)
 	if err != nil {
 		return fmt.Errorf("comic page generation failed: %w", err)
@@ -174,20 +196,16 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 	if err := r.assetStore.CopyGalleryPNGs(comicsRootDir(dir), r.artist.outputDir); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
 	}
-	if len(paths) > 0 {
-		pdfPath, err := r.pdfAssembler.Assemble(ctx, comicsPDFDir(dir), slug, paths, r.config.PDF)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
-		} else {
-			fmt.Printf("Comic PDF saved: %s\n", pdfPath)
-		}
-	}
-
-	if !r.config.NarrateEnabled {
-		fmt.Println("Narration skipped (enable narration in config to produce audio).")
+	if len(paths) == 0 {
 		return nil
 	}
-	return r.handleNarration(ctx, result.StoryText, slug, assetsDir)
+	pdfPath, err := r.pdfAssembler.Assemble(ctx, comicsPDFDir(dir), slug, paths, r.config.PDF)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
+		return nil
+	}
+	fmt.Printf("Comic PDF saved: %s\n", pdfPath)
+	return nil
 }
 
 // RunPrompt renders a single image from a direct user prompt.

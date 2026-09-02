@@ -149,48 +149,53 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 
 	var paths []string
 	var recentRefs [][]byte
-	if p, err := a.renderPage(ctx, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page", nil); err != nil {
+	paths, recentRefs, err = a.renderAndCollect(ctx, paths, recentRefs, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page", true)
+	if err != nil {
 		return nil, err
-	} else if p != "" {
-		paths = append(paths, p)
-		if coverBytes, readErr := os.ReadFile(p); readErr == nil {
-			recentRefs = appendRef(recentRefs, coverBytes)
-		}
 	}
 
 	sections := splitIntoSections(storyText, a.storyPages)
 	for i, section := range sections {
 		pageNum := i + 1
 		data := a.storyPagePromptData(section, pageNum, style, resolvedBible, entries, panelScript)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum), recentRefs); err != nil {
+		paths, recentRefs, err = a.renderAndCollect(ctx, paths, recentRefs, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum), true)
+		if err != nil {
 			return nil, err
-		} else if p != "" {
-			paths = append(paths, p)
-			if pageBytes, readErr := os.ReadFile(p); readErr == nil {
-				recentRefs = appendRef(recentRefs, pageBytes)
-			}
 		}
 	}
 
 	for i := 0; i < a.galleryPages; i++ {
 		galleryNum := i + 1
 		data := a.galleryPromptData(style, resolvedBible, galleryNum)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages), recentRefs); err != nil {
+		paths, recentRefs, err = a.renderAndCollect(ctx, paths, recentRefs, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages), true)
+		if err != nil {
 			return nil, err
-		} else if p != "" {
-			paths = append(paths, p)
-			if galleryBytes, readErr := os.ReadFile(p); readErr == nil {
-				recentRefs = appendRef(recentRefs, galleryBytes)
-			}
 		}
 	}
 
-	if p, err := a.renderPage(ctx, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover", recentRefs); err != nil {
+	paths, _, err = a.renderAndCollect(ctx, paths, recentRefs, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover", false)
+	if err != nil {
 		return nil, err
-	} else if p != "" {
-		paths = append(paths, p)
 	}
 	return paths, nil
+}
+
+// renderAndCollect renders one page, appends its path, and optionally tracks bytes as a reference.
+func (a *Artist) renderAndCollect(ctx context.Context, paths []string, recentRefs [][]byte, fileName, templateName string, data map[string]any, label string, trackRefs bool) ([]string, [][]byte, error) {
+	p, err := a.renderPage(ctx, fileName, templateName, data, label, recentRefs)
+	if err != nil {
+		return paths, recentRefs, err
+	}
+	if p == "" {
+		return paths, recentRefs, nil
+	}
+	paths = append(paths, p)
+	if trackRefs {
+		if pageBytes, readErr := os.ReadFile(p); readErr == nil {
+			recentRefs = appendRef(recentRefs, pageBytes)
+		}
+	}
+	return paths, recentRefs, nil
 }
 
 func (a *Artist) ready() error {
