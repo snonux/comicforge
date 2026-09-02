@@ -173,7 +173,7 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
 	}
 	if len(paths) > 0 {
-		pdfPath, err := r.pdfAssembler.Assemble(comicsPDFDir(dir), slug, paths, r.config.PDF)
+		pdfPath, err := r.pdfAssembler.Assemble(ctx, comicsPDFDir(dir), slug, paths, r.config.PDF)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
 		} else {

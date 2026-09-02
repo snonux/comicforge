@@ -101,10 +101,10 @@ func (n *Narrator) Narrate(ctx context.Context, storyText, outputFile string) er
 	combinedPath := filepath.Join(tmpDir, "combined.mp3")
 	if len(allPaths) == 1 {
 		combinedPath = allPaths[0]
-	} else if err := n.mixer.ConcatenateMP3s(allPaths, combinedPath, tmpDir); err != nil {
+	} else if err := n.mixer.ConcatenateMP3s(ctx, allPaths, combinedPath, tmpDir); err != nil {
 		return err
 	}
-	return n.mixer.ConvertToStereo(combinedPath, outputFile)
+	return n.mixer.ConvertToStereo(ctx, combinedPath, outputFile)
 }
 
 func (n *Narrator) ready() error {
@@ -145,7 +145,7 @@ func (n *Narrator) narrateIntro(ctx context.Context, storyText, tmpDir string) (
 	}
 
 	introWithMusic := filepath.Join(tmpDir, "intro_with_music.mp3")
-	if err := n.mixer.MixAmbientMusic(introRaw, introWithMusic, tmpDir); err != nil {
+	if err := n.mixer.MixAmbientMusic(ctx, introRaw, introWithMusic, tmpDir); err != nil {
 		fmt.Printf("    Warning: intro music mix failed (%v) — using narration only\n", err)
 		return introRaw, true
 	}
@@ -176,13 +176,13 @@ func (n *Narrator) narrateConclusion(ctx context.Context, storyText, tmpDir stri
 	conclusionNarration := filepath.Join(tmpDir, "conclusion_narration.mp3")
 	if len(paths) == 1 {
 		conclusionNarration = paths[0]
-	} else if err := n.mixer.ConcatenateMP3s(paths, conclusionNarration, tmpDir); err != nil {
+	} else if err := n.mixer.ConcatenateMP3s(ctx, paths, conclusionNarration, tmpDir); err != nil {
 		fmt.Printf("    Warning: conclusion concat failed: %v\n", err)
 		return "", false
 	}
 
 	conclusionWithMusic := filepath.Join(tmpDir, "conclusion_with_music.mp3")
-	if err := n.mixer.MixAmbientMusic(conclusionNarration, conclusionWithMusic, tmpDir); err != nil {
+	if err := n.mixer.MixAmbientMusic(ctx, conclusionNarration, conclusionWithMusic, tmpDir); err != nil {
 		fmt.Printf("    Warning: background music mix failed (%v) — using narration only\n", err)
 		return conclusionNarration, true
 	}

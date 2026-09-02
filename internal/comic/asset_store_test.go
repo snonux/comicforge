@@ -289,7 +289,7 @@ func TestRunnerRunPropagatesAssetStorePrepareError(t *testing.T) {
 		AssetStore: &stubAssetStore{
 			prepareErr: errors.New("prepare failed"),
 		},
-		PDFAssembler: funcPDFAssembler{fn: func(string, string, []string, PDFAssembleOptions) (string, error) {
+		PDFAssembler: funcPDFAssembler{fn: func(context.Context, string, string, []string, PDFAssembleOptions) (string, error) {
 			return "x.pdf", nil
 		}},
 	})
@@ -336,7 +336,7 @@ func TestRunnerRunPropagatesAssetStoreStoryWriteError(t *testing.T) {
 			assetsDir: assetsDir,
 			storyErr:  errors.New("story write failed"),
 		},
-		PDFAssembler: funcPDFAssembler{fn: func(string, string, []string, PDFAssembleOptions) (string, error) {
+		PDFAssembler: funcPDFAssembler{fn: func(context.Context, string, string, []string, PDFAssembleOptions) (string, error) {
 			return "x.pdf", nil
 		}},
 	})

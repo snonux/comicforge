@@ -418,7 +418,7 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 		Slug:                  "forced-slug",
 		NarrateEnabled:        true,
 		GalleryPages:          1,
-		PDFAssembler: funcPDFAssembler{fn: func(outputDir, titleSlug string, imagePaths []string, _ PDFAssembleOptions) (string, error) {
+		PDFAssembler: funcPDFAssembler{fn: func(_ context.Context, outputDir, titleSlug string, imagePaths []string, _ PDFAssembleOptions) (string, error) {
 			path := filepath.Join(outputDir, titleSlug+".pdf")
 			return path, os.WriteFile(path, []byte("pdf"), 0o644)
 		}},
@@ -819,7 +819,7 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 		OutputDir:             t.TempDir(),
 		Slug:                  "forced-slug",
 		NarrateEnabled:        false,
-		PDFAssembler: funcPDFAssembler{fn: func(string, string, []string, PDFAssembleOptions) (string, error) {
+		PDFAssembler: funcPDFAssembler{fn: func(context.Context, string, string, []string, PDFAssembleOptions) (string, error) {
 			t.Fatal("PDFAssembler.Assemble should not be called on render failure")
 			return "", nil
 		}},
@@ -1052,7 +1052,7 @@ func TestConvertToStereoFallsBackToCopyWhenFFmpegMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := NewFFmpegAudioMixer().ConvertToStereo(inputFile, outputFile); err != nil {
+	if err := NewFFmpegAudioMixer().ConvertToStereo(context.Background(), inputFile, outputFile); err != nil {
 		t.Fatalf("ConvertToStereo() error = %v", err)
 	}
 	got, err := os.ReadFile(outputFile)
@@ -1253,11 +1253,11 @@ func (f fakeImageProvider) GenerateImage(_ context.Context, _ string, outputFile
 }
 
 type funcPDFAssembler struct {
-	fn func(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
+	fn func(ctx context.Context, outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
 }
 
-func (f funcPDFAssembler) Assemble(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
-	return f.fn(outputDir, titleSlug, imagePaths, opts)
+func (f funcPDFAssembler) Assemble(ctx context.Context, outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
+	return f.fn(ctx, outputDir, titleSlug, imagePaths, opts)
 }
 
 type capturingImageProvider struct {

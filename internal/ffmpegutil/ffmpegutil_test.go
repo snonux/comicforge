@@ -1,6 +1,7 @@
 package ffmpegutil
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -52,5 +53,19 @@ func TestCommandPrependsQuietFlags(t *testing.T) {
 		if cmd.Args[i+1] != arg {
 			t.Fatalf("Args[%d] = %q, want %q (full Args=%v)", i+1, cmd.Args[i+1], arg, cmd.Args)
 		}
+	}
+}
+
+func TestCommandContextCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	cmd := CommandContext(ctx, "sleep", "30")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("Run() error = nil, want canceled context")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Run() error = %v, want context.Canceled", err)
 	}
 }

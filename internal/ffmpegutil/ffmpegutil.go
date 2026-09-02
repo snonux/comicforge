@@ -3,6 +3,7 @@
 package ffmpegutil
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"sync"
@@ -38,10 +39,19 @@ func LookPath() (string, error) {
 // Command builds an ffmpeg command with QuietFlags prepended to args.
 // ffmpegPath must already be resolved (typically via LookPath).
 func Command(ffmpegPath string, args ...string) *exec.Cmd {
+	return CommandContext(context.Background(), ffmpegPath, args...)
+}
+
+// CommandContext builds an ffmpeg command bound to ctx, with QuietFlags prepended to args.
+// ffmpegPath must already be resolved (typically via LookPath).
+func CommandContext(ctx context.Context, ffmpegPath string, args ...string) *exec.Cmd {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	full := make([]string, 0, len(QuietFlags)+len(args))
 	full = append(full, QuietFlags...)
 	full = append(full, args...)
-	return exec.Command(ffmpegPath, full...)
+	return exec.CommandContext(ctx, ffmpegPath, full...)
 }
 
 // OverrideLookPath replaces binary lookup for tests. Call the returned restore func in cleanup.

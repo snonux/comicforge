@@ -1,6 +1,7 @@
 package comic
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,13 +12,13 @@ import (
 // PDFAssembler builds a comic PDF from page images.
 // Defined at the point of use so Runner can be unit-tested without ImageMagick.
 type PDFAssembler interface {
-	Assemble(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
+	Assemble(ctx context.Context, outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
 }
 
-// ImageMagickPDFAssembler is the exec.Command adapter for PDFAssembler.
+// ImageMagickPDFAssembler is the exec.CommandContext adapter for PDFAssembler.
 type ImageMagickPDFAssembler struct {
 	lookPath func(file string) (string, error)
-	command  func(name string, arg ...string) *exec.Cmd
+	command  func(ctx context.Context, name string, arg ...string) *exec.Cmd
 }
 
 var _ PDFAssembler = (*ImageMagickPDFAssembler)(nil)
@@ -26,17 +27,20 @@ var _ PDFAssembler = (*ImageMagickPDFAssembler)(nil)
 func NewImageMagickPDFAssembler() *ImageMagickPDFAssembler {
 	return &ImageMagickPDFAssembler{
 		lookPath: exec.LookPath,
-		command:  exec.Command,
+		command:  exec.CommandContext,
 	}
 }
 
 // AssembleComicPDF combines comic pages into a PDF using the default ImageMagick assembler.
-func AssembleComicPDF(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
-	return NewImageMagickPDFAssembler().Assemble(outputDir, titleSlug, imagePaths, opts)
+func AssembleComicPDF(ctx context.Context, outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
+	return NewImageMagickPDFAssembler().Assemble(ctx, outputDir, titleSlug, imagePaths, opts)
 }
 
 // Assemble combines comic pages into a PDF using ImageMagick convert.
-func (a *ImageMagickPDFAssembler) Assemble(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
+func (a *ImageMagickPDFAssembler) Assemble(ctx context.Context, outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(imagePaths) == 0 {
 		return "", fmt.Errorf("no comic images to assemble into PDF")
 	}
@@ -61,9 +65,9 @@ func (a *ImageMagickPDFAssembler) Assemble(outputDir, titleSlug string, imagePat
 			var ferr error
 			switch opts.Presentation {
 			case pdfPresentationPrint:
-				ferr = a.renderPrintFrame(src, dst)
+				ferr = a.renderPrintFrame(ctx, src, dst)
 			case pdfPresentationBook:
-				ferr = a.renderBookFrame(src, dst, tmpDir, i)
+				ferr = a.renderBookFrame(ctx, src, dst, tmpDir, i)
 			}
 			if ferr != nil {
 				return "", ferr
@@ -78,7 +82,7 @@ func (a *ImageMagickPDFAssembler) Assemble(outputDir, titleSlug string, imagePat
 		fitted := make([]string, len(inputs))
 		for i, p := range inputs {
 			out := filepath.Join(tmpDir, fmt.Sprintf("din_a4_%04d.png", i))
-			if err := a.fitRasterPageToDINA4(p, out, opts.Density, fitBG); err != nil {
+			if err := a.fitRasterPageToDINA4(ctx, p, out, opts.Density, fitBG); err != nil {
 				return "", err
 			}
 			fitted[i] = out
@@ -93,7 +97,7 @@ func (a *ImageMagickPDFAssembler) Assemble(outputDir, titleSlug string, imagePat
 	}
 	args = append(args, pdfPath)
 
-	out, err := a.runConvert(args...)
+	out, err := a.runConvert(ctx, args...)
 	if err != nil {
 		return "", fmt.Errorf("convert failed: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
@@ -108,19 +112,19 @@ func (a *ImageMagickPDFAssembler) resolveConvert() (string, error) {
 	return lp("convert")
 }
 
-func (a *ImageMagickPDFAssembler) runConvert(args ...string) ([]byte, error) {
+func (a *ImageMagickPDFAssembler) runConvert(ctx context.Context, args ...string) ([]byte, error) {
 	path, err := a.resolveConvert()
 	if err != nil {
 		return nil, err
 	}
 	cmdFn := a.command
 	if cmdFn == nil {
-		cmdFn = exec.Command
+		cmdFn = exec.CommandContext
 	}
-	return cmdFn(path, args...).CombinedOutput()
+	return cmdFn(ctx, path, args...).CombinedOutput()
 }
 
-func (a *ImageMagickPDFAssembler) renderPrintFrame(src, dst string) error {
+func (a *ImageMagickPDFAssembler) renderPrintFrame(ctx context.Context, src, dst string) error {
 	args := []string{
 		src,
 		"-background", printMatteColor,
@@ -128,14 +132,14 @@ func (a *ImageMagickPDFAssembler) renderPrintFrame(src, dst string) error {
 		"-extent", "108%x108%",
 		dst,
 	}
-	out, err := a.runConvert(args...)
+	out, err := a.runConvert(ctx, args...)
 	if err != nil {
 		return fmt.Errorf("convert matte frame: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-func (a *ImageMagickPDFAssembler) renderBookAgedPage(src, dst string) error {
+func (a *ImageMagickPDFAssembler) renderBookAgedPage(ctx context.Context, src, dst string) error {
 	args := []string{
 		src,
 		"-modulate", bookAgedModulate,
@@ -147,16 +151,16 @@ func (a *ImageMagickPDFAssembler) renderBookAgedPage(src, dst string) error {
 		"-composite",
 		dst,
 	}
-	out, err := a.runConvert(args...)
+	out, err := a.runConvert(ctx, args...)
 	if err != nil {
 		return fmt.Errorf("convert book aged page: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-func (a *ImageMagickPDFAssembler) renderBookFrame(src, dst, tmpDir string, pageIndex int) error {
+func (a *ImageMagickPDFAssembler) renderBookFrame(ctx context.Context, src, dst, tmpDir string, pageIndex int) error {
 	aged := filepath.Join(tmpDir, fmt.Sprintf("book_aged_%04d.png", pageIndex))
-	if err := a.renderBookAgedPage(src, aged); err != nil {
+	if err := a.renderBookAgedPage(ctx, src, aged); err != nil {
 		return err
 	}
 
@@ -179,7 +183,7 @@ func (a *ImageMagickPDFAssembler) renderBookFrame(src, dst, tmpDir string, pageI
 		"+repage",
 		step1,
 	}
-	out, err := a.runConvert(args...)
+	out, err := a.runConvert(ctx, args...)
 	if err != nil {
 		return fmt.Errorf("convert book frame (tilt/shadow): %w\n%s", err, strings.TrimSpace(string(out)))
 	}
@@ -192,19 +196,19 @@ func (a *ImageMagickPDFAssembler) renderBookFrame(src, dst, tmpDir string, pageI
 		h = 1
 	}
 	grad := filepath.Join(tmpDir, fmt.Sprintf("book_grad_%04d.png", pageIndex))
-	out, err = a.runConvert("-size", fmt.Sprintf("12x%d", h), bookEdgeGradient, grad)
+	out, err = a.runConvert(ctx, "-size", fmt.Sprintf("12x%d", h), bookEdgeGradient, grad)
 	if err != nil {
 		return fmt.Errorf("convert book edge gradient: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
 
-	out, err = a.runConvert(step1, grad, "-gravity", "east", "-compose", "over", "-composite", dst)
+	out, err = a.runConvert(ctx, step1, grad, "-gravity", "east", "-compose", "over", "-composite", dst)
 	if err != nil {
 		return fmt.Errorf("convert book frame (edge): %w\n%s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-func (a *ImageMagickPDFAssembler) fitRasterPageToDINA4(src, dst string, density int, background string) error {
+func (a *ImageMagickPDFAssembler) fitRasterPageToDINA4(ctx context.Context, src, dst string, density int, background string) error {
 	w, h := dinAPortraitPixels(density)
 	if strings.TrimSpace(background) == "" {
 		background = printMatteColor
@@ -217,7 +221,7 @@ func (a *ImageMagickPDFAssembler) fitRasterPageToDINA4(src, dst string, density 
 		"-extent", fmt.Sprintf("%dx%d", w, h),
 		dst,
 	}
-	out, err := a.runConvert(args...)
+	out, err := a.runConvert(ctx, args...)
 	if err != nil {
 		return fmt.Errorf("convert DIN A4 page: %w\n%s", err, strings.TrimSpace(string(out)))
 	}

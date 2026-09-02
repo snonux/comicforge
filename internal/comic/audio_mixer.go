@@ -1,6 +1,7 @@
 package comic
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,12 +13,12 @@ import (
 // AudioMixer performs ffmpeg-backed narration post-processing.
 // Defined at the point of use so Narrator can be unit-tested without a real binary.
 type AudioMixer interface {
-	MixAmbientMusic(narrationFile, outputFile, tmpDir string) error
-	ConcatenateMP3s(chunkPaths []string, outputFile, tmpDir string) error
-	ConvertToStereo(inputFile, outputFile string) error
+	MixAmbientMusic(ctx context.Context, narrationFile, outputFile, tmpDir string) error
+	ConcatenateMP3s(ctx context.Context, chunkPaths []string, outputFile, tmpDir string) error
+	ConvertToStereo(ctx context.Context, inputFile, outputFile string) error
 }
 
-// FFmpegAudioMixer is the exec.Command adapter for AudioMixer.
+// FFmpegAudioMixer is the exec.CommandContext adapter for AudioMixer.
 type FFmpegAudioMixer struct{}
 
 var _ AudioMixer = (*FFmpegAudioMixer)(nil)
@@ -28,18 +29,21 @@ func NewFFmpegAudioMixer() *FFmpegAudioMixer {
 }
 
 // MixAmbientMusic overlays a generated ambient pad under narration.
-func (m *FFmpegAudioMixer) MixAmbientMusic(narrationFile, outputFile, tmpDir string) error {
+func (m *FFmpegAudioMixer) MixAmbientMusic(ctx context.Context, narrationFile, outputFile, tmpDir string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ffmpegPath, err := ffmpegutil.LookPath()
 	if err != nil {
 		return fmt.Errorf("ffmpeg not found")
 	}
 
 	musicPath := filepath.Join(tmpDir, "ambient_pad.mp3")
-	if err := m.generateAmbientPad(ffmpegPath, musicPath); err != nil {
+	if err := m.generateAmbientPad(ctx, ffmpegPath, musicPath); err != nil {
 		return err
 	}
 
-	cmd := ffmpegutil.Command(ffmpegPath,
+	cmd := ffmpegutil.CommandContext(ctx, ffmpegPath,
 		"-y",
 		"-i", narrationFile,
 		"-i", musicPath,
@@ -57,7 +61,10 @@ func (m *FFmpegAudioMixer) MixAmbientMusic(narrationFile, outputFile, tmpDir str
 }
 
 // ConcatenateMP3s joins chunk files into a single MP3 via the ffmpeg concat demuxer.
-func (m *FFmpegAudioMixer) ConcatenateMP3s(chunkPaths []string, outputFile, tmpDir string) error {
+func (m *FFmpegAudioMixer) ConcatenateMP3s(ctx context.Context, chunkPaths []string, outputFile, tmpDir string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ffmpegPath, err := ffmpegutil.LookPath()
 	if err != nil {
 		return fmt.Errorf("ffmpeg not found — required for multi-chunk narration: %w", err)
@@ -72,7 +79,7 @@ func (m *FFmpegAudioMixer) ConcatenateMP3s(chunkPaths []string, outputFile, tmpD
 		return fmt.Errorf("write concat list: %w", err)
 	}
 
-	cmd := ffmpegutil.Command(ffmpegPath,
+	cmd := ffmpegutil.CommandContext(ctx, ffmpegPath,
 		"-y",
 		"-f", "concat", "-safe", "0",
 		"-i", listPath,
@@ -87,14 +94,17 @@ func (m *FFmpegAudioMixer) ConcatenateMP3s(chunkPaths []string, outputFile, tmpD
 }
 
 // ConvertToStereo re-encodes input as stereo MP3. When ffmpeg is missing, copies the file as-is.
-func (m *FFmpegAudioMixer) ConvertToStereo(inputFile, outputFile string) error {
+func (m *FFmpegAudioMixer) ConvertToStereo(ctx context.Context, inputFile, outputFile string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ffmpegPath, err := ffmpegutil.LookPath()
 	if err != nil {
 		fmt.Println("    Warning: ffmpeg not found, narration will be mono")
 		return copyFile(inputFile, outputFile)
 	}
 
-	cmd := ffmpegutil.Command(ffmpegPath,
+	cmd := ffmpegutil.CommandContext(ctx, ffmpegPath,
 		"-y",
 		"-i", inputFile,
 		"-ac", "2",
@@ -108,9 +118,9 @@ func (m *FFmpegAudioMixer) ConvertToStereo(inputFile, outputFile string) error {
 	return nil
 }
 
-func (m *FFmpegAudioMixer) generateAmbientPad(ffmpegPath, outputFile string) error {
+func (m *FFmpegAudioMixer) generateAmbientPad(ctx context.Context, ffmpegPath, outputFile string) error {
 	droneExpr := "0.04*sin(65*2*PI*t)+0.03*sin(98*2*PI*t)+0.02*sin(130*2*PI*t)"
-	cmd := ffmpegutil.Command(ffmpegPath,
+	cmd := ffmpegutil.CommandContext(ctx, ffmpegPath,
 		"-y",
 		"-f", "lavfi",
 		"-i", fmt.Sprintf("aevalsrc=%s:sample_rate=44100", droneExpr),
