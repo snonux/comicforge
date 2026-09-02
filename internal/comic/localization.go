@@ -1,6 +1,9 @@
 package comic
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // localizedBrandName returns the comic's subtitle/series name in the selected script.
 func localizedBrandName(language, script string) string {
@@ -37,34 +40,23 @@ func localizedLanguageName(language, script string) string {
 	}
 }
 
+func needsCyrillicStyle(language, script string) bool {
+	return strings.EqualFold(script, "Cyrillic") || strings.EqualFold(language, "Bulgarian")
+}
+
+// localizedStylePrompt returns the style prompt in the active script.
+// In Cyrillic/Bulgarian mode every style must have a co-located localization;
+// missing entries panic so English cannot silently leak into Cyrillic output.
 func localizedStylePrompt(style, language, script string) string {
-	if !strings.EqualFold(script, "Cyrillic") && !strings.EqualFold(language, "Bulgarian") {
+	if !needsCyrillicStyle(language, script) {
 		return style
 	}
-	switch style {
-	case "classic American comic book with bold ink outlines, halftone dots, and primary colors":
-		return "класически американски комикс с дебели мастилени контури, халф-тонови точки и основни цветове"
-	case "Japanese manga with clean linework, expressive eyes, and speed lines":
-		return "японска манга с чисти линии, изразителни очи и скоростни линии"
-	case "retro 1960s pop art in the style of Roy Lichtenstein with thick outlines and Ben-Day dots":
-		return "ретро поп арт от 60-те години с дебели контури и точки в стил Бен-Дей"
-	case "watercolor illustration with soft washes, delicate linework, and pastel tones":
-		return "акварелна илюстрация с меки петна, фина линия и пастелни тонове"
-	case "European bande dessinée with detailed backgrounds, clear lines, and rich flat colors":
-		return "европейски bande dessinée с детайлни фонове, ясни линии и наситени плоски цветове"
-	case "noir black-and-white graphic novel with heavy shadows and high contrast":
-		return "ноар черно-бял графичен роман с тежки сенки и силен контраст"
-	case "children's picture book with bright, friendly illustrations and thick outlines":
-		return "детска книжка с ярки, приветливи илюстрации и дебели контури"
-	case "painterly oil-on-canvas comic with loose brushwork and vivid impressionist colors":
-		return "живописен комикс с маслени щрихи и ярки импресионистични цветове"
-	case "ultra-realistic DSLR photography, cinematic 35mm lens, natural lighting, hyper-detailed textures":
-		return "ултрареалистична фотография с кинематографичен 35 мм обектив, естествено осветление и силно детайлни текстури"
-	case "cinematic still photography, golden-hour lighting, shallow depth of field, photojournalism quality":
-		return "кинематографична фотография с светлина на златен час, плитка дълбочина на полето и качеството на фоторепортаж"
-	case "hyper-realistic photography, studio-quality lighting, sharp focus, true-to-life colours and textures":
-		return "хиперреалистична фотография със студийно осветление, остър фокус и естествени цветове и текстури"
-	default:
+	if style == "" {
 		return style
 	}
+	localized, ok := cyrillicStyleByEnglish[style]
+	if !ok {
+		panic(fmt.Sprintf("comic: no Cyrillic localization for style %q", style))
+	}
+	return localized
 }

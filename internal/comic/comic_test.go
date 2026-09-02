@@ -639,6 +639,8 @@ func TestRunnerRunPromptAppliesStyleThemeAndUltraContext(t *testing.T) {
 		Slug:           "manual-robot",
 		Style:          "noir",
 		Theme:          "mystery",
+		Language:       "English",
+		Script:         "Latin",
 		UltraRealistic: boolPtr(true),
 		PageMaxRetries: 1,
 		PageRetryBase:  time.Second,

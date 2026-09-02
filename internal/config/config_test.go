@@ -182,6 +182,14 @@ styles:
 	}
 }
 
+func TestDefaultConfigStylesMatchComicCatalog(t *testing.T) {
+	cfg := DefaultConfig()
+	want := comic.DefaultStyleLines()
+	if !reflect.DeepEqual(map[string][]string(cfg.Styles), want) {
+		t.Fatalf("DefaultConfig Styles drifted from comic.DefaultStyleLines()\ngot %#v\nwant %#v", cfg.Styles, want)
+	}
+}
+
 func TestLoadFallsBackToGoogleAPIKeyEnv(t *testing.T) {
 	t.Setenv("GOOGLE_API_KEY", "fallback-key")
 

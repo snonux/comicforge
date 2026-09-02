@@ -47,7 +47,7 @@ func TestPickStyleFallsBackToDefaults(t *testing.T) {
 	t.Parallel()
 
 	got := pickStyle(nil, styleModeRealistic)
-	want := defaultStyles[styleModeRealistic]
+	want := englishStyleLines(defaultStyles[styleModeRealistic])
 	if len(want) == 0 {
 		t.Fatal("default realistic styles missing")
 	}
@@ -86,7 +86,7 @@ func TestPickStyleEmptyCategoryUsesDefaults(t *testing.T) {
 	}
 	// Empty realistic slice should use package defaults, not comic.
 	got := pickStyle(styles, styleModeRealistic)
-	for _, line := range defaultStyles[styleModeRealistic] {
+	for _, line := range englishStyleLines(defaultStyles[styleModeRealistic]) {
 		if got == line {
 			return
 		}
