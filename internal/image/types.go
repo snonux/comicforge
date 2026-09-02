@@ -2,9 +2,10 @@ package image
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strings"
+
+	"codeberg.org/snonux/comicforge/internal/provider"
 )
 
 const (
@@ -74,7 +75,7 @@ func (e *SearchError) Error() string {
 }
 
 // ErrUnknownProvider indicates that no provider is registered for a name.
-var ErrUnknownProvider = errors.New("unknown image provider")
+var ErrUnknownProvider = provider.ErrUnknownProvider
 
 // NormalizeName returns a canonical lower-case provider name.
 func NormalizeName(name string) string {

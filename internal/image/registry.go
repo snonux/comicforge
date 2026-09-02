@@ -3,20 +3,13 @@ package image
 import (
 	"fmt"
 	"reflect"
-	"sync"
+
+	"codeberg.org/snonux/comicforge/internal/provider"
 )
 
-// Factory builds a provider instance.
-type Factory[C any] func(C) (Provider, error)
-
-// Config exposes the configured image provider name.
+// Config exposes the configured image provider settings.
 type Config interface {
-	ImageProviderName() string
-}
-
-// GeminiRegistryConfig exposes the settings required by the built-in Gemini image provider.
-type GeminiRegistryConfig interface {
-	Config
+	provider.ImageConfig
 	GoogleAPIKey() string
 	ImageModel() string
 	ImageTextModel() string
@@ -24,78 +17,21 @@ type GeminiRegistryConfig interface {
 }
 
 // Registry resolves provider names to factories.
-type Registry[C Config] struct {
-	mu        sync.RWMutex
-	factories map[string]Factory[C]
+type Registry struct {
+	*provider.Registry[Provider, Config]
 }
 
-// NewRegistry creates an empty provider registry.
-func NewRegistry[C Config]() *Registry[C] {
-	return &Registry[C]{factories: make(map[string]Factory[C])}
-}
-
-// Register associates name with a factory. Later registrations replace earlier ones.
-func (r *Registry[C]) Register(name string, factory Factory[C]) {
-	if r == nil || factory == nil {
-		return
+// NewRegistry creates an empty image-provider registry.
+func NewRegistry() *Registry {
+	return &Registry{
+		Registry: provider.NewRegistry[Provider, Config](),
 	}
-
-	normalized := NormalizeName(name)
-	if normalized == "" {
-		return
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.factories == nil {
-		r.factories = make(map[string]Factory[C])
-	}
-	r.factories[normalized] = factory
-}
-
-// Resolve returns the factory registered for name.
-func (r *Registry[C]) Resolve(name string) (Factory[C], bool) {
-	if r == nil {
-		return nil, false
-	}
-
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	factory, ok := r.factories[NormalizeName(name)]
-	return factory, ok
-}
-
-// Has reports whether a factory is registered for name.
-func (r *Registry[C]) Has(name string) bool {
-	_, ok := r.Resolve(name)
-	return ok
-}
-
-// New constructs a provider for name.
-func (r *Registry[C]) New(name string, cfg C) (Provider, error) {
-	var zero Provider
-	factory, ok := r.Resolve(name)
-	if !ok {
-		return zero, fmt.Errorf("%w: %s", ErrUnknownProvider, name)
-	}
-	return factory(cfg)
-}
-
-// NewFromConfig resolves the provider name from cfg and constructs it.
-func (r *Registry[C]) NewFromConfig(cfg C) (Provider, error) {
-	if r == nil {
-		return nil, fmt.Errorf("image registry is required")
-	}
-	if isNilValue(cfg) {
-		return nil, fmt.Errorf("image config is required")
-	}
-	return r.New(cfg.ImageProviderName(), cfg)
 }
 
 // DefaultRegistry returns the built-in image provider registry.
-func DefaultRegistry() *Registry[GeminiRegistryConfig] {
-	registry := NewRegistry[GeminiRegistryConfig]()
-	registry.Register(Gemini, func(cfg GeminiRegistryConfig) (Provider, error) {
+func DefaultRegistry() *Registry {
+	registry := NewRegistry()
+	registry.Register(Gemini, func(cfg Config) (Provider, error) {
 		geminiProvider := NewGeminiProvider(&GeminiConfig{
 			APIKey:      cfg.GoogleAPIKey(),
 			Model:       cfg.ImageModel(),
@@ -107,10 +43,30 @@ func DefaultRegistry() *Registry[GeminiRegistryConfig] {
 		}
 		return geminiProvider, nil
 	})
-	registry.Register(OpenAI, func(GeminiRegistryConfig) (Provider, error) {
+	registry.Register(OpenAI, func(Config) (Provider, error) {
 		return nil, fmt.Errorf("image provider %q is not implemented", OpenAI)
 	})
 	return registry
+}
+
+// Has reports whether a factory is registered for name.
+func (r *Registry) Has(name string) bool {
+	if r == nil || r.Registry == nil {
+		return false
+	}
+	_, ok := r.Resolve(name)
+	return ok
+}
+
+// NewFromConfig resolves the provider name from cfg and constructs it.
+func (r *Registry) NewFromConfig(cfg Config) (Provider, error) {
+	if r == nil || r.Registry == nil {
+		return nil, fmt.Errorf("image registry is required")
+	}
+	if isNilValue(cfg) {
+		return nil, fmt.Errorf("image config is required")
+	}
+	return r.New(cfg.ImageProviderName(), cfg)
 }
 
 func isNilValue[T any](value T) bool {
