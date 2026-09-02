@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/genai"
 
+	"codeberg.org/snonux/comicforge/internal/apicircuit"
 	"codeberg.org/snonux/comicforge/internal/httpctx"
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
@@ -35,6 +36,12 @@ var newGeminiClient = httpctx.NewGenAIClient
 var geminiGenerateText = func(ctx context.Context, p *GeminiProvider, prompt string) (string, error) {
 	return p.generateText(ctx, prompt)
 }
+var geminiGenerateContent = func(ctx context.Context, client *genai.Client, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	return client.Models.GenerateContent(ctx, model, contents, cfg)
+}
+
+// circuitRegistry overrides the breaker registry in tests; nil uses apicircuit.DefaultRegistry.
+var circuitRegistry *apicircuit.Registry
 
 // NewGeminiProvider creates a Gemini text provider.
 func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
@@ -89,9 +96,11 @@ func (g *GeminiProvider) GenerateText(ctx context.Context, prompt string) (strin
 }
 
 func (g *GeminiProvider) generateText(ctx context.Context, prompt string) (string, error) {
-	resp, err := g.client.Models.GenerateContent(ctx, g.model, []*genai.Content{
-		genai.NewContentFromText(prompt, genai.RoleUser),
-	}, nil)
+	resp, err := apicircuit.Execute(circuitRegistry, g.Name(), apicircuit.CapabilityText, func() (*genai.GenerateContentResponse, error) {
+		return geminiGenerateContent(ctx, g.client, g.model, []*genai.Content{
+			genai.NewContentFromText(prompt, genai.RoleUser),
+		}, nil)
+	})
 	if err != nil {
 		return "", fmt.Errorf("generate text: %w", err)
 	}

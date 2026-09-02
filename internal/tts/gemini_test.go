@@ -3,12 +3,16 @@ package tts
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/sony/gobreaker"
 	"google.golang.org/genai"
 
+	"codeberg.org/snonux/comicforge/internal/apicircuit"
 	"codeberg.org/snonux/comicforge/internal/httpctx"
 )
 
@@ -154,5 +158,85 @@ func TestGenerateAudioPropagatesInitError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "tts config is required") {
 		t.Fatalf("GenerateAudio() error = %v, want tts config required", err)
+	}
+}
+
+func TestGenerateAudioSuccessUsesCircuit(t *testing.T) {
+	origGen := geminiGenerateContent
+	t.Cleanup(func() { geminiGenerateContent = origGen })
+
+	geminiGenerateContent = func(_ context.Context, _ *genai.Client, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+		if model != "tts-model" {
+			t.Fatalf("model = %q, want tts-model", model)
+		}
+		if cfg == nil || len(cfg.ResponseModalities) != 1 || cfg.ResponseModalities[0] != "AUDIO" {
+			t.Fatalf("unexpected config: %#v", cfg)
+		}
+		if len(contents) == 0 {
+			t.Fatal("contents empty")
+		}
+		return &genai.GenerateContentResponse{
+			Candidates: []*genai.Candidate{{
+				Content: &genai.Content{
+					Parts: []*genai.Part{{
+						InlineData: &genai.Blob{MIMEType: "audio/mpeg", Data: []byte("ID3fake")},
+					}},
+				},
+			}},
+		}, nil
+	}
+
+	dir := t.TempDir()
+	out := filepath.Join(dir, "out.mp3")
+	p := &GeminiProvider{model: "tts-model", voice: "Kore"}
+	if err := p.GenerateAudio(context.Background(), "hello", out); err != nil {
+		t.Fatalf("GenerateAudio() error = %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(data) != "ID3fake" {
+		t.Fatalf("audio bytes = %q, want ID3fake", data)
+	}
+}
+
+func TestGenerateAudioCircuitOpenSkipsAPI(t *testing.T) {
+	circuitRegistry = apicircuit.NewRegistry()
+	t.Cleanup(func() { circuitRegistry = nil })
+
+	origGen := geminiGenerateContent
+	t.Cleanup(func() { geminiGenerateContent = origGen })
+
+	var calls int
+	apiErr := errors.New("tts api down")
+	geminiGenerateContent = func(context.Context, *genai.Client, string, []*genai.Content, *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+		calls++
+		return nil, apiErr
+	}
+
+	dir := t.TempDir()
+	out := filepath.Join(dir, "out.mp3")
+	p := &GeminiProvider{model: DefaultModel, voice: "Aoede"}
+	for i := 0; i < 5; i++ {
+		err := p.GenerateAudio(context.Background(), "hello", out)
+		if err == nil {
+			t.Fatalf("failure %d: error = nil", i+1)
+		}
+		if !errors.Is(err, apiErr) {
+			t.Fatalf("failure %d: error = %v, want wrapped %v", i+1, err, apiErr)
+		}
+	}
+
+	callsBeforeOpen := calls
+	err := p.GenerateAudio(context.Background(), "hello", out)
+	if err == nil {
+		t.Fatal("open circuit: error = nil")
+	}
+	if !errors.Is(err, gobreaker.ErrOpenState) {
+		t.Fatalf("open circuit: error = %v, want ErrOpenState", err)
+	}
+	if calls != callsBeforeOpen {
+		t.Fatalf("open circuit still called API: calls = %d, want %d", calls, callsBeforeOpen)
 	}
 }

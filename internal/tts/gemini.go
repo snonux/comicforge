@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/genai"
 
+	"codeberg.org/snonux/comicforge/internal/apicircuit"
 	"codeberg.org/snonux/comicforge/internal/httpctx"
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
@@ -38,6 +39,12 @@ type GeminiProvider struct {
 var _ provider.TTSProvider = (*GeminiProvider)(nil)
 
 var newGeminiClient = httpctx.NewGenAIClient
+var geminiGenerateContent = func(ctx context.Context, client *genai.Client, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	return client.Models.GenerateContent(ctx, model, contents, cfg)
+}
+
+// circuitRegistry overrides the breaker registry in tests; nil uses apicircuit.DefaultRegistry.
+var circuitRegistry *apicircuit.Registry
 
 // NewGeminiProvider creates a Gemini TTS provider.
 func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
@@ -103,9 +110,11 @@ func (g *GeminiProvider) GenerateAudio(ctx context.Context, text, outputFile str
 		},
 		LanguageCode: "bg-BG",
 	}
-	resp, err := g.client.Models.GenerateContent(ctx, g.model, genai.Text(text), &genai.GenerateContentConfig{
-		ResponseModalities: []string{"AUDIO"},
-		SpeechConfig:       speechCfg,
+	resp, err := apicircuit.Execute(circuitRegistry, g.Name(), apicircuit.CapabilityTTS, func() (*genai.GenerateContentResponse, error) {
+		return geminiGenerateContent(ctx, g.client, g.model, genai.Text(text), &genai.GenerateContentConfig{
+			ResponseModalities: []string{"AUDIO"},
+			SpeechConfig:       speechCfg,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("generate audio: %w", err)
