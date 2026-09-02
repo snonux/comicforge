@@ -328,13 +328,6 @@ func withTimeout(ctx context.Context, timeout time.Duration) (context.Context, c
 	return context.WithTimeout(ctx, timeout)
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func normalizePositive(value, fallback int) int {
 	if value > 0 {
 		return value

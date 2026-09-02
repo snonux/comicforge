@@ -26,6 +26,14 @@ func Test() error {
 	return sh.RunV("go", "test", "./...")
 }
 
+// Lint runs golangci-lint (install: https://golangci-lint.run/welcome/install/).
+func Lint() error {
+	if _, err := sh.Output("golangci-lint", "version"); err != nil {
+		return fmt.Errorf("golangci-lint not found in PATH; install from https://golangci-lint.run/welcome/install/: %w", err)
+	}
+	return sh.RunV("golangci-lint", "run")
+}
+
 // Install copies the built binary into GOPATH/bin.
 func Install() error {
 	mg.Deps(Build)

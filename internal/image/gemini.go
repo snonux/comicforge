@@ -2,6 +2,7 @@ package image
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -162,7 +163,8 @@ func (c *GeminiProvider) generateSearchImage(ctx context.Context, prompt, aspect
 		imageBytes, mimeType, err = genImage(ctx, c, prompt, aspectRatio)
 	}
 	if err != nil {
-		if searchErr, ok := err.(*SearchError); ok {
+		var searchErr *SearchError
+		if errors.As(err, &searchErr) {
 			return nil, "", searchErr
 		}
 		return nil, "", &SearchError{
@@ -294,7 +296,7 @@ func (c *GeminiProvider) Download(ctx context.Context, url string) (io.ReadClose
 
 	if resp.StatusCode != http.StatusOK {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			return nil, fmt.Errorf("HTTP %d: %s (failed to close response body: %v)", resp.StatusCode, resp.Status, closeErr)
+			return nil, fmt.Errorf("HTTP %d: %s (failed to close response body: %w)", resp.StatusCode, resp.Status, closeErr)
 		}
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}

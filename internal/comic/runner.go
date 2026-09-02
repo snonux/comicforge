@@ -193,7 +193,7 @@ func (r *Runner) renderPagesAndPDF(ctx context.Context, dir, slug string, result
 	for _, path := range paths {
 		fmt.Printf("Comic page saved: %s\n", path)
 	}
-	if err := r.assetStore.CopyGalleryPNGs(comicsRootDir(dir), r.artist.outputDir); err != nil {
+	if err = r.assetStore.CopyGalleryPNGs(comicsRootDir(dir), r.artist.outputDir); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
 	}
 	if len(paths) == 0 {

@@ -2,6 +2,7 @@ package comic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -515,12 +516,5 @@ func errorsJoin(errs ...error) error {
 			filtered = append(filtered, err)
 		}
 	}
-	switch len(filtered) {
-	case 0:
-		return nil
-	case 1:
-		return filtered[0]
-	default:
-		return fmt.Errorf("%v; %w", filtered[0], filtered[1])
-	}
+	return errors.Join(filtered...)
 }

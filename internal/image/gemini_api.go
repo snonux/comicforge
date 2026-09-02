@@ -59,7 +59,7 @@ func geminiReferenceParts(prompt string, refs [][]byte) []*genai.Part {
 
 	refNote := fmt.Sprintf(
 		"The %d reference image(s) above show the exact character appearance that must be preserved. "+
-			"Every character, animal, or object must keep the same identity, face, costume, colours, and markings. "+
+			"Every character, animal, or object must keep the same identity, face, costume, colors, and markings. "+
 			"Use the references for identity only: do not copy their scene, pose, camera angle, panel layout, lighting, action, or background. "+
 			"The new image must follow the new prompt's story beat and composition. Now generate:\n\n",
 		len(refs),

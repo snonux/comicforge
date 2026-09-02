@@ -27,8 +27,11 @@ Build and test with Mage:
 ```bash
 mage build
 mage test
+mage lint
 mage install
 ```
+
+`mage lint` runs [golangci-lint](https://golangci-lint.run/) using `.golangci.yml` (install the tool separately if it is not already on your `PATH`).
 
 Or build directly:
 

@@ -123,10 +123,7 @@ func (g *GeminiProvider) GenerateAudio(ctx context.Context, text, outputFile str
 	if err != nil {
 		return err
 	}
-	if err := writeAudioFile(data, mimeType, outputFile); err != nil {
-		return err
-	}
-	return nil
+	return writeAudioFile(data, mimeType, outputFile)
 }
 
 func extractAudio(resp *genai.GenerateContentResponse) ([]byte, string, error) {

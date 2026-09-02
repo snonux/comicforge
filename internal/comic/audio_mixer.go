@@ -39,7 +39,7 @@ func (m *FFmpegAudioMixer) MixAmbientMusic(ctx context.Context, narrationFile, o
 	}
 
 	musicPath := filepath.Join(tmpDir, "ambient_pad.mp3")
-	if err := m.generateAmbientPad(ctx, ffmpegPath, musicPath); err != nil {
+	if err = m.generateAmbientPad(ctx, ffmpegPath, musicPath); err != nil {
 		return err
 	}
 
@@ -75,7 +75,7 @@ func (m *FFmpegAudioMixer) ConcatenateMP3s(ctx context.Context, chunkPaths []str
 	for _, path := range chunkPaths {
 		fmt.Fprintf(&sb, "file '%s'\n", path)
 	}
-	if err := os.WriteFile(listPath, []byte(sb.String()), 0o600); err != nil {
+	if err = os.WriteFile(listPath, []byte(sb.String()), 0o600); err != nil {
 		return fmt.Errorf("write concat list: %w", err)
 	}
 

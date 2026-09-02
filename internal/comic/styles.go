@@ -19,7 +19,7 @@ var defaultStyles = map[string][]stylePrompt{
 			Localized: "кинематографична фотография с светлина на златен час, плитка дълбочина на полето и качеството на фоторепортаж",
 		},
 		{
-			English:   "hyper-realistic photography, studio-quality lighting, sharp focus, true-to-life colours and textures",
+			English:   "hyper-realistic photography, studio-quality lighting, sharp focus, true-to-life colors and textures",
 			Localized: "хиперреалистична фотография със студийно осветление, остър фокус и естествени цветове и текстури",
 		},
 	},

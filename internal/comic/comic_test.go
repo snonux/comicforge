@@ -1143,7 +1143,7 @@ func renderManualPromptForTest(data any) string {
 	}
 	var sb strings.Builder
 	sb.WriteString("Create a single image based on this prompt:\n\n")
-	sb.WriteString(fmt.Sprint(m["Prompt"]))
+	fmt.Fprint(&sb, m["Prompt"])
 	sb.WriteString("\n\n")
 	if style, _ := m["Style"].(string); strings.TrimSpace(style) != "" {
 		fmt.Fprintf(&sb, "Visual style: %s.\n", style)

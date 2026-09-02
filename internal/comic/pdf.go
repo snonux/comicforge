@@ -2,7 +2,7 @@ package comic
 
 import (
 	"image"
-	_ "image/png"
+	_ "image/png" // register PNG decoder with image.Decode
 	"math"
 	"os"
 	"strings"

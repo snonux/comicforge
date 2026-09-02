@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -50,8 +51,8 @@ func TestGeminiProvider_NoAPIKey(t *testing.T) {
 		t.Fatal("expected error for missing API key")
 	}
 
-	searchErr, ok := err.(*SearchError)
-	if !ok {
+	var searchErr *SearchError
+	if !errors.As(err, &searchErr) {
 		t.Fatalf("expected SearchError, got %T", err)
 	}
 	if searchErr.Code != "NO_API_KEY" {
@@ -377,8 +378,8 @@ func TestGeminiProvider_Search_InvalidOptions(t *testing.T) {
 		t.Fatal("expected error for nil options")
 	}
 
-	searchErr, ok := err.(*SearchError)
-	if !ok {
+	var searchErr *SearchError
+	if !errors.As(err, &searchErr) {
 		t.Fatalf("expected SearchError, got %T", err)
 	}
 	if searchErr.Code != "INVALID_OPTIONS" {
