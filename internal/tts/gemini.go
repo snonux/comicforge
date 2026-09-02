@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/genai"
 
+	"codeberg.org/snonux/comicforge/internal/httpctx"
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
 
@@ -36,6 +37,8 @@ type GeminiProvider struct {
 
 var _ provider.TTSProvider = (*GeminiProvider)(nil)
 
+var newGeminiClient = httpctx.NewGenAIClient
+
 // NewGeminiProvider creates a Gemini TTS provider.
 func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 	g := &GeminiProvider{model: DefaultModel}
@@ -49,7 +52,7 @@ func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 		g.err = fmt.Errorf("google API key is required for TTS")
 		return g
 	}
-	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
+	client, err := newGeminiClient(context.Background(), &genai.ClientConfig{
 		APIKey:  cfg.APIKey,
 		Backend: genai.BackendGeminiAPI,
 	})
