@@ -170,39 +170,13 @@ func runCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags
 		}
 	}
 
-	runner := deps.newRunner(&comic.RunnerConfig{
-		TextProvider:          textProvider,
-		ImageProvider:         imageProvider,
-		MainTTSProvider:       mainTTSProvider,
-		ConclusionTTSProvider: mainTTSProvider,
-		Prompts:               cfg,
-		OutputDir:             flags.outputDir,
-		Style:                 flags.style,
-		Styles:                cfg.Styles,
-		Theme:                 flags.theme,
-		Language:              cfg.Language.Story,
-		Script:                cfg.Language.Script,
-		NarratorVoice:         voice,
-		Slug:                  flags.slug,
-		NarrateEnabled:        flags.narrateEnabled,
-		UltraRealistic:        resolveUltraRealistic(flags),
-		RealisticWeight:       cfg.Story.RealisticWeight,
-		AspectRatio:           cfg.Comic.AspectRatio,
-		PromptMaxChars:        cfg.Comic.PromptMaxChars,
-		PageMaxRetries:        cfg.Comic.PageMaxRetries,
-		PageRetryBase:         time.Duration(cfg.Comic.PageRetryBaseSeconds) * time.Second,
-		ChunkWords:            cfg.Narration.ChunkWords,
-		StoryPages:            cfg.Comic.StoryPages,
-		GalleryPages:          cfg.Comic.GalleryPages,
-		PanelsPerPage:         cfg.Comic.PanelsPerPage,
-		PDF: comic.PDFAssembleOptions{
-			Density:      cfg.PDF.Density,
-			JPEGQuality:  cfg.PDF.JPEGQuality,
-			Presentation: cfg.PDF.Presentation,
-		},
-	})
+	runnerCfg := buildRunnerConfig(cfg, flags, textProvider, imageProvider)
+	runnerCfg.MainTTSProvider = mainTTSProvider
+	runnerCfg.ConclusionTTSProvider = mainTTSProvider
+	runnerCfg.NarratorVoice = voice
+	runnerCfg.NarrateEnabled = flags.narrateEnabled
 
-	return runner.Run(ctx, flags.vocab)
+	return deps.newRunner(runnerCfg).Run(ctx, flags.vocab)
 }
 
 func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps, flags cliFlags) error {
@@ -226,7 +200,16 @@ func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps,
 		return fmt.Errorf("build image provider: %w", err)
 	}
 
-	runner := deps.newRunner(&comic.RunnerConfig{
+	return deps.newRunner(buildRunnerConfig(cfg, flags, textProvider, imageProvider)).RunPrompt(ctx, flags.prompt)
+}
+
+// buildRunnerConfig maps shared config and CLI flags into a RunnerConfig.
+// Callers set command-specific fields (e.g. narration/TTS) after the base is built.
+func buildRunnerConfig(cfg *config.Config, flags cliFlags, textProvider provider.TextProvider, imageProvider provider.ImageProvider) *comic.RunnerConfig {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	return &comic.RunnerConfig{
 		TextProvider:    textProvider,
 		ImageProvider:   imageProvider,
 		Prompts:         cfg,
@@ -243,14 +226,16 @@ func runPromptCommand(ctx context.Context, cmd *cobra.Command, deps commandDeps,
 		PromptMaxChars:  cfg.Comic.PromptMaxChars,
 		PageMaxRetries:  cfg.Comic.PageMaxRetries,
 		PageRetryBase:   time.Duration(cfg.Comic.PageRetryBaseSeconds) * time.Second,
+		ChunkWords:      cfg.Narration.ChunkWords,
+		StoryPages:      cfg.Comic.StoryPages,
+		GalleryPages:    cfg.Comic.GalleryPages,
+		PanelsPerPage:   cfg.Comic.PanelsPerPage,
 		PDF: comic.PDFAssembleOptions{
 			Density:      cfg.PDF.Density,
 			JPEGQuality:  cfg.PDF.JPEGQuality,
 			Presentation: cfg.PDF.Presentation,
 		},
-	})
-
-	return runner.RunPrompt(ctx, flags.prompt)
+	}
 }
 
 func validateUltraRealisticFlags(flags cliFlags) error {
