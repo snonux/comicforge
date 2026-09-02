@@ -34,8 +34,6 @@ type Generator struct {
 	initErr       error
 }
 
-var _ = (*Generator)(nil)
-
 // NewGenerator creates a new story generator.
 func NewGenerator(cfg *GeneratorConfig) *Generator {
 	g := &Generator{
