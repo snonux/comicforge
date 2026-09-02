@@ -39,18 +39,7 @@ type RunnerConfig struct {
 	NarrateEnabled        bool
 	UltraRealistic        *bool
 	RealisticWeight       float64
-	ComicStyles           []string
-	RealisticStyles       []string
-	CartoonStyles         []string
-	Action90sStyles       []string
-	MangaStyles           []string
-	HorrorStyles          []string
-	WatercolorStyles      []string
-	PulpStyles            []string
-	MechaStyles           []string
-	PixelArtStyles        []string
-	InkWashStyles         []string
-	ClayStyles            []string
+	Styles                map[string][]string
 	AspectRatio           string
 	PromptMaxChars        int
 	PageMaxRetries        int
@@ -81,7 +70,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 
 	styleMode := strings.TrimSpace(cfg.StyleMode)
 	if styleMode == "" {
-		styleMode = pickStyleMode(cfg.UltraRealistic)
+		styleMode = pickStyleMode(cfg.UltraRealistic, cfg.Styles)
 	}
 	ultra := styleMode == styleModeRealistic
 
@@ -95,36 +84,25 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		PanelsPerPage: cfg.PanelsPerPage,
 	})
 	r.artist = NewArtist(&ArtistConfig{
-		ImageProvider:    cfg.ImageProvider,
-		TextProvider:     cfg.TextProvider,
-		Prompts:          cfg.Prompts,
-		OutputDir:        cfg.OutputDir,
-		Style:            cfg.Style,
-		StyleMode:        styleMode,
-		ComicStyles:      cfg.ComicStyles,
-		RealisticStyles:  cfg.RealisticStyles,
-		CartoonStyles:    cfg.CartoonStyles,
-		Action90sStyles:  cfg.Action90sStyles,
-		MangaStyles:      cfg.MangaStyles,
-		HorrorStyles:     cfg.HorrorStyles,
-		WatercolorStyles: cfg.WatercolorStyles,
-		PulpStyles:       cfg.PulpStyles,
-		MechaStyles:      cfg.MechaStyles,
-		PixelArtStyles:   cfg.PixelArtStyles,
-		InkWashStyles:    cfg.InkWashStyles,
-		ClayStyles:       cfg.ClayStyles,
-		Theme:            cfg.Theme,
-		AspectRatio:      cfg.AspectRatio,
-		Language:         cfg.Language,
-		Script:           cfg.Script,
-		UltraRealistic:   ultra,
-		PromptMaxChars:   cfg.PromptMaxChars,
-		PageMaxRetries:   cfg.PageMaxRetries,
-		PageRetryBase:    cfg.PageRetryBase,
-		StoryPages:       cfg.StoryPages,
-		GalleryPages:     cfg.GalleryPages,
-		PanelsPerPage:    cfg.PanelsPerPage,
-		DINA4PDF:         IsDINA4ClassPDFPresentation(cfg.PDF.Presentation),
+		ImageProvider:  cfg.ImageProvider,
+		TextProvider:   cfg.TextProvider,
+		Prompts:        cfg.Prompts,
+		OutputDir:      cfg.OutputDir,
+		Style:          cfg.Style,
+		StyleMode:      styleMode,
+		Styles:         cfg.Styles,
+		Theme:          cfg.Theme,
+		AspectRatio:    cfg.AspectRatio,
+		Language:       cfg.Language,
+		Script:         cfg.Script,
+		UltraRealistic: ultra,
+		PromptMaxChars: cfg.PromptMaxChars,
+		PageMaxRetries: cfg.PageMaxRetries,
+		PageRetryBase:  cfg.PageRetryBase,
+		StoryPages:     cfg.StoryPages,
+		GalleryPages:   cfg.GalleryPages,
+		PanelsPerPage:  cfg.PanelsPerPage,
+		DINA4PDF:       IsDINA4ClassPDFPresentation(cfg.PDF.Presentation),
 	})
 	r.narrator = NewNarrator(&NarratorConfig{
 		TextProvider:       cfg.TextProvider,

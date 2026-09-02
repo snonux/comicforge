@@ -14,73 +14,51 @@ import (
 
 // ArtistConfig configures comic page generation.
 type ArtistConfig struct {
-	ImageProvider    provider.ImageProvider
-	TextProvider     provider.TextProvider
-	Prompts          PromptRenderer
-	OutputDir        string
-	Style            string
-	StyleMode        string
-	ComicStyles      []string
-	RealisticStyles  []string
-	CartoonStyles    []string
-	Action90sStyles  []string
-	MangaStyles      []string
-	HorrorStyles     []string
-	WatercolorStyles []string
-	PulpStyles       []string
-	MechaStyles      []string
-	PixelArtStyles   []string
-	InkWashStyles    []string
-	ClayStyles       []string
-	Theme            string
-	AspectRatio      string
-	Language         string
-	Script           string
-	UltraRealistic   bool
-	StoryPages       int
-	GalleryPages     int
-	PanelsPerPage    int
-	PromptMaxChars   int
-	PageMaxRetries   int
-	PageRetryBase    time.Duration
+	ImageProvider  provider.ImageProvider
+	TextProvider   provider.TextProvider
+	Prompts        PromptRenderer
+	OutputDir      string
+	Style          string
+	StyleMode      string
+	Styles         map[string][]string
+	Theme          string
+	AspectRatio    string
+	Language       string
+	Script         string
+	UltraRealistic bool
+	StoryPages     int
+	GalleryPages   int
+	PanelsPerPage  int
+	PromptMaxChars int
+	PageMaxRetries int
+	PageRetryBase  time.Duration
 	// DINA4PDF is true when pdf.presentation is print or book (ISO A4 portrait PDF pages).
 	DINA4PDF bool
 }
 
 // Artist generates comic-book pages.
 type Artist struct {
-	imageProvider    provider.ImageProvider
-	textProvider     provider.TextProvider
-	prompts          PromptRenderer
-	outputDir        string
-	style            string
-	styleMode        string
-	comicStyles      []string
-	realisticStyles  []string
-	cartoonStyles    []string
-	action90sStyles  []string
-	mangaStyles      []string
-	horrorStyles     []string
-	watercolorStyles []string
-	pulpStyles       []string
-	mechaStyles      []string
-	pixelArtStyles   []string
-	inkWashStyles    []string
-	clayStyles       []string
-	theme            string
-	aspectRatio      string
-	pageFrame        string
-	language         string
-	script           string
-	ultraRealistic   bool
-	storyPages       int
-	galleryPages     int
-	panelsPerPage    int
-	promptMaxChars   int
-	pageMaxRetries   int
-	pageRetryBase    time.Duration
-	dina4PDF         bool
-	initErr          error
+	imageProvider  provider.ImageProvider
+	textProvider   provider.TextProvider
+	prompts        PromptRenderer
+	outputDir      string
+	style          string
+	styleMode      string
+	styles         map[string][]string
+	theme          string
+	aspectRatio    string
+	pageFrame      string
+	language       string
+	script         string
+	ultraRealistic bool
+	storyPages     int
+	galleryPages   int
+	panelsPerPage  int
+	promptMaxChars int
+	pageMaxRetries int
+	pageRetryBase  time.Duration
+	dina4PDF       bool
+	initErr        error
 }
 
 type referenceImageGenerator interface {
@@ -115,18 +93,7 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	a.outputDir = orDefault(cfg.OutputDir, a.outputDir)
 	a.style = cfg.Style
 	a.styleMode = orDefault(cfg.StyleMode, styleModeComic)
-	a.comicStyles = append([]string(nil), cfg.ComicStyles...)
-	a.realisticStyles = append([]string(nil), cfg.RealisticStyles...)
-	a.cartoonStyles = append([]string(nil), cfg.CartoonStyles...)
-	a.action90sStyles = append([]string(nil), cfg.Action90sStyles...)
-	a.mangaStyles = append([]string(nil), cfg.MangaStyles...)
-	a.horrorStyles = append([]string(nil), cfg.HorrorStyles...)
-	a.watercolorStyles = append([]string(nil), cfg.WatercolorStyles...)
-	a.pulpStyles = append([]string(nil), cfg.PulpStyles...)
-	a.mechaStyles = append([]string(nil), cfg.MechaStyles...)
-	a.pixelArtStyles = append([]string(nil), cfg.PixelArtStyles...)
-	a.inkWashStyles = append([]string(nil), cfg.InkWashStyles...)
-	a.clayStyles = append([]string(nil), cfg.ClayStyles...)
+	a.styles = cloneStyleMap(cfg.Styles)
 	a.theme = cfg.Theme
 	a.aspectRatio = orDefault(cfg.AspectRatio, comicPageAspectRatio)
 	a.pageFrame = DescribePageFrame(a.aspectRatio)
@@ -167,21 +134,7 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	}
 	style := a.style
 	if style == "" {
-		style = pickStyle(
-			a.comicStyles,
-			a.realisticStyles,
-			a.cartoonStyles,
-			a.action90sStyles,
-			a.mangaStyles,
-			a.horrorStyles,
-			a.watercolorStyles,
-			a.pulpStyles,
-			a.mechaStyles,
-			a.pixelArtStyles,
-			a.inkWashStyles,
-			a.clayStyles,
-			a.styleMode,
-		)
+		style = pickStyle(a.styles, a.styleMode)
 	}
 	fmt.Printf("  Comic style: %s\n", style)
 

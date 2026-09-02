@@ -488,6 +488,6 @@ comics/
 ## Future Extension Points
 
 - **New AI Providers**: Implement `TextProvider`/`ImageProvider`/`TTSProvider` and register in the respective registries
-- **New Style Modes**: Add to `StyleConfig` and update `pickStyle()` in `types.go`
+- **New Style Modes**: Add a key under `styles` in config (map of category → prompt lines); `pickStyle()` and stylegrid pick it up automatically
 - **Custom Output Formats**: The `assemblePDF` field in `Runner` is injectable for alternative exporters; the default implementation takes `PDFAssembleOptions` (density, JPEG quality, print-style matting)
 - **Additional Languages**: Extend `localization.go` with new script/language mappings

@@ -36,32 +36,17 @@ func BuildJobs(cfg *config.Config, scene string) []Job {
 	}
 	base := "Single full-frame illustration only. No text, lettering, captions, logos, or watermarks inside the artwork. No borders inside the image. 16:9 composition.\n\nScene (keep this layout consistent for comparison):\n" + scene + "\n\n"
 
-	families := []struct {
-		title string
-		lines []string
-	}{
-		{"Comic", cfg.Styles.Comic},
-		{"Realistic", cfg.Styles.Realistic},
-		{"Cartoon", cfg.Styles.Cartoon},
-		{"Action 90s", cfg.Styles.Action90s},
-		{"Manga", cfg.Styles.Manga},
-		{"Horror", cfg.Styles.Horror},
-		{"Watercolor", cfg.Styles.Watercolor},
-		{"Pulp", cfg.Styles.Pulp},
-		{"Mecha", cfg.Styles.Mecha},
-		{"Pixel Art", cfg.Styles.PixelArt},
-		{"Ink Wash", cfg.Styles.InkWash},
-		{"Clay", cfg.Styles.Clay},
-	}
-
+	families := cfg.Styles.Keys()
 	var jobs []Job
-	for _, fam := range families {
-		for i, line := range fam.lines {
+	for _, key := range families {
+		lines := cfg.Styles[key]
+		title := config.StyleCategoryTitle(key)
+		for i, line := range lines {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
-			header := fmt.Sprintf("Style · %s (%d/%d)", fam.title, i+1, len(fam.lines))
+			header := fmt.Sprintf("Style · %s (%d/%d)", title, i+1, len(lines))
 			prompt := base + "Rendering — apply this visual style precisely:\n" + line
 			jobs = append(jobs, Job{Kind: "style", Header: header, Prompt: prompt})
 		}

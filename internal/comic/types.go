@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -50,6 +51,21 @@ const (
 	narratorChunkWords   = 100
 )
 
+const (
+	styleModeRealistic  = "realistic"
+	styleModeComic      = "comic"
+	styleModeCartoon    = "cartoon"
+	styleModeAction90s  = "action_90s"
+	styleModeManga      = "manga"
+	styleModeHorror     = "horror"
+	styleModeWatercolor = "watercolor"
+	styleModePulp       = "pulp"
+	styleModeMecha      = "mecha"
+	styleModePixelArt   = "pixel_art"
+	styleModeInkWash    = "ink_wash"
+	styleModeClay       = "clay"
+)
+
 var (
 	// ErrMissingProvider is returned when a required provider is not configured.
 	ErrMissingProvider = errors.New("missing provider")
@@ -67,83 +83,67 @@ var (
 		"a superhero origin story",
 	}
 
-	defaultRealisticStyles = []string{
-		"ultra-realistic DSLR photography, cinematic 35mm lens, natural lighting, hyper-detailed textures",
-		"cinematic still photography, golden-hour lighting, shallow depth of field, photojournalism quality",
-		"hyper-realistic photography, studio-quality lighting, sharp focus, true-to-life colours and textures",
+	// defaultStyles holds fallback prompt pools keyed by style mode.
+	defaultStyles = map[string][]string{
+		styleModeRealistic: {
+			"ultra-realistic DSLR photography, cinematic 35mm lens, natural lighting, hyper-detailed textures",
+			"cinematic still photography, golden-hour lighting, shallow depth of field, photojournalism quality",
+			"hyper-realistic photography, studio-quality lighting, sharp focus, true-to-life colours and textures",
+		},
+		styleModeComic: {
+			"classic American comic book with bold ink outlines, halftone dots, and primary colors",
+			"retro 1960s pop art in the style of Roy Lichtenstein with thick outlines and Ben-Day dots",
+			"European bande dessinée with detailed backgrounds, clear lines, and rich flat colors",
+			"noir black-and-white graphic novel with heavy shadows and high contrast",
+			"children's picture book with bright, friendly illustrations and thick outlines",
+			"painterly oil-on-canvas comic with loose brushwork and vivid impressionist colors",
+		},
+		styleModeCartoon: {
+			"extremely cartoonish 1930s rubber-hose funny-animal comic style, original mouse-and-duck-era mascot energy, pie-cut eyes, button noses or beaks, white gloves, oversized shoes, noodle arms, squash-and-stretch bodies, round heads, huge expressions, flat candy colors, simple gag staging, absolutely no realism",
+			"vintage theatrical funny-animal cartoon comic style, redesign people as original anthropomorphic mascot characters with beaks or round snouts, pie-cut eyes, white gloves, oversized shoes, elastic limbs, cheerful slapstick poses, bold clean outlines, bright flat backgrounds, no realistic anatomy",
+			"old black-and-white short cartoon style translated into comic panels, original rubber-hose mascot characters, pie eyes, rubber limbs, bouncing motion arcs, simple rounded shapes, comic mischief, exaggerated face acting, hand-inked animation cels",
+		},
+		styleModeAction90s: {
+			"1990s superhero comic splash-page style like a bold caped hero punching a masked villain in a city, huge muscles, spandex costumes, flowing cape, explosive impact burst, speed lines, smoke, rubble, halftone print texture, heavy black inks, saturated primary colors",
+			"classic 90s action superhero cover style, oversized yellow masthead energy, caped spandex hero, armored villain, clenched fists, dramatic foreshortening, city skyline, explosions, speech balloons, thick ink outlines, Ben-Day dots",
+			"extreme 1990s superhero action comic style, heroic anatomy, masked villain, motion streaks, lightning impact shapes, cross-hatching, smoky city destruction, glossy saturated colors, bold comic-book lettering spaces",
+		},
+		styleModeManga: {
+			"true monochrome Japanese shonen manga page, black ink only with grey screentone, no western color rendering, large expressive anime eyes, sharp spiky hair silhouettes, sweat drops, impact bursts, speed-line backgrounds, exaggerated emotion close-ups, dynamic diagonal manga panel language",
+			"authentic serialized manga action art, crisp black linework, dense screentone gradients, white paper highlights, hand-drawn Japanese comic energy, chibi reaction inset where appropriate, dramatic sound-effect shapes, cinematic close-ups, no painterly western comic coloring",
+			"modern black-and-white manga fantasy style, anime character proportions, big eyes, angular hair, thin-to-thick ink strokes, patterned screentones, motion streaks, expressive face acting, explosive action frames, minimal color accents only if unavoidable",
+		},
+		styleModeHorror: {
+			"vintage horror comic style, eerie shadows, gothic atmosphere, unsettling monsters, dramatic candlelit contrast, suspenseful panel staging",
+			"creepy supernatural horror comic style, fog, haunted architecture, anxious expressions, heavy inks, sickly green and crimson accents",
+			"old anthology horror comic style, graveyard mist, warped shadows, tense faces, scratchy ink texture, ominous colored lighting",
+		},
+		styleModeWatercolor: {
+			"pure transparent watercolor storybook comic style, visible cold-press paper grain, watery pigment blooms, uneven wash edges, granulation, soft bleeding colors, pale layered washes, loose pencil underdrawing, no digital airbrush, no oil-paint texture, no glossy comic coloring",
+			"hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering",
+			"storybook watercolor fantasy comic style, washed paper texture, transparent layered color, soft backruns and blossoms, feathered brush edges, muted handmade palette, tender expressions, dreamy illustrated settings, visibly painted on paper",
+		},
+		styleModePulp: {
+			"retro pulp adventure cover style, painted poster energy, dramatic rim light, saturated inks, worn paper grain, bold composition, vintage print imperfections",
+			"mid-century pulp sci-fi comic style, chromatic airbrushed highlights, atomic-age props, bold diagonals, distressed halftone texture, high adventure mood",
+		},
+		styleModeMecha: {
+			"high-detail mecha comic style, hard-surface armor plates, mechanical joints, cockpit glass reflections, technical line art, industrial lighting",
+			"anime mecha action page style, towering robots, dynamic perspective, panel-like motion energy, sparks and smoke, crisp cel-shaded rendering",
+		},
+		styleModePixelArt: {
+			"16-bit pixel-art comic scene, limited palette, clean pixel clusters, deliberate dithering, retro game-era perspective, sharp pixel edges",
+			"retro pixel-art storyboard style, chunky sprites, high-contrast palette ramps, tiled-environment texture, no anti-aliasing, classic console look",
+		},
+		styleModeInkWash: {
+			"ink-wash brush painting style, sumi-e inspired strokes, expressive black ink gradients, controlled bleed on paper, minimal but dramatic composition",
+			"monochrome ink-and-wash comic style, calligraphic brush lines, soft gray washes, negative-space storytelling, textured rice-paper feel",
+		},
+		styleModeClay: {
+			"stop-motion clay diorama style, hand-sculpted clay characters, thumbprint texture, miniature set lighting, tactile handcrafted look",
+			"plasticine comic tableau style, sculpted figures, soft studio shadows, practical miniature props, playful clay surface detail",
+		},
 	}
-
-	defaultComicStyles = []string{
-		"classic American comic book with bold ink outlines, halftone dots, and primary colors",
-		"retro 1960s pop art in the style of Roy Lichtenstein with thick outlines and Ben-Day dots",
-		"European bande dessinée with detailed backgrounds, clear lines, and rich flat colors",
-		"noir black-and-white graphic novel with heavy shadows and high contrast",
-		"children's picture book with bright, friendly illustrations and thick outlines",
-		"painterly oil-on-canvas comic with loose brushwork and vivid impressionist colors",
-	}
-
-	defaultCartoonStyles = []string{
-		"extremely cartoonish 1930s rubber-hose funny-animal comic style, original mouse-and-duck-era mascot energy, pie-cut eyes, button noses or beaks, white gloves, oversized shoes, noodle arms, squash-and-stretch bodies, round heads, huge expressions, flat candy colors, simple gag staging, absolutely no realism",
-		"vintage theatrical funny-animal cartoon comic style, redesign people as original anthropomorphic mascot characters with beaks or round snouts, pie-cut eyes, white gloves, oversized shoes, elastic limbs, cheerful slapstick poses, bold clean outlines, bright flat backgrounds, no realistic anatomy",
-		"old black-and-white short cartoon style translated into comic panels, original rubber-hose mascot characters, pie eyes, rubber limbs, bouncing motion arcs, simple rounded shapes, comic mischief, exaggerated face acting, hand-inked animation cels",
-	}
-
-	defaultAction90sStyles = []string{
-		"1990s superhero comic splash-page style like a bold caped hero punching a masked villain in a city, huge muscles, spandex costumes, flowing cape, explosive impact burst, speed lines, smoke, rubble, halftone print texture, heavy black inks, saturated primary colors",
-		"classic 90s action superhero cover style, oversized yellow masthead energy, caped spandex hero, armored villain, clenched fists, dramatic foreshortening, city skyline, explosions, speech balloons, thick ink outlines, Ben-Day dots",
-		"extreme 1990s superhero action comic style, heroic anatomy, masked villain, motion streaks, lightning impact shapes, cross-hatching, smoky city destruction, glossy saturated colors, bold comic-book lettering spaces",
-	}
-
-	defaultMangaStyles = []string{
-		"true monochrome Japanese shonen manga page, black ink only with grey screentone, no western color rendering, large expressive anime eyes, sharp spiky hair silhouettes, sweat drops, impact bursts, speed-line backgrounds, exaggerated emotion close-ups, dynamic diagonal manga panel language",
-		"authentic serialized manga action art, crisp black linework, dense screentone gradients, white paper highlights, hand-drawn Japanese comic energy, chibi reaction inset where appropriate, dramatic sound-effect shapes, cinematic close-ups, no painterly western comic coloring",
-		"modern black-and-white manga fantasy style, anime character proportions, big eyes, angular hair, thin-to-thick ink strokes, patterned screentones, motion streaks, expressive face acting, explosive action frames, minimal color accents only if unavoidable",
-	}
-
-	defaultHorrorStyles = []string{
-		"vintage horror comic style, eerie shadows, gothic atmosphere, unsettling monsters, dramatic candlelit contrast, suspenseful panel staging",
-		"creepy supernatural horror comic style, fog, haunted architecture, anxious expressions, heavy inks, sickly green and crimson accents",
-		"old anthology horror comic style, graveyard mist, warped shadows, tense faces, scratchy ink texture, ominous colored lighting",
-	}
-
-	defaultWatercolorStyles = []string{
-		"pure transparent watercolor storybook comic style, visible cold-press paper grain, watery pigment blooms, uneven wash edges, granulation, soft bleeding colors, pale layered washes, loose pencil underdrawing, no digital airbrush, no oil-paint texture, no glossy comic coloring",
-		"hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering",
-		"storybook watercolor fantasy comic style, washed paper texture, transparent layered color, soft backruns and blossoms, feathered brush edges, muted handmade palette, tender expressions, dreamy illustrated settings, visibly painted on paper",
-	}
-	defaultPulpStyles = []string{
-		"retro pulp adventure cover style, painted poster energy, dramatic rim light, saturated inks, worn paper grain, bold composition, vintage print imperfections",
-		"mid-century pulp sci-fi comic style, chromatic airbrushed highlights, atomic-age props, bold diagonals, distressed halftone texture, high adventure mood",
-	}
-	defaultMechaStyles = []string{
-		"high-detail mecha comic style, hard-surface armor plates, mechanical joints, cockpit glass reflections, technical line art, industrial lighting",
-		"anime mecha action page style, towering robots, dynamic perspective, panel-like motion energy, sparks and smoke, crisp cel-shaded rendering",
-	}
-	defaultPixelArtStyles = []string{
-		"16-bit pixel-art comic scene, limited palette, clean pixel clusters, deliberate dithering, retro game-era perspective, sharp pixel edges",
-		"retro pixel-art storyboard style, chunky sprites, high-contrast palette ramps, tiled-environment texture, no anti-aliasing, classic console look",
-	}
-	defaultInkWashStyles = []string{
-		"ink-wash brush painting style, sumi-e inspired strokes, expressive black ink gradients, controlled bleed on paper, minimal but dramatic composition",
-		"monochrome ink-and-wash comic style, calligraphic brush lines, soft gray washes, negative-space storytelling, textured rice-paper feel",
-	}
-	defaultClayStyles = []string{
-		"stop-motion clay diorama style, hand-sculpted clay characters, thumbprint texture, miniature set lighting, tactile handcrafted look",
-		"plasticine comic tableau style, sculpted figures, soft studio shadows, practical miniature props, playful clay surface detail",
-	}
-
-	realisticStyles  = defaultRealisticStyles
-	comicStyles      = defaultComicStyles
-	cartoonStyles    = defaultCartoonStyles
-	action90sStyles  = defaultAction90sStyles
-	mangaStyles      = defaultMangaStyles
-	horrorStyles     = defaultHorrorStyles
-	watercolorStyles = defaultWatercolorStyles
-	pulpStyles       = defaultPulpStyles
-	mechaStyles      = defaultMechaStyles
-	pixelArtStyles   = defaultPixelArtStyles
-	inkWashStyles    = defaultInkWashStyles
-	clayStyles       = defaultClayStyles
 
 	galleryPoses = []string{
 		"close-up portrait of face and shoulders, dramatic three-quarter lighting, clear gaze toward the viewer, sharp eyes and expressive face",
@@ -152,21 +152,6 @@ var (
 		"profile close-up of face and upper body, soft rim light along jaw and hair, thoughtful expression, softly blurred background",
 		"confident full-body stance from eye level, arms relaxed but ready, environment filling the frame, golden or dramatic light",
 	}
-)
-
-const (
-	styleModeRealistic  = "realistic"
-	styleModeComic      = "comic"
-	styleModeCartoon    = "cartoon"
-	styleModeAction90s  = "action_90s"
-	styleModeManga      = "manga"
-	styleModeHorror     = "horror"
-	styleModeWatercolor = "watercolor"
-	styleModePulp       = "pulp"
-	styleModeMecha      = "mecha"
-	styleModePixelArt   = "pixel_art"
-	styleModeInkWash    = "ink_wash"
-	styleModeClay       = "clay"
 )
 
 // PromptRenderer renders external or embedded prompt templates.
@@ -215,148 +200,70 @@ func resolveGenre(theme string, genres []string) string {
 	return pickStoryGenre(genres)
 }
 
-func pickStyleMode(forcedUltra *bool) string {
+func pickStyleMode(forcedUltra *bool, styles map[string][]string) string {
 	if forcedUltra != nil {
 		if *forcedUltra {
 			return styleModeRealistic
 		}
 		return styleModeComic
 	}
-	modes := []string{
-		styleModeRealistic,
-		styleModeComic,
-		styleModeCartoon,
-		styleModeAction90s,
-		styleModeManga,
-		styleModeHorror,
-		styleModeWatercolor,
-		styleModePulp,
-		styleModeMecha,
-		styleModePixelArt,
-		styleModeInkWash,
-		styleModeClay,
+	modes := styleModeKeys(styles)
+	if len(modes) == 0 {
+		modes = styleModeKeys(defaultStyles)
 	}
 	return modes[rand.IntN(len(modes))]
 }
 
-func pickStyle(
-	comicStyles,
-	realisticStyles,
-	cartoonStyles,
-	action90sStyles,
-	mangaStyles,
-	horrorStyles,
-	watercolorStyles,
-	pulpStyles,
-	mechaStyles,
-	pixelArtStyles,
-	inkWashStyles,
-	clayStyles []string,
-	mode string,
-) string {
-	switch mode {
-	case styleModeRealistic:
-		if len(realisticStyles) == 0 {
-			realisticStyles = defaultRealisticStyles
-		}
-		if len(realisticStyles) == 0 {
-			return ""
-		}
-		return realisticStyles[rand.IntN(len(realisticStyles))]
-	case styleModeCartoon:
-		if len(cartoonStyles) == 0 {
-			cartoonStyles = defaultCartoonStyles
-		}
-		if len(cartoonStyles) == 0 {
-			return ""
-		}
-		return cartoonStyles[rand.IntN(len(cartoonStyles))]
-	case styleModeAction90s:
-		if len(action90sStyles) == 0 {
-			action90sStyles = defaultAction90sStyles
-		}
-		if len(action90sStyles) == 0 {
-			return ""
-		}
-		return action90sStyles[rand.IntN(len(action90sStyles))]
-	case styleModeManga:
-		if len(mangaStyles) == 0 {
-			mangaStyles = defaultMangaStyles
-		}
-		if len(mangaStyles) == 0 {
-			return ""
-		}
-		return mangaStyles[rand.IntN(len(mangaStyles))]
-	case styleModeHorror:
-		if len(horrorStyles) == 0 {
-			horrorStyles = defaultHorrorStyles
-		}
-		if len(horrorStyles) == 0 {
-			return ""
-		}
-		return horrorStyles[rand.IntN(len(horrorStyles))]
-	case styleModeWatercolor:
-		if len(watercolorStyles) == 0 {
-			watercolorStyles = defaultWatercolorStyles
-		}
-		if len(watercolorStyles) == 0 {
-			return ""
-		}
-		return watercolorStyles[rand.IntN(len(watercolorStyles))]
-	case styleModePulp:
-		if len(pulpStyles) == 0 {
-			pulpStyles = defaultPulpStyles
-		}
-		if len(pulpStyles) == 0 {
-			return ""
-		}
-		return pulpStyles[rand.IntN(len(pulpStyles))]
-	case styleModeMecha:
-		if len(mechaStyles) == 0 {
-			mechaStyles = defaultMechaStyles
-		}
-		if len(mechaStyles) == 0 {
-			return ""
-		}
-		return mechaStyles[rand.IntN(len(mechaStyles))]
-	case styleModePixelArt:
-		if len(pixelArtStyles) == 0 {
-			pixelArtStyles = defaultPixelArtStyles
-		}
-		if len(pixelArtStyles) == 0 {
-			return ""
-		}
-		return pixelArtStyles[rand.IntN(len(pixelArtStyles))]
-	case styleModeInkWash:
-		if len(inkWashStyles) == 0 {
-			inkWashStyles = defaultInkWashStyles
-		}
-		if len(inkWashStyles) == 0 {
-			return ""
-		}
-		return inkWashStyles[rand.IntN(len(inkWashStyles))]
-	case styleModeClay:
-		if len(clayStyles) == 0 {
-			clayStyles = defaultClayStyles
-		}
-		if len(clayStyles) == 0 {
-			return ""
-		}
-		return clayStyles[rand.IntN(len(clayStyles))]
+func styleModeKeys(styles map[string][]string) []string {
+	if len(styles) == 0 {
+		return nil
 	}
-	if len(comicStyles) == 0 {
-		comicStyles = defaultComicStyles
+	keys := make([]string, 0, len(styles))
+	for mode := range styles {
+		keys = append(keys, mode)
 	}
-	if len(comicStyles) == 0 {
+	sort.Strings(keys)
+	return keys
+}
+
+func styleLines(styles map[string][]string, mode string) []string {
+	if lines := styles[mode]; len(lines) > 0 {
+		return lines
+	}
+	return defaultStyles[mode]
+}
+
+func pickUniformStyle(lines []string) string {
+	if len(lines) == 0 {
+		return ""
+	}
+	return lines[rand.IntN(len(lines))]
+}
+
+// pickComicBiasedStyle prefers the first comic line (~90%), matching prior behavior.
+func pickComicBiasedStyle(lines []string) string {
+	if len(lines) == 0 {
 		return ""
 	}
 	if rand.Float64() < 0.9 {
-		return comicStyles[0]
+		return lines[0]
 	}
-	if len(comicStyles) == 1 {
-		return comicStyles[0]
+	if len(lines) == 1 {
+		return lines[0]
 	}
-	return comicStyles[1+rand.IntN(len(comicStyles)-1)]
+	return lines[1+rand.IntN(len(lines)-1)]
+}
+
+func pickStyle(styles map[string][]string, mode string) string {
+	mode = strings.TrimSpace(mode)
+	if mode == "" || mode == styleModeComic {
+		return pickComicBiasedStyle(styleLines(styles, styleModeComic))
+	}
+	if lines := styleLines(styles, mode); len(lines) > 0 {
+		return pickUniformStyle(lines)
+	}
+	// Unknown / empty category falls back to comic-biased selection.
+	return pickComicBiasedStyle(styleLines(styles, styleModeComic))
 }
 
 func parseGenerateResult(combined string) GenerateResult {

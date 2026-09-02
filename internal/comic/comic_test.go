@@ -673,20 +673,22 @@ func TestNewRunnerUsesUltraFlagsForStyleMode(t *testing.T) {
 	t.Run("comic", func(t *testing.T) {
 		ultra := false
 		runner := NewRunner(&RunnerConfig{
-			TextProvider:    fakeTextProvider{text: "story"},
-			ImageProvider:   fakeImageProvider{t: t},
-			Prompts:         fakePromptRenderer{},
-			UltraRealistic:  &ultra,
-			StoryPages:      1,
-			GalleryPages:    0,
-			PanelsPerPage:   1,
-			ComicStyles:     []string{"comic-ink"},
-			RealisticStyles: []string{"photo-real"},
-			AspectRatio:     "1:1",
-			PromptMaxChars:  12,
-			PageMaxRetries:  1,
-			PageRetryBase:   time.Second,
-			ChunkWords:      2,
+			TextProvider:   fakeTextProvider{text: "story"},
+			ImageProvider:  fakeImageProvider{t: t},
+			Prompts:        fakePromptRenderer{},
+			UltraRealistic: &ultra,
+			StoryPages:     1,
+			GalleryPages:   0,
+			PanelsPerPage:  1,
+			Styles: map[string][]string{
+				styleModeComic:     {"comic-ink"},
+				styleModeRealistic: {"photo-real"},
+			},
+			AspectRatio:    "1:1",
+			PromptMaxChars: 12,
+			PageMaxRetries: 1,
+			PageRetryBase:  time.Second,
+			ChunkWords:     2,
 		})
 		if runner.artist == nil {
 			t.Fatal("artist is nil")
@@ -702,20 +704,22 @@ func TestNewRunnerUsesUltraFlagsForStyleMode(t *testing.T) {
 	t.Run("realistic", func(t *testing.T) {
 		ultra := true
 		runner := NewRunner(&RunnerConfig{
-			TextProvider:    fakeTextProvider{text: "story"},
-			ImageProvider:   fakeImageProvider{t: t},
-			Prompts:         fakePromptRenderer{},
-			UltraRealistic:  &ultra,
-			StoryPages:      1,
-			GalleryPages:    0,
-			PanelsPerPage:   1,
-			ComicStyles:     []string{"comic-ink"},
-			RealisticStyles: []string{"photo-real"},
-			AspectRatio:     "1:1",
-			PromptMaxChars:  12,
-			PageMaxRetries:  1,
-			PageRetryBase:   time.Second,
-			ChunkWords:      2,
+			TextProvider:   fakeTextProvider{text: "story"},
+			ImageProvider:  fakeImageProvider{t: t},
+			Prompts:        fakePromptRenderer{},
+			UltraRealistic: &ultra,
+			StoryPages:     1,
+			GalleryPages:   0,
+			PanelsPerPage:  1,
+			Styles: map[string][]string{
+				styleModeComic:     {"comic-ink"},
+				styleModeRealistic: {"photo-real"},
+			},
+			AspectRatio:    "1:1",
+			PromptMaxChars: 12,
+			PageMaxRetries: 1,
+			PageRetryBase:  time.Second,
+			ChunkWords:     2,
 		})
 		if runner.artist == nil {
 			t.Fatal("artist is nil")
@@ -863,25 +867,27 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := &recordingPromptRenderer{}
 			artist := NewArtist(&ArtistConfig{
-				ImageProvider:    fakeImageProvider{t: t},
-				Prompts:          renderer,
-				OutputDir:        t.TempDir(),
-				StyleMode:        tt.styleMode,
-				ComicStyles:      []string{"comic-ink"},
-				RealisticStyles:  []string{"photo-real"},
-				CartoonStyles:    []string{"cartoon-ink"},
-				Action90sStyles:  []string{"action-ink"},
-				MangaStyles:      []string{"manga-ink"},
-				HorrorStyles:     []string{"horror-ink"},
-				WatercolorStyles: []string{"watercolor-ink"},
-				PulpStyles:       []string{"pulp-ink"},
-				MechaStyles:      []string{"mecha-ink"},
-				PixelArtStyles:   []string{"pixel-ink"},
-				InkWashStyles:    []string{"inkwash-ink"},
-				ClayStyles:       []string{"clay-ink"},
-				Language:         "English",
-				Script:           "Latin",
-				PanelsPerPage:    2,
+				ImageProvider: fakeImageProvider{t: t},
+				Prompts:       renderer,
+				OutputDir:     t.TempDir(),
+				StyleMode:     tt.styleMode,
+				Styles: map[string][]string{
+					styleModeComic:      {"comic-ink"},
+					styleModeRealistic:  {"photo-real"},
+					styleModeCartoon:    {"cartoon-ink"},
+					styleModeAction90s:  {"action-ink"},
+					styleModeManga:      {"manga-ink"},
+					styleModeHorror:     {"horror-ink"},
+					styleModeWatercolor: {"watercolor-ink"},
+					styleModePulp:       {"pulp-ink"},
+					styleModeMecha:      {"mecha-ink"},
+					styleModePixelArt:   {"pixel-ink"},
+					styleModeInkWash:    {"inkwash-ink"},
+					styleModeClay:       {"clay-ink"},
+				},
+				Language:      "English",
+				Script:        "Latin",
+				PanelsPerPage: 2,
 			})
 
 			if _, err := artist.DrawComicPages(context.Background(), "story", "bible", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {

@@ -112,3 +112,14 @@ func orDefault(value, fallback string) string {
 	}
 	return fallback
 }
+
+func cloneStyleMap(styles map[string][]string) map[string][]string {
+	if styles == nil {
+		return nil
+	}
+	out := make(map[string][]string, len(styles))
+	for mode, lines := range styles {
+		out[mode] = append([]string(nil), lines...)
+	}
+	return out
+}

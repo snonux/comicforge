@@ -69,9 +69,9 @@ func TestFindEnglishLeakWord(t *testing.T) {
 func TestComicStylesStayComic(t *testing.T) {
 	t.Parallel()
 
-	for _, style := range comicStyles {
+	for _, style := range defaultStyles[styleModeComic] {
 		if strings.Contains(strings.ToLower(style), "ultra realistic") || strings.Contains(strings.ToLower(style), "photograph") {
-			t.Fatalf("comicStyles contains hybrid or photorealistic style: %q", style)
+			t.Fatalf("comic styles contain hybrid or photorealistic style: %q", style)
 		}
 	}
 }
