@@ -15,10 +15,7 @@ import (
 	"github.com/spf13/viper"
 
 	"codeberg.org/snonux/comicforge/internal/comic"
-	"codeberg.org/snonux/comicforge/internal/image"
 	"codeberg.org/snonux/comicforge/internal/provider"
-	"codeberg.org/snonux/comicforge/internal/text"
-	"codeberg.org/snonux/comicforge/internal/tts"
 	"codeberg.org/snonux/comicforge/prompts"
 )
 
@@ -46,10 +43,30 @@ var (
 	_ provider.TextConfig  = (*Config)(nil)
 	_ provider.ImageConfig = (*Config)(nil)
 	_ provider.TTSConfig   = (*Config)(nil)
-	_ text.Config          = (*Config)(nil)
-	_ image.Config         = (*Config)(nil)
-	_ tts.Config           = (*Config)(nil)
 )
+
+// NameCheck reports whether a provider name is known for a capability.
+type NameCheck func(name string) bool
+
+// LoadOption customizes configuration loading.
+type LoadOption func(*loadOptions)
+
+type loadOptions struct {
+	textKnown  NameCheck
+	imageKnown NameCheck
+	ttsKnown   NameCheck
+}
+
+// WithProviderNameChecks injects validators used to reject unknown provider names.
+// A nil check skips validation for that capability so config stays free of
+// concrete provider-package dependencies.
+func WithProviderNameChecks(text, image, tts NameCheck) LoadOption {
+	return func(o *loadOptions) {
+		o.textKnown = text
+		o.imageKnown = image
+		o.ttsKnown = tts
+	}
+}
 
 // ProviderConfig stores the selected provider name for each capability.
 type ProviderConfig struct {
@@ -248,8 +265,15 @@ func DefaultConfig() *Config {
 }
 
 // Load reads configuration from YAML, environment variables, and defaults.
-func Load(configPath string) (*Config, error) {
+func Load(configPath string, opts ...LoadOption) (*Config, error) {
 	cfg := DefaultConfig()
+
+	options := loadOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
 
 	v := viper.New()
 	v.SetEnvPrefix("COMICFORGE")
@@ -282,7 +306,7 @@ func Load(configPath string) (*Config, error) {
 
 	applyEnvFallbacks(cfg)
 	cfg.normalize()
-	if err := cfg.validate(); err != nil {
+	if err := cfg.validate(options); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -441,14 +465,14 @@ func (c *Config) normalize() {
 	}
 }
 
-func (c *Config) validate() error {
-	if !text.DefaultRegistry().Has(c.Provider.Text) {
+func (c *Config) validate(opts loadOptions) error {
+	if opts.textKnown != nil && !opts.textKnown(c.Provider.Text) {
 		return fmt.Errorf("unknown text provider: %s", c.Provider.Text)
 	}
-	if !image.DefaultRegistry().Has(c.Provider.Image) {
+	if opts.imageKnown != nil && !opts.imageKnown(c.Provider.Image) {
 		return fmt.Errorf("unknown image provider: %s", c.Provider.Image)
 	}
-	if !tts.DefaultRegistry().Has(c.Provider.TTS) {
+	if opts.ttsKnown != nil && !opts.ttsKnown(c.Provider.TTS) {
 		return fmt.Errorf("unknown TTS provider: %s", c.Provider.TTS)
 	}
 

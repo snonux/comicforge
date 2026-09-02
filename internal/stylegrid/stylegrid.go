@@ -206,7 +206,11 @@ func addCaptionHeader(imagePath, outPath, captionFile string, cellW, headerH int
 
 // Run loads config from path, builds jobs, and writes outPath.
 func Run(ctx context.Context, configPath, outPath, scene, aspectRatio string) error {
-	cfg, err := config.Load(configPath)
+	cfg, err := config.Load(configPath, config.WithProviderNameChecks(
+		nil,
+		image.DefaultRegistry().Has,
+		nil,
+	))
 	if err != nil {
 		return err
 	}

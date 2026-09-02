@@ -379,6 +379,93 @@ func TestRenderPromptMissingTemplateReturnsError(t *testing.T) {
 }
 
 func TestLoadRejectsUnknownProvider(t *testing.T) {
+	known := func(name string) bool {
+		return name == provider.Gemini || name == provider.OpenAI
+	}
+	checks := WithProviderNameChecks(known, known, known)
+
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "unknown text",
+			yaml: `
+provider:
+  text: mystery
+`,
+			wantErr: "unknown text provider",
+		},
+		{
+			name: "unknown image",
+			yaml: `
+provider:
+  image: mystery
+`,
+			wantErr: "unknown image provider",
+		},
+		{
+			name: "unknown tts",
+			yaml: `
+provider:
+  tts: mystery
+`,
+			wantErr: "unknown TTS provider",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yaml")
+			if err := os.WriteFile(configPath, []byte(strings.TrimSpace(tc.yaml)), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+
+			_, err := Load(configPath, checks)
+			if err == nil {
+				t.Fatal("Load() error = nil, want error")
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("Load() error = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadAcceptsKnownProvidersWhenChecksInjected(t *testing.T) {
+	known := func(name string) bool {
+		return name == provider.Gemini || name == provider.OpenAI
+	}
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+provider:
+  text: openai
+  image: gemini
+  tts: openai
+`)), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(configPath, WithProviderNameChecks(known, known, known))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got, want := cfg.Provider.Text, provider.OpenAI; got != want {
+		t.Fatalf("Provider.Text = %q, want %q", got, want)
+	}
+	if got, want := cfg.Provider.Image, provider.Gemini; got != want {
+		t.Fatalf("Provider.Image = %q, want %q", got, want)
+	}
+	if got, want := cfg.Provider.TTS, provider.OpenAI; got != want {
+		t.Fatalf("Provider.TTS = %q, want %q", got, want)
+	}
+}
+
+func TestLoadSkipsProviderChecksWhenNotInjected(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
@@ -388,12 +475,12 @@ provider:
 		t.Fatalf("write config: %v", err)
 	}
 
-	_, err := Load(configPath)
-	if err == nil {
-		t.Fatal("Load() error = nil, want error")
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil when checks are not injected", err)
 	}
-	if !strings.Contains(err.Error(), "unknown text provider") {
-		t.Fatalf("Load() error = %v, want unknown provider error", err)
+	if got, want := cfg.Provider.Text, "mystery"; got != want {
+		t.Fatalf("Provider.Text = %q, want %q", got, want)
 	}
 }
 

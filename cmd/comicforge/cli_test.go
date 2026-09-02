@@ -61,7 +61,9 @@ prompts_dir: ./config-prompts
 	runner := &recordingRunner{}
 
 	cmd := newRootCommandWithDeps(commandDeps{
-		loadConfig: config.Load,
+		loadConfig: func(path string) (*config.Config, error) {
+			return config.Load(path)
+		},
 		newTextProvider: func(cfg *config.Config) (provider.TextProvider, error) {
 			gotTextCfg = cfg
 			return noopProvider{}, nil

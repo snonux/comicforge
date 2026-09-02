@@ -55,7 +55,7 @@ type cliFlags struct {
 
 func defaultCommandDeps() commandDeps {
 	return commandDeps{
-		loadConfig: config.Load,
+		loadConfig: loadAppConfig,
 		newTextProvider: func(cfg *config.Config) (provider.TextProvider, error) {
 			return buildTextProvider(cfg)
 		},
@@ -69,6 +69,14 @@ func defaultCommandDeps() commandDeps {
 			return comic.NewRunner(cfg)
 		},
 	}
+}
+
+func loadAppConfig(path string) (*config.Config, error) {
+	return config.Load(path, config.WithProviderNameChecks(
+		textprovider.DefaultRegistry().Has,
+		image.DefaultRegistry().Has,
+		tts.DefaultRegistry().Has,
+	))
 }
 
 func newRootCommand() *cobra.Command {
