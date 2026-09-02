@@ -18,6 +18,9 @@ const (
 	OpenAI = "openai"
 )
 
+// ErrUnknownProvider indicates that a provider name does not map to a known backend.
+var ErrUnknownProvider = errors.New("unknown provider")
+
 // TextProvider generates text from prompts.
 type TextProvider interface {
 	Name() string
@@ -159,6 +162,3 @@ func IsKnownName(name string) bool {
 		return false
 	}
 }
-
-// ErrUnknownProvider indicates that a provider name does not map to a known backend.
-var ErrUnknownProvider = errors.New("unknown provider")

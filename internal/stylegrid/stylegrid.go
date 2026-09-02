@@ -25,6 +25,16 @@ type Job struct {
 	Prompt string // full image generation prompt
 }
 
+// MontageOptions tunes the output sheet.
+type MontageOptions struct {
+	CellW   int
+	CellH   int
+	HeaderH int
+	TileX   int
+	Gutter  int
+	BG      string
+}
+
 // BuildJobs expands config style pools and story genres into generation jobs.
 func BuildJobs(cfg *config.Config, scene string) []Job {
 	if cfg == nil {
@@ -70,16 +80,6 @@ func truncateRunes(s string, max int) string {
 		return s
 	}
 	return string(r[:max-1]) + "…"
-}
-
-// MontageOptions tunes the output sheet.
-type MontageOptions struct {
-	CellW   int
-	CellH   int
-	HeaderH int
-	TileX   int
-	Gutter  int
-	BG      string
 }
 
 func defaultMontageOptions(nCells int) MontageOptions {

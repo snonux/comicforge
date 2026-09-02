@@ -55,6 +55,8 @@ type Runner struct {
 	assetStore   AssetStore
 }
 
+var _ StoryRunner = (*Runner)(nil)
+
 // NewRunner wires together the generator, artist, and narrator.
 func NewRunner(cfg *RunnerConfig) *Runner {
 	r := &Runner{config: cfg}
@@ -294,8 +296,6 @@ func comicAssetsDir(outputRoot, slug string) string {
 func comicsPDFDir(outputRoot string) string {
 	return filepath.Join(comicsRootDir(outputRoot), "PDF")
 }
-
-var _ StoryRunner = (*Runner)(nil)
 
 // persistTextArtifacts writes story/vocab/theme via AssetStore. Story failure is fatal;
 // vocabulary and theme failures are warnings.
