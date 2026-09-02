@@ -60,25 +60,20 @@ func TestGeminiProvider_NoAPIKey(t *testing.T) {
 }
 
 func TestGeminiProvider_Search_CustomPromptSkipsTextGeneration(t *testing.T) {
-	originalText := geminiGenerateText
-	originalImage := geminiGenerateImage
-	t.Cleanup(func() {
-		geminiGenerateText = originalText
-		geminiGenerateImage = originalImage
-	})
-
-	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
 		t.Fatal("unexpected text generation for custom prompt")
 		return "", nil
 	}
 
 	var gotPrompt string
-	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
 		gotPrompt = prompt
 		return mustJPEGBytes(t), "image/jpeg", nil
 	}
 
 	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	client.generateText = stubText
+	client.generateImage = stubImage
 	callbackCalled := false
 	client.SetPromptCallback(func(prompt string) {
 		callbackCalled = true
@@ -116,25 +111,20 @@ func TestGeminiProvider_Search_CustomPromptSkipsTextGeneration(t *testing.T) {
 }
 
 func TestGeminiProvider_UsesConfiguredAspectRatio(t *testing.T) {
-	originalText := geminiGenerateText
-	originalImage := geminiGenerateImage
-	t.Cleanup(func() {
-		geminiGenerateText = originalText
-		geminiGenerateImage = originalImage
-	})
-
-	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
 		t.Fatal("unexpected text generation for configured aspect ratio")
 		return "", nil
 	}
 
 	var gotAspectRatio string
-	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error) {
+	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error) {
 		gotAspectRatio = aspectRatio
 		return mustJPEGBytes(t), "image/jpeg", nil
 	}
 
 	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key", AspectRatio: "1:1"})
+	client.generateText = stubText
+	client.generateImage = stubImage
 	if err := client.GenerateImage(context.Background(), "Art style: comic.", t.TempDir()+"/out.png"); err != nil {
 		t.Fatalf("GenerateImage() unexpected error: %v", err)
 	}
@@ -144,23 +134,18 @@ func TestGeminiProvider_UsesConfiguredAspectRatio(t *testing.T) {
 }
 
 func TestGeminiProvider_Search_CustomPromptWithoutTranslationKeepsDescriptionSimple(t *testing.T) {
-	originalText := geminiGenerateText
-	originalImage := geminiGenerateImage
-	t.Cleanup(func() {
-		geminiGenerateText = originalText
-		geminiGenerateImage = originalImage
-	})
-
-	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
 		t.Fatal("unexpected text generation for custom prompt")
 		return "", nil
 	}
 
-	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, _ string, _ string) ([]byte, string, error) {
+	stubImage := func(_ context.Context, _ *GeminiProvider, _ string, _ string) ([]byte, string, error) {
 		return mustJPEGBytes(t), "image/jpeg", nil
 	}
 
 	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	client.generateText = stubText
+	client.generateImage = stubImage
 	results, err := client.Search(context.Background(), &SearchOptions{
 		Query:        "ябълка",
 		CustomPrompt: "custom flashcard prompt",
@@ -177,25 +162,20 @@ func TestGeminiProvider_Search_CustomPromptWithoutTranslationKeepsDescriptionSim
 }
 
 func TestGeminiProvider_Search_CustomPromptIsTruncated(t *testing.T) {
-	originalText := geminiGenerateText
-	originalImage := geminiGenerateImage
-	t.Cleanup(func() {
-		geminiGenerateText = originalText
-		geminiGenerateImage = originalImage
-	})
-
-	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
 		t.Fatal("unexpected text generation for truncated prompt")
 		return "", nil
 	}
 
 	var gotPrompt string
-	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
 		gotPrompt = prompt
 		return mustJPEGBytes(t), "image/jpeg", nil
 	}
 
 	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	client.generateText = stubText
+	client.generateImage = stubImage
 	longPrompt := strings.Repeat("a", maxCustomPrompt+128)
 	results, err := client.Search(context.Background(), &SearchOptions{
 		Query:        "ябълка",
@@ -219,25 +199,20 @@ func TestGeminiProvider_Search_CustomPromptIsTruncated(t *testing.T) {
 }
 
 func TestGeminiProvider_Search_CustomPromptTruncatesUTF8Safely(t *testing.T) {
-	originalText := geminiGenerateText
-	originalImage := geminiGenerateImage
-	t.Cleanup(func() {
-		geminiGenerateText = originalText
-		geminiGenerateImage = originalImage
-	})
-
-	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
 		t.Fatal("unexpected text generation for truncated custom prompt")
 		return "", nil
 	}
 
 	var gotPrompt string
-	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
 		gotPrompt = prompt
 		return mustJPEGBytes(t), "image/jpeg", nil
 	}
 
 	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	client.generateText = stubText
+	client.generateImage = stubImage
 	longPrompt := strings.Repeat("яa", 2500)
 	if len(longPrompt) <= maxCustomPrompt {
 		t.Fatal("test prompt did not exceed truncation limit")
@@ -268,25 +243,20 @@ func TestGeminiProvider_Search_CustomPromptTruncatesUTF8Safely(t *testing.T) {
 }
 
 func TestGeminiProvider_GenerateImage_UsesCustomPrompt(t *testing.T) {
-	originalText := geminiGenerateText
-	originalImage := geminiGenerateImage
-	t.Cleanup(func() {
-		geminiGenerateText = originalText
-		geminiGenerateImage = originalImage
-	})
-
-	geminiGenerateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
 		t.Fatal("unexpected text generation for comic prompt")
 		return "", nil
 	}
 
 	var gotPrompt string
-	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
 		gotPrompt = prompt
 		return mustJPEGBytes(t), "image/jpeg", nil
 	}
 
 	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	client.generateText = stubText
+	client.generateImage = stubImage
 	if err := client.GenerateImage(context.Background(), "Art style: comic. FULL-BLEED SINGLE ILLUSTRATION.", t.TempDir()+"/out.png"); err != nil {
 		t.Fatalf("GenerateImage() unexpected error: %v", err)
 	}
@@ -296,12 +266,8 @@ func TestGeminiProvider_GenerateImage_UsesCustomPrompt(t *testing.T) {
 }
 
 func TestGeminiProvider_Search_GeneratedPromptFlow(t *testing.T) {
-	originalText := geminiGenerateText
-	originalImage := geminiGenerateImage
 	originalStyles := append([]string(nil), ArtisticStyles...)
 	t.Cleanup(func() {
-		geminiGenerateText = originalText
-		geminiGenerateImage = originalImage
 		ArtisticStyles = originalStyles
 	})
 
@@ -310,7 +276,7 @@ func TestGeminiProvider_Search_GeneratedPromptFlow(t *testing.T) {
 	var sceneCalls int
 	var gotPrompt string
 	var callbackPrompt string
-	geminiGenerateText = func(_ context.Context, _ *GeminiProvider, _, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
+	stubText := func(_ context.Context, _ *GeminiProvider, _, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
 		if strings.Contains(systemPrompt, "educational flashcards for language learning") {
 			sceneCalls++
 			if temperature != 0.7 || maxOutputTokens != 100 {
@@ -325,12 +291,14 @@ func TestGeminiProvider_Search_GeneratedPromptFlow(t *testing.T) {
 		return "", nil
 	}
 
-	geminiGenerateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
 		gotPrompt = prompt
 		return mustJPEGBytes(t), "image/jpeg", nil
 	}
 
 	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+	client.generateText = stubText
+	client.generateImage = stubImage
 	callbackCalled := false
 	client.SetPromptCallback(func(prompt string) {
 		callbackCalled = true

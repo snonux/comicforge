@@ -21,21 +21,27 @@ const (
 type GeminiConfig struct {
 	APIKey string
 	Model  string
+
+	// newClient overrides the GenAI client factory; nil uses httpctx.NewGenAIClient.
+	newClient func(context.Context, *genai.ClientConfig) (*genai.Client, error)
 }
 
 // GeminiProvider implements TextProvider for Google Gemini text generation.
 type GeminiProvider struct {
-	client *genai.Client
-	model  string
-	err    error
+	client       *genai.Client
+	model        string
+	err          error
+	generateText geminiTextGenerator
 }
+
+type geminiTextGenerator func(ctx context.Context, p *GeminiProvider, prompt string) (string, error)
 
 var _ provider.TextProvider = (*GeminiProvider)(nil)
 
-var newGeminiClient = httpctx.NewGenAIClient
-var geminiGenerateText = func(ctx context.Context, p *GeminiProvider, prompt string) (string, error) {
-	return p.generateText(ctx, prompt)
+func defaultGeminiGenerateText(ctx context.Context, p *GeminiProvider, prompt string) (string, error) {
+	return p.generateTextImpl(ctx, prompt)
 }
+
 var geminiGenerateContent = func(ctx context.Context, client *genai.Client, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 	return client.Models.GenerateContent(ctx, model, contents, cfg)
 }
@@ -45,7 +51,10 @@ var circuitRegistry *apicircuit.Registry
 
 // NewGeminiProvider creates a Gemini text provider.
 func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
-	g := &GeminiProvider{model: DefaultModel}
+	g := &GeminiProvider{
+		model:        DefaultModel,
+		generateText: defaultGeminiGenerateText,
+	}
 	if cfg == nil {
 		g.err = fmt.Errorf("text config is required")
 		return g
@@ -55,7 +64,11 @@ func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 		g.err = fmt.Errorf("google API key is required for text generation")
 		return g
 	}
-	client, err := newGeminiClient(context.Background(), &genai.ClientConfig{
+	newClient := httpctx.NewGenAIClient
+	if cfg.newClient != nil {
+		newClient = cfg.newClient
+	}
+	client, err := newClient(context.Background(), &genai.ClientConfig{
 		APIKey:  cfg.APIKey,
 		Backend: genai.BackendGeminiAPI,
 	})
@@ -92,10 +105,14 @@ func (g *GeminiProvider) GenerateText(ctx context.Context, prompt string) (strin
 	if strings.TrimSpace(prompt) == "" {
 		return "", fmt.Errorf("prompt is required")
 	}
-	return geminiGenerateText(ctx, g, prompt)
+	fn := g.generateText
+	if fn == nil {
+		fn = defaultGeminiGenerateText
+	}
+	return fn(ctx, g, prompt)
 }
 
-func (g *GeminiProvider) generateText(ctx context.Context, prompt string) (string, error) {
+func (g *GeminiProvider) generateTextImpl(ctx context.Context, prompt string) (string, error) {
 	resp, err := apicircuit.Execute(circuitRegistry, g.Name(), apicircuit.CapabilityText, func() (*genai.GenerateContentResponse, error) {
 		return geminiGenerateContent(ctx, g.client, g.model, []*genai.Content{
 			genai.NewContentFromText(prompt, genai.RoleUser),

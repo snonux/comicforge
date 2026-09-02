@@ -32,6 +32,9 @@ type GeminiConfig struct {
 	Model       string
 	TextModel   string
 	AspectRatio string
+
+	// newClient overrides the GenAI client factory; nil uses httpctx.NewGenAIClient.
+	newClient func(context.Context, *genai.ClientConfig) (*genai.Client, error)
 }
 
 // GeminiProvider implements Provider for Google Gemini image generation.
@@ -41,31 +44,51 @@ type GeminiProvider struct {
 	config     *GeminiConfig
 	lastPrompt string
 
+	httpClient    httpDoer
+	generateText  geminiTextGenerator
+	generateImage geminiImageGenerator
+
 	// PromptCallback runs after the prompt is generated and before image creation.
 	PromptCallback func(prompt string)
 }
 
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+type geminiTextGenerator func(ctx context.Context, c *GeminiProvider, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error)
+
+type geminiImageGenerator func(ctx context.Context, c *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error)
+
 var _ Provider = (*GeminiProvider)(nil)
 
-var imageHTTPClient = httpctx.ImageDownloadHTTPClient()
-var newGeminiClient = httpctx.NewGenAIClient
-var geminiGenerateText = func(ctx context.Context, c *GeminiProvider, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
-	return c.generateText(ctx, model, systemPrompt, userPrompt, temperature, maxOutputTokens)
+func defaultGeminiGenerateText(ctx context.Context, c *GeminiProvider, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
+	return c.generateTextImpl(ctx, model, systemPrompt, userPrompt, temperature, maxOutputTokens)
 }
-var geminiGenerateImage = func(ctx context.Context, c *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error) {
-	return c.generateImage(ctx, prompt, aspectRatio)
+
+func defaultGeminiGenerateImage(ctx context.Context, c *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error) {
+	return c.generateImageImpl(ctx, prompt, aspectRatio)
 }
 
 // NewGeminiProvider creates a new Gemini image provider.
 func NewGeminiProvider(config *GeminiConfig) *GeminiProvider {
 	normalized := normalizeGeminiConfig(config)
-	client := &GeminiProvider{config: normalized}
+	client := &GeminiProvider{
+		config:        normalized,
+		httpClient:    httpctx.ImageDownloadHTTPClient(),
+		generateText:  defaultGeminiGenerateText,
+		generateImage: defaultGeminiGenerateImage,
+	}
 
 	if normalized.APIKey == "" {
 		return client
 	}
 
-	genaiClient, err := newGeminiClient(context.Background(), &genai.ClientConfig{
+	newClient := httpctx.NewGenAIClient
+	if normalized.newClient != nil {
+		newClient = normalized.newClient
+	}
+	genaiClient, err := newClient(context.Background(), &genai.ClientConfig{
 		APIKey:  normalized.APIKey,
 		Backend: genai.BackendGeminiAPI,
 	})
@@ -120,7 +143,11 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 	if len(opts.ReferenceImages) > 0 {
 		imageBytes, mimeType, err = c.generateImageWithRefs(ctx, prompt, aspectRatio, opts.ReferenceImages)
 	} else {
-		imageBytes, mimeType, err = geminiGenerateImage(ctx, c, prompt, aspectRatio)
+		genImage := c.generateImage
+		if genImage == nil {
+			genImage = defaultGeminiGenerateImage
+		}
+		imageBytes, mimeType, err = genImage(ctx, c, prompt, aspectRatio)
 	}
 	if err != nil {
 		if searchErr, ok := err.(*SearchError); ok {
@@ -242,7 +269,11 @@ func (c *GeminiProvider) Download(ctx context.Context, url string) (io.ReadClose
 		return nil, err
 	}
 
-	resp, err := imageHTTPClient.Do(req)
+	httpClient := c.httpClient
+	if httpClient == nil {
+		httpClient = httpctx.ImageDownloadHTTPClient()
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

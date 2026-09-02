@@ -39,8 +39,6 @@ var englishLeakWords = []string{
 	"close-up", "medium-long", "ultra-realistic", "illustration", "text",
 }
 
-var validateImagePromptLeakageFn = validateImagePromptLeakage
-
 func validateImagePromptLeakage(ctx context.Context, outputFile, label, script string) error {
 	if ctx == nil {
 		ctx = context.Background()

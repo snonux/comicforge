@@ -89,7 +89,11 @@ func (c *GeminiProvider) createEducationalPrompt(ctx context.Context, query, tra
 func (c *GeminiProvider) generateSceneDescription(ctx context.Context, query, translation string) (string, error) {
 	fmt.Printf("Gemini Scene Generation: Creating scene for %q (%s)\n", query, translation)
 
-	scene, err := geminiGenerateText(
+	genText := c.generateText
+	if genText == nil {
+		genText = defaultGeminiGenerateText
+	}
+	scene, err := genText(
 		ctx,
 		c,
 		c.textModelName(),

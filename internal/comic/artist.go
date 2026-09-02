@@ -58,6 +58,8 @@ type Artist struct {
 	pageMaxRetries int
 	pageRetryBase  time.Duration
 	dina4PDF       bool
+	sleep          func(time.Duration)
+	validateImage  imageOutputValidator
 	initErr        error
 }
 
@@ -69,7 +71,7 @@ type referenceAspectRatioImageGenerator interface {
 	GenerateImageWithReferencesAndAspectRatio(context.Context, string, string, [][]byte, string) error
 }
 
-var sleep = time.Sleep
+type imageOutputValidator func(context.Context, string, string, string) error
 
 // NewArtist creates an Artist.
 func NewArtist(cfg *ArtistConfig) *Artist {
@@ -81,6 +83,8 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 		galleryPages:   5,
 		panelsPerPage:  defaultStoryPanelsPerPage,
 		ultraRealistic: true,
+		sleep:          time.Sleep,
+		validateImage:  validateImagePromptLeakage,
 	}
 	if cfg == nil {
 		a.initErr = fmt.Errorf("artist config is required")
@@ -216,7 +220,7 @@ func (a *Artist) renderPage(ctx context.Context, fileName, templateName string, 
 }
 
 func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, label string, refs [][]byte) error {
-	return a.generateWithRetryAndValidation(ctx, prompt, outputFile, label, refs, validateImagePromptLeakageFn)
+	return a.generateWithRetryAndValidation(ctx, prompt, outputFile, label, refs, a.validateImage)
 }
 
 func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile string) error {
@@ -224,13 +228,15 @@ func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile str
 	if err != nil {
 		return fmt.Errorf("render manual prompt: %w", err)
 	}
-	return a.generateWithRetryAndValidation(ctx, renderedPrompt, outputFile, "manual prompt image", nil, validateImagePromptLeakageFn)
+	return a.generateWithRetryAndValidation(ctx, renderedPrompt, outputFile, "manual prompt image", nil, a.validateImage)
 }
-
-type imageOutputValidator func(context.Context, string, string, string) error
 
 func (a *Artist) generateWithRetryAndValidation(ctx context.Context, prompt, outputFile, label string, refs [][]byte, validator imageOutputValidator) error {
 	attempts := a.pageMaxRetries
+	sleeper := a.sleep
+	if sleeper == nil {
+		sleeper = time.Sleep
+	}
 	for attempt := 1; attempt <= attempts; attempt++ {
 		callCtx, cancel := withTimeout(ctx, helperTimeout)
 		err := a.generateImage(callCtx, prompt, outputFile, refs)
@@ -247,7 +253,7 @@ func (a *Artist) generateWithRetryAndValidation(ctx context.Context, prompt, out
 		if attempt < attempts {
 			pause := a.pageRetryBase * time.Duration(attempt)
 			fmt.Printf("  Warning: %s attempt %d/%d failed (%v), retrying in %s...\n", label, attempt, attempts, err, pause)
-			sleep(pause)
+			sleeper(pause)
 			continue
 		}
 		return fmt.Errorf("%s failed after %d attempts: %w", label, attempts, err)

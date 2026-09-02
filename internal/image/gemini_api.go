@@ -10,7 +10,7 @@ import (
 	"codeberg.org/snonux/comicforge/internal/apicircuit"
 )
 
-func (c *GeminiProvider) generateText(ctx context.Context, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
+func (c *GeminiProvider) generateTextImpl(ctx context.Context, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
 	temp := temperature
 	resp, err := apicircuit.Execute(nil, c.Name(), apicircuit.CapabilityText, func() (*genai.GenerateContentResponse, error) {
 		return c.client.Models.GenerateContent(ctx, model, []*genai.Content{
@@ -68,7 +68,7 @@ func geminiReferenceParts(prompt string, refs [][]byte) []*genai.Part {
 	return parts
 }
 
-func (c *GeminiProvider) generateImage(ctx context.Context, prompt, aspectRatio string) ([]byte, string, error) {
+func (c *GeminiProvider) generateImageImpl(ctx context.Context, prompt, aspectRatio string) ([]byte, string, error) {
 	cfg := geminiImageConfig(aspectRatio)
 
 	resp, err := apicircuit.Execute(nil, c.Name(), apicircuit.CapabilityImage, func() (*genai.GenerateContentResponse, error) {

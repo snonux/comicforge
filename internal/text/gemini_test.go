@@ -71,7 +71,7 @@ func TestGenerateTextEmptyResponse(t *testing.T) {
 	}
 
 	p := &GeminiProvider{model: DefaultModel}
-	_, err := p.generateText(context.Background(), "hello")
+	_, err := p.generateTextImpl(context.Background(), "hello")
 	if err == nil {
 		t.Fatal("generateText() error = nil, want no text content")
 	}
@@ -96,7 +96,7 @@ func TestGenerateTextCircuitOpenSkipsAPI(t *testing.T) {
 
 	p := &GeminiProvider{model: DefaultModel}
 	for i := 0; i < 5; i++ {
-		_, err := p.generateText(context.Background(), "hello")
+		_, err := p.generateTextImpl(context.Background(), "hello")
 		if err == nil {
 			t.Fatalf("failure %d: error = nil", i+1)
 		}
@@ -106,7 +106,7 @@ func TestGenerateTextCircuitOpenSkipsAPI(t *testing.T) {
 	}
 
 	callsBeforeOpen := calls
-	_, err := p.generateText(context.Background(), "hello")
+	_, err := p.generateTextImpl(context.Background(), "hello")
 	if err == nil {
 		t.Fatal("open circuit: error = nil")
 	}
