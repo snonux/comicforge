@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -31,11 +32,61 @@ func TestDefaultSearchOptions(t *testing.T) {
 	t.Parallel()
 
 	opts := DefaultSearchOptions("ябълка")
+	if opts == nil {
+		t.Fatal("DefaultSearchOptions() returned nil")
+	}
 	if opts.Query != "ябълка" {
 		t.Fatalf("Query = %q, want %q", opts.Query, "ябълка")
 	}
-	if opts.Language != defaultSearchLanguage || !opts.SafeSearch || opts.PerPage != defaultSearchPerPage || opts.Page != defaultSearchPage {
-		t.Fatalf("DefaultSearchOptions() = %+v", opts)
+	if opts.Translation != "" || opts.CustomPrompt != "" || opts.AspectRatio != "" || len(opts.ReferenceImages) != 0 {
+		t.Fatalf("DefaultSearchOptions() set unexpected fields: %+v", opts)
+	}
+}
+
+func TestDefaultSearchOptions_EmptyQuery(t *testing.T) {
+	t.Parallel()
+
+	opts := DefaultSearchOptions("")
+	if opts == nil {
+		t.Fatal("DefaultSearchOptions() returned nil")
+	}
+	if opts.Query != "" {
+		t.Fatalf("Query = %q, want empty", opts.Query)
+	}
+}
+
+func TestSearchOptions_OnlyGenerationFields(t *testing.T) {
+	t.Parallel()
+
+	// SearchOptions must stay trimmed to Gemini generation inputs.
+	// Reintroducing stock-photo knobs is a regression against task t0.
+	allowed := map[string]struct{}{
+		"Query":           {},
+		"Translation":     {},
+		"CustomPrompt":    {},
+		"AspectRatio":     {},
+		"ReferenceImages": {},
+	}
+	typ := reflect.TypeOf(SearchOptions{})
+	for i := 0; i < typ.NumField(); i++ {
+		name := typ.Field(i).Name
+		if _, ok := allowed[name]; !ok {
+			t.Errorf("unexpected SearchOptions field %q (stock-photo search fields must stay removed)", name)
+		}
+	}
+	for name := range allowed {
+		if _, ok := typ.FieldByName(name); !ok {
+			t.Errorf("missing expected SearchOptions field %q", name)
+		}
+	}
+
+	forbidden := []string{
+		"SafeSearch", "PerPage", "Page", "ImageType", "Orientation", "Language",
+	}
+	for _, name := range forbidden {
+		if _, ok := typ.FieldByName(name); ok {
+			t.Errorf("SearchOptions still has stock-photo field %q", name)
+		}
 	}
 }
 
