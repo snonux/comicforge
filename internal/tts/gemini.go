@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"google.golang.org/genai"
 
 	"codeberg.org/snonux/comicforge/internal/apicircuit"
+	"codeberg.org/snonux/comicforge/internal/ffmpegutil"
 	"codeberg.org/snonux/comicforge/internal/httpctx"
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
@@ -160,7 +160,7 @@ func writeAudioFile(data []byte, mimeType, outputFile string) error {
 }
 
 func encodePCMToMP3(data []byte, mimeType, outputFile string) error {
-	ffmpegPath, err := exec.LookPath("ffmpeg")
+	ffmpegPath, err := ffmpegutil.LookPath()
 	if err != nil {
 		return fmt.Errorf("ffmpeg not found for audio conversion: %w", err)
 	}
@@ -198,8 +198,8 @@ func encodePCMToMP3(data []byte, mimeType, outputFile string) error {
 		_ = os.Remove(rawPath)
 	}()
 
-	cmd := exec.Command(ffmpegPath,
-		"-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+	cmd := ffmpegutil.Command(ffmpegPath,
+		"-y",
 		"-f", "s16le",
 		"-ar", fmt.Sprintf("%d", rate),
 		"-ac", "1",

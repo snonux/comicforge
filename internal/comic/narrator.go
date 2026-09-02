@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"codeberg.org/snonux/comicforge/internal/provider"
 )
-
-var lookPath = exec.LookPath
 
 // NarratorConfig configures narration generation.
 type NarratorConfig struct {
@@ -19,6 +16,7 @@ type NarratorConfig struct {
 	MainProvider       provider.TTSProvider
 	ConclusionProvider provider.TTSProvider
 	Prompts            PromptRenderer
+	AudioMixer         AudioMixer
 	VoiceName          string
 	Language           string
 	Script             string
@@ -31,6 +29,7 @@ type Narrator struct {
 	mainProvider       provider.TTSProvider
 	conclusionProvider provider.TTSProvider
 	prompts            PromptRenderer
+	mixer              AudioMixer
 	voiceName          string
 	language           string
 	script             string
@@ -52,6 +51,10 @@ func NewNarrator(cfg *NarratorConfig) *Narrator {
 	n.mainProvider = cfg.MainProvider
 	n.conclusionProvider = cfg.ConclusionProvider
 	n.prompts = cfg.Prompts
+	n.mixer = cfg.AudioMixer
+	if n.mixer == nil {
+		n.mixer = NewFFmpegAudioMixer()
+	}
 	n.voiceName = cfg.VoiceName
 	n.language = orDefault(cfg.Language, n.language)
 	n.script = orDefault(cfg.Script, n.script)
@@ -98,10 +101,10 @@ func (n *Narrator) Narrate(ctx context.Context, storyText, outputFile string) er
 	combinedPath := filepath.Join(tmpDir, "combined.mp3")
 	if len(allPaths) == 1 {
 		combinedPath = allPaths[0]
-	} else if err := concatenateMP3s(allPaths, combinedPath, tmpDir); err != nil {
+	} else if err := n.mixer.ConcatenateMP3s(allPaths, combinedPath, tmpDir); err != nil {
 		return err
 	}
-	return convertToStereo(combinedPath, outputFile)
+	return n.mixer.ConvertToStereo(combinedPath, outputFile)
 }
 
 func (n *Narrator) ready() error {
@@ -142,7 +145,7 @@ func (n *Narrator) narrateIntro(ctx context.Context, storyText, tmpDir string) (
 	}
 
 	introWithMusic := filepath.Join(tmpDir, "intro_with_music.mp3")
-	if err := mixAmbientMusic(introRaw, introWithMusic, tmpDir); err != nil {
+	if err := n.mixer.MixAmbientMusic(introRaw, introWithMusic, tmpDir); err != nil {
 		fmt.Printf("    Warning: intro music mix failed (%v) — using narration only\n", err)
 		return introRaw, true
 	}
@@ -173,13 +176,13 @@ func (n *Narrator) narrateConclusion(ctx context.Context, storyText, tmpDir stri
 	conclusionNarration := filepath.Join(tmpDir, "conclusion_narration.mp3")
 	if len(paths) == 1 {
 		conclusionNarration = paths[0]
-	} else if err := concatenateMP3s(paths, conclusionNarration, tmpDir); err != nil {
+	} else if err := n.mixer.ConcatenateMP3s(paths, conclusionNarration, tmpDir); err != nil {
 		fmt.Printf("    Warning: conclusion concat failed: %v\n", err)
 		return "", false
 	}
 
 	conclusionWithMusic := filepath.Join(tmpDir, "conclusion_with_music.mp3")
-	if err := mixAmbientMusic(conclusionNarration, conclusionWithMusic, tmpDir); err != nil {
+	if err := n.mixer.MixAmbientMusic(conclusionNarration, conclusionWithMusic, tmpDir); err != nil {
 		fmt.Printf("    Warning: background music mix failed (%v) — using narration only\n", err)
 		return conclusionNarration, true
 	}
@@ -268,104 +271,4 @@ func splitIntoNarrationChunks(text string, targetWords int) []string {
 		chunks = append(chunks, strings.TrimSpace(current.String()))
 	}
 	return chunks
-}
-
-func mixAmbientMusic(narrationFile, outputFile, tmpDir string) error {
-	ffmpegPath, err := lookPath("ffmpeg")
-	if err != nil {
-		return fmt.Errorf("ffmpeg not found")
-	}
-
-	musicPath := filepath.Join(tmpDir, "ambient_pad.mp3")
-	if err := generateAmbientPad(ffmpegPath, musicPath); err != nil {
-		return err
-	}
-
-	cmd := exec.Command(ffmpegPath,
-		"-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-		"-i", narrationFile,
-		"-i", musicPath,
-		"-filter_complex", "[0:a][1:a]amix=inputs=2:weights=1 0.3:duration=first[aout]",
-		"-map", "[aout]",
-		"-ac", "2",
-		"-codec:a", "libmp3lame", "-q:a", "2",
-		outputFile,
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("background music mix failed: %w\n%s", err, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-func generateAmbientPad(ffmpegPath, outputFile string) error {
-	droneExpr := "0.04*sin(65*2*PI*t)+0.03*sin(98*2*PI*t)+0.02*sin(130*2*PI*t)"
-	cmd := exec.Command(ffmpegPath,
-		"-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-		"-f", "lavfi",
-		"-i", fmt.Sprintf("aevalsrc=%s:sample_rate=44100", droneExpr),
-		"-f", "lavfi", "-i", "anoisesrc=color=pink:amplitude=0.008",
-		"-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first[mixed];[mixed]afade=t=in:st=0:d=4[aout]",
-		"-map", "[aout]",
-		"-t", "300",
-		"-ac", "2",
-		outputFile,
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("ambient pad generation failed: %w\n%s", err, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-func concatenateMP3s(chunkPaths []string, outputFile, tmpDir string) error {
-	ffmpegPath, err := lookPath("ffmpeg")
-	if err != nil {
-		return fmt.Errorf("ffmpeg not found — required for multi-chunk narration: %w", err)
-	}
-
-	listPath := filepath.Join(tmpDir, "concat_list.txt")
-	var sb strings.Builder
-	for _, path := range chunkPaths {
-		fmt.Fprintf(&sb, "file '%s'\n", path)
-	}
-	if err := os.WriteFile(listPath, []byte(sb.String()), 0o600); err != nil {
-		return fmt.Errorf("write concat list: %w", err)
-	}
-
-	cmd := exec.Command(ffmpegPath,
-		"-nostdin", "-hide_banner", "-loglevel", "error",
-		"-y",
-		"-f", "concat", "-safe", "0",
-		"-i", listPath,
-		"-codec:a", "copy",
-		outputFile,
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("ffmpeg concat failed: %w\n%s", err, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-func convertToStereo(inputFile, outputFile string) error {
-	ffmpegPath, err := lookPath("ffmpeg")
-	if err != nil {
-		fmt.Println("    Warning: ffmpeg not found, narration will be mono")
-		return copyFile(inputFile, outputFile)
-	}
-
-	cmd := exec.Command(ffmpegPath,
-		"-nostdin", "-hide_banner", "-loglevel", "error",
-		"-y",
-		"-i", inputFile,
-		"-ac", "2",
-		"-codec:a", "libmp3lame", "-q:a", "2",
-		outputFile,
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("ffmpeg stereo conversion failed: %w\n%s", err, strings.TrimSpace(string(out)))
-	}
-	return nil
 }

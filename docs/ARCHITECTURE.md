@@ -489,5 +489,5 @@ comics/
 
 - **New AI Providers**: Implement `TextProvider`/`ImageProvider`/`TTSProvider` and register in the respective registries
 - **New Style Modes**: Add a key under `styles` in config (map of category → prompt lines); `pickStyle()` and stylegrid pick it up automatically
-- **Custom Output Formats**: The `assemblePDF` field in `Runner` is injectable for alternative exporters; the default implementation takes `PDFAssembleOptions` (density, JPEG quality, print-style matting)
+- **Custom Output Formats**: The `PDFAssembler` field on `Runner` / `RunnerConfig` is injectable for alternative exporters; the default `ImageMagickPDFAssembler` takes `PDFAssembleOptions` (density, JPEG quality, print-style matting). Narration post-processing uses an injectable `AudioMixer` (default `FFmpegAudioMixer`), with shared ffmpeg flags/lookup in `internal/ffmpegutil`.
 - **Additional Languages**: Extend `localization.go` with new script/language mappings

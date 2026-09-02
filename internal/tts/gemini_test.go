@@ -13,6 +13,7 @@ import (
 	"google.golang.org/genai"
 
 	"codeberg.org/snonux/comicforge/internal/apicircuit"
+	"codeberg.org/snonux/comicforge/internal/ffmpegutil"
 	"codeberg.org/snonux/comicforge/internal/httpctx"
 )
 
@@ -145,6 +146,21 @@ func TestGenerateAudioRejectsEmptyInputs(t *testing.T) {
 		t.Fatal("GenerateAudio() empty output: error = nil")
 	} else if !strings.Contains(err.Error(), "output file is required") {
 		t.Fatalf("GenerateAudio() empty output: error = %v", err)
+	}
+}
+
+func TestEncodePCMToMP3MissingFFmpeg(t *testing.T) {
+	restore := ffmpegutil.OverrideLookPath(func(string) (string, error) {
+		return "", errors.New("not in PATH")
+	})
+	t.Cleanup(restore)
+
+	err := encodePCMToMP3([]byte{0, 1, 2, 3}, "audio/l16;rate=24000", filepath.Join(t.TempDir(), "out.mp3"))
+	if err == nil {
+		t.Fatal("encodePCMToMP3() error = nil, want missing ffmpeg")
+	}
+	if !strings.Contains(err.Error(), "ffmpeg not found") {
+		t.Fatalf("encodePCMToMP3() error = %v, want ffmpeg not found", err)
 	}
 }
 

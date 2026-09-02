@@ -28,6 +28,8 @@ type RunnerConfig struct {
 	MainTTSProvider       provider.TTSProvider
 	ConclusionTTSProvider provider.TTSProvider
 	Prompts               PromptRenderer
+	PDFAssembler          PDFAssembler
+	AudioMixer            AudioMixer
 	OutputDir             string
 	Style                 string
 	StyleMode             string
@@ -53,19 +55,22 @@ type RunnerConfig struct {
 
 // Runner orchestrates the full pipeline.
 type Runner struct {
-	config      *RunnerConfig
-	generator   *Generator
-	artist      *Artist
-	narrator    *Narrator
-	assemblePDF func(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
+	config       *RunnerConfig
+	generator    *Generator
+	artist       *Artist
+	narrator     *Narrator
+	pdfAssembler PDFAssembler
 }
 
 // NewRunner wires together the generator, artist, and narrator.
 func NewRunner(cfg *RunnerConfig) *Runner {
 	r := &Runner{config: cfg}
-	r.assemblePDF = AssembleComicPDF
+	r.pdfAssembler = NewImageMagickPDFAssembler()
 	if cfg == nil {
 		return r
+	}
+	if cfg.PDFAssembler != nil {
+		r.pdfAssembler = cfg.PDFAssembler
 	}
 
 	styleMode := strings.TrimSpace(cfg.StyleMode)
@@ -109,6 +114,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		MainProvider:       cfg.MainTTSProvider,
 		ConclusionProvider: cfg.ConclusionTTSProvider,
 		Prompts:            cfg.Prompts,
+		AudioMixer:         cfg.AudioMixer,
 		VoiceName:          cfg.NarratorVoice,
 		Language:           cfg.Language,
 		Script:             cfg.Script,
@@ -180,7 +186,7 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
 	}
 	if len(paths) > 0 {
-		pdfPath, err := r.assemblePDF(comicsPDFDir(dir), slug, paths, r.config.PDF)
+		pdfPath, err := r.pdfAssembler.Assemble(comicsPDFDir(dir), slug, paths, r.config.PDF)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
 		} else {

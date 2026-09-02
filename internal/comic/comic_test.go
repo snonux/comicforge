@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"codeberg.org/snonux/comicforge/internal/ffmpegutil"
 )
 
 func TestSlugify(t *testing.T) {
@@ -443,11 +445,11 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 		Slug:                  "forced-slug",
 		NarrateEnabled:        true,
 		GalleryPages:          1,
+		PDFAssembler: funcPDFAssembler{fn: func(outputDir, titleSlug string, imagePaths []string, _ PDFAssembleOptions) (string, error) {
+			path := filepath.Join(outputDir, titleSlug+".pdf")
+			return path, os.WriteFile(path, []byte("pdf"), 0o644)
+		}},
 	})
-	runner.assemblePDF = func(outputDir, titleSlug string, imagePaths []string, _ PDFAssembleOptions) (string, error) {
-		path := filepath.Join(outputDir, titleSlug+".pdf")
-		return path, os.WriteFile(path, []byte("pdf"), 0o644)
-	}
 	if err := runner.Run(context.Background(), filepath.Join(tmpDir, "vocab.txt")); err == nil {
 		t.Fatal("expected vocab read error for missing file")
 	}
@@ -844,11 +846,11 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 		OutputDir:             t.TempDir(),
 		Slug:                  "forced-slug",
 		NarrateEnabled:        false,
+		PDFAssembler: funcPDFAssembler{fn: func(string, string, []string, PDFAssembleOptions) (string, error) {
+			t.Fatal("PDFAssembler.Assemble should not be called on render failure")
+			return "", nil
+		}},
 	})
-	runner.assemblePDF = func(string, string, []string, PDFAssembleOptions) (string, error) {
-		t.Fatal("assemblePDF should not be called on render failure")
-		return "", nil
-	}
 
 	vocabFile := filepath.Join(t.TempDir(), "vocab.txt")
 	if err := os.WriteFile(vocabFile, []byte("ябълка = apple\n"), 0o644); err != nil {
@@ -1062,13 +1064,10 @@ func TestGenerateWithRetryUsesConfiguredRetriesAndBackoff(t *testing.T) {
 }
 
 func TestConvertToStereoFallsBackToCopyWhenFFmpegMissing(t *testing.T) {
-	originalLookPath := lookPath
-	lookPath = func(string) (string, error) {
+	restore := ffmpegutil.OverrideLookPath(func(string) (string, error) {
 		return "", errors.New("missing ffmpeg")
-	}
-	t.Cleanup(func() {
-		lookPath = originalLookPath
 	})
+	t.Cleanup(restore)
 
 	tmpDir := t.TempDir()
 	inputFile := filepath.Join(tmpDir, "input.mp3")
@@ -1080,26 +1079,23 @@ func TestConvertToStereoFallsBackToCopyWhenFFmpegMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := convertToStereo(inputFile, outputFile); err != nil {
-		t.Fatalf("convertToStereo() error = %v", err)
+	if err := NewFFmpegAudioMixer().ConvertToStereo(inputFile, outputFile); err != nil {
+		t.Fatalf("ConvertToStereo() error = %v", err)
 	}
 	got, err := os.ReadFile(outputFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "audio-bytes" {
-		t.Fatalf("convertToStereo() copied %q, want %q", got, "audio-bytes")
+		t.Fatalf("ConvertToStereo() copied %q, want %q", got, "audio-bytes")
 	}
 }
 
 func TestNarrateConclusionDoesNotAcceptPartialConcatFallback(t *testing.T) {
-	originalLookPath := lookPath
-	lookPath = func(string) (string, error) {
+	restore := ffmpegutil.OverrideLookPath(func(string) (string, error) {
 		return "", errors.New("missing ffmpeg")
-	}
-	t.Cleanup(func() {
-		lookPath = originalLookPath
 	})
+	t.Cleanup(restore)
 
 	provider := &recordingTTSProvider{}
 	n := NewNarrator(&NarratorConfig{
@@ -1281,6 +1277,14 @@ func (f fakeImageProvider) GenerateImage(_ context.Context, _ string, outputFile
 		f.t.Fatal(err)
 	}
 	return nil
+}
+
+type funcPDFAssembler struct {
+	fn func(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
+}
+
+func (f funcPDFAssembler) Assemble(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
+	return f.fn(outputDir, titleSlug, imagePaths, opts)
 }
 
 type capturingImageProvider struct {
