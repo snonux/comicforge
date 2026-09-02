@@ -70,7 +70,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 
 	styleMode := strings.TrimSpace(cfg.StyleMode)
 	if styleMode == "" {
-		styleMode = pickStyleMode(cfg.UltraRealistic, cfg.Styles)
+		styleMode = pickStyleMode(cfg.UltraRealistic, cfg.Styles, cfg.RealisticWeight)
 	}
 	ultra := styleMode == styleModeRealistic
 

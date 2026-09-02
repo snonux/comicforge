@@ -109,10 +109,10 @@ func TestPickStyleModeForcedUltra(t *testing.T) {
 	t.Parallel()
 
 	yes, no := true, false
-	if got := pickStyleMode(&yes, nil); got != styleModeRealistic {
+	if got := pickStyleMode(&yes, nil, 0); got != styleModeRealistic {
 		t.Fatalf("forced ultra = %q, want realistic", got)
 	}
-	if got := pickStyleMode(&no, nil); got != styleModeComic {
+	if got := pickStyleMode(&no, nil, 1); got != styleModeComic {
 		t.Fatalf("forced comic = %q, want comic", got)
 	}
 }
@@ -121,8 +121,93 @@ func TestPickStyleModeUsesConfiguredKeys(t *testing.T) {
 	t.Parallel()
 
 	styles := map[string][]string{"neon_noir": {"x"}}
-	if got := pickStyleMode(nil, styles); got != "neon_noir" {
+	if got := pickStyleMode(nil, styles, 0); got != "neon_noir" {
 		t.Fatalf("pickStyleMode = %q, want neon_noir", got)
+	}
+}
+
+func TestClampRealisticWeight(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		in, want float64
+	}{
+		{in: 0.4, want: 0.4},
+		{in: 0, want: 0},
+		{in: 1, want: 1},
+		{in: -0.5, want: 0},
+		{in: 1.5, want: 1},
+		{in: -100, want: 0},
+		{in: 100, want: 1},
+	}
+	for _, tc := range cases {
+		if got := clampRealisticWeight(tc.in); got != tc.want {
+			t.Fatalf("clampRealisticWeight(%v) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestPickStyleModeWeightEdges(t *testing.T) {
+	t.Parallel()
+
+	styles := map[string][]string{
+		styleModeComic:     {"comic-a"},
+		styleModeRealistic: {"photo-a"},
+		styleModeManga:     {"manga-a"},
+	}
+
+	for i := 0; i < 50; i++ {
+		if got := pickStyleMode(nil, styles, 0); got == styleModeRealistic {
+			t.Fatalf("weight 0 picked realistic on draw %d", i)
+		}
+		if got := pickStyleMode(nil, styles, 1); got != styleModeRealistic {
+			t.Fatalf("weight 1 = %q, want realistic on draw %d", got, i)
+		}
+		if got := pickStyleMode(nil, styles, -3); got == styleModeRealistic {
+			t.Fatalf("clamped weight <0 picked realistic on draw %d", i)
+		}
+		if got := pickStyleMode(nil, styles, 3); got != styleModeRealistic {
+			t.Fatalf("clamped weight >1 = %q, want realistic on draw %d", got, i)
+		}
+	}
+}
+
+func TestPickStyleModeUltraOverridesWeight(t *testing.T) {
+	t.Parallel()
+
+	yes, no := true, false
+	styles := map[string][]string{
+		styleModeComic:     {"comic-a"},
+		styleModeRealistic: {"photo-a"},
+	}
+	for i := 0; i < 20; i++ {
+		if got := pickStyleMode(&yes, styles, 0); got != styleModeRealistic {
+			t.Fatalf("ultra=true ignores weight 0: got %q", got)
+		}
+		if got := pickStyleMode(&no, styles, 1); got != styleModeComic {
+			t.Fatalf("ultra=false ignores weight 1: got %q", got)
+		}
+	}
+}
+
+func TestPickStyleModeWeightZeroExcludesRealisticFromPool(t *testing.T) {
+	t.Parallel()
+
+	styles := map[string][]string{
+		styleModeComic:     {"comic-a"},
+		styleModeRealistic: {"photo-a"},
+		"neon_noir":        {"neon"},
+	}
+	seen := map[string]bool{}
+	for i := 0; i < 80; i++ {
+		got := pickStyleMode(nil, styles, 0)
+		if got == styleModeRealistic {
+			t.Fatalf("weight 0 returned realistic")
+		}
+		seen[got] = true
+	}
+	if !seen[styleModeComic] || !seen["neon_noir"] {
+		t.Fatalf("weight 0 should sample non-realistic modes, got %#v", seen)
 	}
 }
 

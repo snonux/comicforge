@@ -735,6 +735,93 @@ func TestNewRunnerUsesUltraFlagsForStyleMode(t *testing.T) {
 	})
 }
 
+func TestNewRunnerUsesRealisticWeightWhenUltraUnset(t *testing.T) {
+	t.Parallel()
+
+	styles := map[string][]string{
+		styleModeComic:     {"comic-ink"},
+		styleModeRealistic: {"photo-real"},
+		styleModeManga:     {"manga-ink"},
+	}
+
+	t.Run("weight_zero", func(t *testing.T) {
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			RealisticWeight: 0,
+			Styles:          styles,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if runner.artist == nil {
+			t.Fatal("artist is nil")
+		}
+		if runner.artist.styleMode == styleModeRealistic {
+			t.Fatal("weight 0 should not select realistic when ultra unset")
+		}
+		if runner.artist.ultraRealistic {
+			t.Fatal("ultraRealistic should be false for non-realistic mode")
+		}
+	})
+
+	t.Run("weight_one", func(t *testing.T) {
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			RealisticWeight: 1,
+			Styles:          styles,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if runner.artist == nil {
+			t.Fatal("artist is nil")
+		}
+		if got, want := runner.artist.styleMode, styleModeRealistic; got != want {
+			t.Fatalf("styleMode = %q, want %q", got, want)
+		}
+		if !runner.artist.ultraRealistic {
+			t.Fatal("ultraRealistic should be true for realistic mode")
+		}
+	})
+
+	t.Run("ultra_overrides_weight", func(t *testing.T) {
+		ultra := false
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			UltraRealistic:  &ultra,
+			RealisticWeight: 1,
+			Styles:          styles,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if got, want := runner.artist.styleMode, styleModeComic; got != want {
+			t.Fatalf("styleMode = %q, want %q when ultra=false overrides weight 1", got, want)
+		}
+	})
+}
+
 func TestRunnerPropagatesRenderFailures(t *testing.T) {
 	originalSleep := sleep
 	sleep = func(time.Duration) {}

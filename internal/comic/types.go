@@ -138,16 +138,23 @@ func resolveGenre(theme string, genres []string) string {
 	return pickStoryGenre(genres)
 }
 
-func pickStyleMode(forcedUltra *bool, styles map[string][]string) string {
+func pickStyleMode(forcedUltra *bool, styles map[string][]string, weight float64) string {
 	if forcedUltra != nil {
 		if *forcedUltra {
 			return styleModeRealistic
 		}
 		return styleModeComic
 	}
-	modes := styleModeKeys(styles)
+	weight = clampRealisticWeight(weight)
+	if rand.Float64() < weight {
+		return styleModeRealistic
+	}
+	modes := nonRealisticStyleModes(styles)
 	if len(modes) == 0 {
-		modes = styleModeKeys(DefaultStyleLines())
+		modes = nonRealisticStyleModes(DefaultStyleLines())
+	}
+	if len(modes) == 0 {
+		return styleModeComic
 	}
 	return modes[rand.IntN(len(modes))]
 }
@@ -162,6 +169,19 @@ func styleModeKeys(styles map[string][]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// nonRealisticStyleModes returns sorted style category keys excluding photorealistic.
+func nonRealisticStyleModes(styles map[string][]string) []string {
+	modes := styleModeKeys(styles)
+	out := make([]string, 0, len(modes))
+	for _, mode := range modes {
+		if mode == styleModeRealistic {
+			continue
+		}
+		out = append(out, mode)
+	}
+	return out
 }
 
 func styleLines(styles map[string][]string, mode string) []string {
