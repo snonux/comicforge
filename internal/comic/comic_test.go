@@ -238,33 +238,6 @@ func TestComicAssetAndPDFDirs(t *testing.T) {
 	}
 }
 
-func TestCopyGalleryPNGsToComicsGallery(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	comicsRoot := filepath.Join(root, "comics")
-	comicDir := filepath.Join(comicsRoot, "my-slug")
-	if err := os.MkdirAll(comicDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(comicDir, "my-slug_gallery_1.png"), []byte("png1"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := copyGalleryPNGsToComicsGallery(comicsRoot, comicDir); err != nil {
-		t.Fatal(err)
-	}
-	b, err := os.ReadFile(filepath.Join(comicsRoot, "gallery", "my-slug_gallery_1.png"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != "png1" {
-		t.Fatalf("copied file = %q", b)
-	}
-	if _, err := os.Stat(filepath.Join(root, "comics", "comics", "gallery", "my-slug_gallery_1.png")); !os.IsNotExist(err) {
-		t.Fatalf("nested gallery path exists or stat failed unexpectedly: %v", err)
-	}
-}
-
 func TestGeneratorGenerateFull(t *testing.T) {
 	t.Parallel()
 
