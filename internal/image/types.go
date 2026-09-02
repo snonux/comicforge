@@ -45,8 +45,8 @@ func DefaultSearchOptions(query string) *SearchOptions {
 	}
 }
 
-// ImageProvider generates, downloads, and describes images.
-type ImageProvider interface {
+// Provider generates, downloads, and describes images.
+type Provider interface {
 	Name() string
 	Search(ctx context.Context, opts *SearchOptions) ([]SearchResult, error)
 	Download(ctx context.Context, url string) (io.ReadCloser, error)

@@ -103,7 +103,7 @@ func TestRegistryNewFromConfig(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry[fakeConfig]()
-	registry.Register(Gemini, func(cfg fakeConfig) (ImageProvider, error) {
+	registry.Register(Gemini, func(cfg fakeConfig) (Provider, error) {
 		return fakeProvider{
 			name:  cfg.name,
 			token: cfg.token,
@@ -139,7 +139,7 @@ func TestRegistrySupportsCustomConfigWithoutGeminiFields(t *testing.T) {
 	t.Parallel()
 
 	registry := NewRegistry[customConfig]()
-	registry.Register(Gemini, func(cfg customConfig) (ImageProvider, error) {
+	registry.Register(Gemini, func(cfg customConfig) (Provider, error) {
 		return fakeProvider{name: cfg.name}, nil
 	})
 

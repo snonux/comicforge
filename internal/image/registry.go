@@ -7,7 +7,7 @@ import (
 )
 
 // Factory builds a provider instance.
-type Factory[C any] func(C) (ImageProvider, error)
+type Factory[C any] func(C) (Provider, error)
 
 // Config exposes the configured image provider name.
 type Config interface {
@@ -72,8 +72,8 @@ func (r *Registry[C]) Has(name string) bool {
 }
 
 // New constructs a provider for name.
-func (r *Registry[C]) New(name string, cfg C) (ImageProvider, error) {
-	var zero ImageProvider
+func (r *Registry[C]) New(name string, cfg C) (Provider, error) {
+	var zero Provider
 	factory, ok := r.Resolve(name)
 	if !ok {
 		return zero, fmt.Errorf("%w: %s", ErrUnknownProvider, name)
@@ -82,7 +82,7 @@ func (r *Registry[C]) New(name string, cfg C) (ImageProvider, error) {
 }
 
 // NewFromConfig resolves the provider name from cfg and constructs it.
-func (r *Registry[C]) NewFromConfig(cfg C) (ImageProvider, error) {
+func (r *Registry[C]) NewFromConfig(cfg C) (Provider, error) {
 	if r == nil {
 		return nil, fmt.Errorf("image registry is required")
 	}
@@ -95,7 +95,7 @@ func (r *Registry[C]) NewFromConfig(cfg C) (ImageProvider, error) {
 // DefaultRegistry returns the built-in image provider registry.
 func DefaultRegistry() *Registry[GeminiRegistryConfig] {
 	registry := NewRegistry[GeminiRegistryConfig]()
-	registry.Register(Gemini, func(cfg GeminiRegistryConfig) (ImageProvider, error) {
+	registry.Register(Gemini, func(cfg GeminiRegistryConfig) (Provider, error) {
 		geminiProvider := NewGeminiProvider(&GeminiConfig{
 			APIKey:      cfg.GoogleAPIKey(),
 			Model:       cfg.ImageModel(),
@@ -107,7 +107,7 @@ func DefaultRegistry() *Registry[GeminiRegistryConfig] {
 		}
 		return geminiProvider, nil
 	})
-	registry.Register(OpenAI, func(GeminiRegistryConfig) (ImageProvider, error) {
+	registry.Register(OpenAI, func(GeminiRegistryConfig) (Provider, error) {
 		return nil, fmt.Errorf("image provider %q is not implemented", OpenAI)
 	})
 	return registry

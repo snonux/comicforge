@@ -34,7 +34,7 @@ type GeminiConfig struct {
 	AspectRatio string
 }
 
-// GeminiProvider implements ImageProvider for Google Gemini image generation.
+// GeminiProvider implements Provider for Google Gemini image generation.
 type GeminiProvider struct {
 	client     *genai.Client
 	initErr    error
@@ -45,7 +45,7 @@ type GeminiProvider struct {
 	PromptCallback func(prompt string)
 }
 
-var _ ImageProvider = (*GeminiProvider)(nil)
+var _ Provider = (*GeminiProvider)(nil)
 
 var imageHTTPClient = httpctx.ImageDownloadHTTPClient()
 var newGeminiClient = httpctx.NewGenAIClient
