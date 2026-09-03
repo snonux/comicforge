@@ -25,6 +25,16 @@ type Job struct {
 	Prompt string // full image generation prompt
 }
 
+// MontageOptions tunes the output sheet.
+type MontageOptions struct {
+	CellW   int
+	CellH   int
+	HeaderH int
+	TileX   int
+	Gutter  int
+	BG      string
+}
+
 // BuildJobs expands config style pools and story genres into generation jobs.
 func BuildJobs(cfg *config.Config, scene string) []Job {
 	if cfg == nil {
@@ -36,32 +46,17 @@ func BuildJobs(cfg *config.Config, scene string) []Job {
 	}
 	base := "Single full-frame illustration only. No text, lettering, captions, logos, or watermarks inside the artwork. No borders inside the image. 16:9 composition.\n\nScene (keep this layout consistent for comparison):\n" + scene + "\n\n"
 
-	families := []struct {
-		title string
-		lines []string
-	}{
-		{"Comic", cfg.Styles.Comic},
-		{"Realistic", cfg.Styles.Realistic},
-		{"Cartoon", cfg.Styles.Cartoon},
-		{"Action 90s", cfg.Styles.Action90s},
-		{"Manga", cfg.Styles.Manga},
-		{"Horror", cfg.Styles.Horror},
-		{"Watercolor", cfg.Styles.Watercolor},
-		{"Pulp", cfg.Styles.Pulp},
-		{"Mecha", cfg.Styles.Mecha},
-		{"Pixel Art", cfg.Styles.PixelArt},
-		{"Ink Wash", cfg.Styles.InkWash},
-		{"Clay", cfg.Styles.Clay},
-	}
-
+	families := cfg.Styles.Keys()
 	var jobs []Job
-	for _, fam := range families {
-		for i, line := range fam.lines {
+	for _, key := range families {
+		lines := cfg.Styles[key]
+		title := config.StyleCategoryTitle(key)
+		for i, line := range lines {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
-			header := fmt.Sprintf("Style · %s (%d/%d)", fam.title, i+1, len(fam.lines))
+			header := fmt.Sprintf("Style · %s (%d/%d)", title, i+1, len(lines))
 			prompt := base + "Rendering — apply this visual style precisely:\n" + line
 			jobs = append(jobs, Job{Kind: "style", Header: header, Prompt: prompt})
 		}
@@ -79,22 +74,12 @@ func BuildJobs(cfg *config.Config, scene string) []Job {
 	return jobs
 }
 
-func truncateRunes(s string, max int) string {
+func truncateRunes(s string, limit int) string {
 	r := []rune(s)
-	if len(r) <= max {
+	if len(r) <= limit {
 		return s
 	}
-	return string(r[:max-1]) + "…"
-}
-
-// MontageOptions tunes the output sheet.
-type MontageOptions struct {
-	CellW   int
-	CellH   int
-	HeaderH int
-	TileX   int
-	Gutter  int
-	BG      string
+	return string(r[:limit-1]) + "…"
 }
 
 func defaultMontageOptions(nCells int) MontageOptions {
@@ -115,20 +100,8 @@ func defaultMontageOptions(nCells int) MontageOptions {
 
 // GenerateMontage renders each job with img, labels tiles, and runs ImageMagick montage.
 func GenerateMontage(ctx context.Context, img provider.ImageProvider, aspectRatio string, jobs []Job, outPath string, opts MontageOptions) error {
-	if len(jobs) == 0 {
-		return fmt.Errorf("no style/theme jobs (empty config lists?)")
-	}
-	if _, err := exec.LookPath("convert"); err != nil {
-		return fmt.Errorf("ImageMagick convert not found: %w", err)
-	}
-	if _, err := exec.LookPath("montage"); err != nil {
-		return fmt.Errorf("ImageMagick montage not found: %w", err)
-	}
-	arImg, ok := img.(provider.AspectRatioImageProvider)
-	if !ok {
-		return fmt.Errorf("image provider %q does not support aspect ratio", img.Name())
-	}
-	if err := img.IsAvailable(); err != nil {
+	arImg, err := validateMontageInputs(img, jobs)
+	if err != nil {
 		return err
 	}
 
@@ -138,6 +111,33 @@ func GenerateMontage(ctx context.Context, img provider.ImageProvider, aspectRati
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
+	if err := renderMontageTiles(ctx, arImg, aspectRatio, jobs, tmpDir, opts); err != nil {
+		return err
+	}
+	return runMontageCommand(ctx, tmpDir, outPath, opts)
+}
+
+func validateMontageInputs(img provider.ImageProvider, jobs []Job) (provider.AspectRatioImageProvider, error) {
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("no style/theme jobs (empty config lists?)")
+	}
+	if _, err := exec.LookPath("convert"); err != nil {
+		return nil, fmt.Errorf("ImageMagick convert not found: %w", err)
+	}
+	if _, err := exec.LookPath("montage"); err != nil {
+		return nil, fmt.Errorf("ImageMagick montage not found: %w", err)
+	}
+	arImg, ok := img.(provider.AspectRatioImageProvider)
+	if !ok {
+		return nil, fmt.Errorf("image provider %q does not support aspect ratio", img.Name())
+	}
+	if err := img.IsAvailable(); err != nil {
+		return nil, err
+	}
+	return arImg, nil
+}
+
+func renderMontageTiles(ctx context.Context, arImg provider.AspectRatioImageProvider, aspectRatio string, jobs []Job, tmpDir string, opts MontageOptions) error {
 	for i := range jobs {
 		raw := filepath.Join(tmpDir, fmt.Sprintf("raw_%03d.png", i))
 		if err := arImg.GenerateImageWithAspectRatio(ctx, jobs[i].Prompt, raw, aspectRatio); err != nil {
@@ -156,17 +156,18 @@ func GenerateMontage(ctx context.Context, img provider.ImageProvider, aspectRati
 			return fmt.Errorf("header %d: %w", i, err)
 		}
 	}
+	return nil
+}
 
+func runMontageCommand(ctx context.Context, tmpDir, outPath string, opts MontageOptions) error {
 	labeledPaths, err := filepath.Glob(filepath.Join(tmpDir, "labeled_*.png"))
 	if err != nil {
 		return err
 	}
 	sort.Strings(labeledPaths)
 
-	args := []string{}
-	for _, p := range labeledPaths {
-		args = append(args, p)
-	}
+	args := make([]string, 0, len(labeledPaths)+6)
+	args = append(args, labeledPaths...)
 	args = append(args,
 		"-tile", fmt.Sprintf("%dx", opts.TileX),
 		"-geometry", fmt.Sprintf("+%d+%d", opts.Gutter, opts.Gutter),
@@ -221,7 +222,11 @@ func addCaptionHeader(imagePath, outPath, captionFile string, cellW, headerH int
 
 // Run loads config from path, builds jobs, and writes outPath.
 func Run(ctx context.Context, configPath, outPath, scene, aspectRatio string) error {
-	cfg, err := config.Load(configPath)
+	cfg, err := config.Load(configPath, config.WithProviderNameChecks(
+		nil,
+		image.DefaultRegistry().Has,
+		nil,
+	))
 	if err != nil {
 		return err
 	}

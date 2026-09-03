@@ -21,9 +21,17 @@ func Build() error {
 	return sh.RunV("go", "build", "-o", binaryName, "./cmd/comicforge")
 }
 
-// Test runs the Go test suite.
+// Test runs the Go test suite with the race detector.
 func Test() error {
-	return sh.RunV("go", "test", "./...")
+	return sh.RunV("go", "test", "-race", "./...")
+}
+
+// Lint runs golangci-lint (install: https://golangci-lint.run/welcome/install/).
+func Lint() error {
+	if _, err := sh.Output("golangci-lint", "version"); err != nil {
+		return fmt.Errorf("golangci-lint not found in PATH; install from https://golangci-lint.run/welcome/install/: %w", err)
+	}
+	return sh.RunV("golangci-lint", "run")
 }
 
 // Install copies the built binary into GOPATH/bin.

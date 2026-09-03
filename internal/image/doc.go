@@ -1,2 +1,2 @@
-// Package image provides provider-neutral image generation and download helpers.
+// Package image provides Gemini-backed image generation for comicforge.
 package image

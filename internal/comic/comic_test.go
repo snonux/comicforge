@@ -10,7 +10,18 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/snonux/comicforge/internal/ffmpegutil"
 )
+
+func stubArtistSeams(a *Artist) {
+	a.sleep = func(time.Duration) {}
+	a.validateImage = func(context.Context, string, string, string) error { return nil }
+}
+
+func stubRunnerArtistSeams(r *Runner) {
+	stubArtistSeams(r.artist)
+}
 
 func TestSlugify(t *testing.T) {
 	t.Parallel()
@@ -236,33 +247,6 @@ func TestComicAssetAndPDFDirs(t *testing.T) {
 	}
 }
 
-func TestCopyGalleryPNGsToComicsGallery(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	comicsRoot := filepath.Join(root, "comics")
-	comicDir := filepath.Join(comicsRoot, "my-slug")
-	if err := os.MkdirAll(comicDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(comicDir, "my-slug_gallery_1.png"), []byte("png1"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := copyGalleryPNGsToComicsGallery(comicsRoot, comicDir); err != nil {
-		t.Fatal(err)
-	}
-	b, err := os.ReadFile(filepath.Join(comicsRoot, "gallery", "my-slug_gallery_1.png"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != "png1" {
-		t.Fatalf("copied file = %q", b)
-	}
-	if _, err := os.Stat(filepath.Join(root, "comics", "comics", "gallery", "my-slug_gallery_1.png")); !os.IsNotExist(err) {
-		t.Fatalf("nested gallery path exists or stat failed unexpectedly: %v", err)
-	}
-}
-
 func TestGeneratorGenerateFull(t *testing.T) {
 	t.Parallel()
 
@@ -380,18 +364,13 @@ func TestGeneratorGenerateFullUsesConfiguredDimensions(t *testing.T) {
 }
 
 func TestDrawComicPagesReturnsErrorWhenRenderFails(t *testing.T) {
-	originalSleep := sleep
-	sleep = func(time.Duration) {}
-	t.Cleanup(func() {
-		sleep = originalSleep
-	})
-
 	artist := NewArtist(&ArtistConfig{
 		ImageProvider:  failingImageProvider{},
 		Prompts:        fakePromptRenderer{},
 		OutputDir:      t.TempDir(),
 		UltraRealistic: false,
 	})
+	artist.sleep = func(time.Duration) {}
 
 	_, err := artist.DrawComicPages(context.Background(), "story", "bible", "slug", []WordEntry{{Word: "ябълка"}}, nil)
 	if err == nil {
@@ -400,18 +379,6 @@ func TestDrawComicPagesReturnsErrorWhenRenderFails(t *testing.T) {
 }
 
 func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
-	originalSleep := sleep
-	sleep = func(time.Duration) {}
-	t.Cleanup(func() {
-		sleep = originalSleep
-	})
-
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	})
-
 	tmpDir := t.TempDir()
 	img := fakeImageProvider{t: t}
 	genText := &scriptedTextProvider{responses: []string{
@@ -443,11 +410,12 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 		Slug:                  "forced-slug",
 		NarrateEnabled:        true,
 		GalleryPages:          1,
+		PDFAssembler: funcPDFAssembler{fn: func(_ context.Context, outputDir, titleSlug string, imagePaths []string, _ PDFAssembleOptions) (string, error) {
+			path := filepath.Join(outputDir, titleSlug+".pdf")
+			return path, os.WriteFile(path, []byte("pdf"), 0o644)
+		}},
 	})
-	runner.assemblePDF = func(outputDir, titleSlug string, imagePaths []string, _ PDFAssembleOptions) (string, error) {
-		path := filepath.Join(outputDir, titleSlug+".pdf")
-		return path, os.WriteFile(path, []byte("pdf"), 0o644)
-	}
+	stubRunnerArtistSeams(runner)
 	if err := runner.Run(context.Background(), filepath.Join(tmpDir, "vocab.txt")); err == nil {
 		t.Fatal("expected vocab read error for missing file")
 	}
@@ -472,12 +440,6 @@ func TestArtistAndRunnerEndToEndWithFakes(t *testing.T) {
 }
 
 func TestRunnerRunPromptWritesSingleAsset(t *testing.T) {
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	})
-
 	tmpDir := t.TempDir()
 	runner := NewRunner(&RunnerConfig{
 		ImageProvider:  fakeImageProvider{t: t},
@@ -488,6 +450,7 @@ func TestRunnerRunPromptWritesSingleAsset(t *testing.T) {
 		PageMaxRetries: 1,
 		PageRetryBase:  time.Second,
 	})
+	stubRunnerArtistSeams(runner)
 
 	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
 		t.Fatalf("RunPrompt() error = %v", err)
@@ -504,12 +467,6 @@ func TestRunnerRunPromptWritesSingleAsset(t *testing.T) {
 }
 
 func TestRunnerRunPromptUsesShortFallbackSlugWithoutTextProvider(t *testing.T) {
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	})
-
 	tmpDir := t.TempDir()
 	runner := NewRunner(&RunnerConfig{
 		ImageProvider:  fakeImageProvider{t: t},
@@ -519,6 +476,7 @@ func TestRunnerRunPromptUsesShortFallbackSlugWithoutTextProvider(t *testing.T) {
 		PageMaxRetries: 1,
 		PageRetryBase:  time.Second,
 	})
+	stubRunnerArtistSeams(runner)
 
 	longPrompt := "generate a logo for ComicForge which is a comic book generator displaying a superhero fighting a bad guy and speech bubbles"
 	if err := runner.RunPrompt(context.Background(), longPrompt); err != nil {
@@ -542,23 +500,9 @@ func TestRunnerRunPromptUsesShortFallbackSlugWithoutTextProvider(t *testing.T) {
 }
 
 func TestRunnerRunPromptValidatesImageOutput(t *testing.T) {
-	originalLeakValidation := validateImagePromptLeakageFn
-	defer func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	}()
-
 	var calls int
 	var gotLabel string
 	var gotScript string
-	validateImagePromptLeakageFn = func(_ context.Context, outputFile, label, script string) error {
-		calls++
-		if outputFile == "" {
-			t.Fatal("validator received empty output file")
-		}
-		gotLabel = label
-		gotScript = script
-		return nil
-	}
 
 	tmpDir := t.TempDir()
 	runner := NewRunner(&RunnerConfig{
@@ -570,6 +514,16 @@ func TestRunnerRunPromptValidatesImageOutput(t *testing.T) {
 		PageMaxRetries: 1,
 		PageRetryBase:  time.Second,
 	})
+	runner.artist.sleep = func(time.Duration) {}
+	runner.artist.validateImage = func(_ context.Context, outputFile, label, script string) error {
+		calls++
+		if outputFile == "" {
+			t.Fatal("validator received empty output file")
+		}
+		gotLabel = label
+		gotScript = script
+		return nil
+	}
 
 	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
 		t.Fatalf("RunPrompt() error = %v", err)
@@ -624,12 +578,6 @@ func TestRunnerRunPromptReturnsErrorWhenPromptRendererMissing(t *testing.T) {
 func TestRunnerRunPromptAppliesStyleThemeAndUltraContext(t *testing.T) {
 	t.Parallel()
 
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	})
-
 	provider := &capturingImageProvider{t: t}
 	renderer := &recordingPromptRenderer{}
 	runner := NewRunner(&RunnerConfig{
@@ -639,10 +587,13 @@ func TestRunnerRunPromptAppliesStyleThemeAndUltraContext(t *testing.T) {
 		Slug:           "manual-robot",
 		Style:          "noir",
 		Theme:          "mystery",
+		Language:       "English",
+		Script:         "Latin",
 		UltraRealistic: boolPtr(true),
 		PageMaxRetries: 1,
 		PageRetryBase:  time.Second,
 	})
+	stubRunnerArtistSeams(runner)
 
 	if err := runner.RunPrompt(context.Background(), "a robot reading a newspaper"); err != nil {
 		t.Fatalf("RunPrompt() error = %v", err)
@@ -673,20 +624,22 @@ func TestNewRunnerUsesUltraFlagsForStyleMode(t *testing.T) {
 	t.Run("comic", func(t *testing.T) {
 		ultra := false
 		runner := NewRunner(&RunnerConfig{
-			TextProvider:    fakeTextProvider{text: "story"},
-			ImageProvider:   fakeImageProvider{t: t},
-			Prompts:         fakePromptRenderer{},
-			UltraRealistic:  &ultra,
-			StoryPages:      1,
-			GalleryPages:    0,
-			PanelsPerPage:   1,
-			ComicStyles:     []string{"comic-ink"},
-			RealisticStyles: []string{"photo-real"},
-			AspectRatio:     "1:1",
-			PromptMaxChars:  12,
-			PageMaxRetries:  1,
-			PageRetryBase:   time.Second,
-			ChunkWords:      2,
+			TextProvider:   fakeTextProvider{text: "story"},
+			ImageProvider:  fakeImageProvider{t: t},
+			Prompts:        fakePromptRenderer{},
+			UltraRealistic: &ultra,
+			StoryPages:     1,
+			GalleryPages:   0,
+			PanelsPerPage:  1,
+			Styles: map[string][]string{
+				styleModeComic:     {"comic-ink"},
+				styleModeRealistic: {"photo-real"},
+			},
+			AspectRatio:    "1:1",
+			PromptMaxChars: 12,
+			PageMaxRetries: 1,
+			PageRetryBase:  time.Second,
+			ChunkWords:     2,
 		})
 		if runner.artist == nil {
 			t.Fatal("artist is nil")
@@ -702,20 +655,22 @@ func TestNewRunnerUsesUltraFlagsForStyleMode(t *testing.T) {
 	t.Run("realistic", func(t *testing.T) {
 		ultra := true
 		runner := NewRunner(&RunnerConfig{
-			TextProvider:    fakeTextProvider{text: "story"},
-			ImageProvider:   fakeImageProvider{t: t},
-			Prompts:         fakePromptRenderer{},
-			UltraRealistic:  &ultra,
-			StoryPages:      1,
-			GalleryPages:    0,
-			PanelsPerPage:   1,
-			ComicStyles:     []string{"comic-ink"},
-			RealisticStyles: []string{"photo-real"},
-			AspectRatio:     "1:1",
-			PromptMaxChars:  12,
-			PageMaxRetries:  1,
-			PageRetryBase:   time.Second,
-			ChunkWords:      2,
+			TextProvider:   fakeTextProvider{text: "story"},
+			ImageProvider:  fakeImageProvider{t: t},
+			Prompts:        fakePromptRenderer{},
+			UltraRealistic: &ultra,
+			StoryPages:     1,
+			GalleryPages:   0,
+			PanelsPerPage:  1,
+			Styles: map[string][]string{
+				styleModeComic:     {"comic-ink"},
+				styleModeRealistic: {"photo-real"},
+			},
+			AspectRatio:    "1:1",
+			PromptMaxChars: 12,
+			PageMaxRetries: 1,
+			PageRetryBase:  time.Second,
+			ChunkWords:     2,
 		})
 		if runner.artist == nil {
 			t.Fatal("artist is nil")
@@ -729,16 +684,94 @@ func TestNewRunnerUsesUltraFlagsForStyleMode(t *testing.T) {
 	})
 }
 
-func TestRunnerPropagatesRenderFailures(t *testing.T) {
-	originalSleep := sleep
-	sleep = func(time.Duration) {}
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		sleep = originalSleep
-		validateImagePromptLeakageFn = originalLeakValidation
+func TestNewRunnerUsesRealisticWeightWhenUltraUnset(t *testing.T) {
+	t.Parallel()
+
+	styles := map[string][]string{
+		styleModeComic:     {"comic-ink"},
+		styleModeRealistic: {"photo-real"},
+		styleModeManga:     {"manga-ink"},
+	}
+
+	t.Run("weight_zero", func(t *testing.T) {
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			RealisticWeight: 0,
+			Styles:          styles,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if runner.artist == nil {
+			t.Fatal("artist is nil")
+		}
+		if runner.artist.styleMode == styleModeRealistic {
+			t.Fatal("weight 0 should not select realistic when ultra unset")
+		}
+		if runner.artist.ultraRealistic {
+			t.Fatal("ultraRealistic should be false for non-realistic mode")
+		}
 	})
 
+	t.Run("weight_one", func(t *testing.T) {
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			RealisticWeight: 1,
+			Styles:          styles,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if runner.artist == nil {
+			t.Fatal("artist is nil")
+		}
+		if got, want := runner.artist.styleMode, styleModeRealistic; got != want {
+			t.Fatalf("styleMode = %q, want %q", got, want)
+		}
+		if !runner.artist.ultraRealistic {
+			t.Fatal("ultraRealistic should be true for realistic mode")
+		}
+	})
+
+	t.Run("ultra_overrides_weight", func(t *testing.T) {
+		ultra := false
+		runner := NewRunner(&RunnerConfig{
+			TextProvider:    fakeTextProvider{text: "story"},
+			ImageProvider:   fakeImageProvider{t: t},
+			Prompts:         fakePromptRenderer{},
+			UltraRealistic:  &ultra,
+			RealisticWeight: 1,
+			Styles:          styles,
+			StoryPages:      1,
+			GalleryPages:    0,
+			PanelsPerPage:   1,
+			AspectRatio:     "1:1",
+			PromptMaxChars:  12,
+			PageMaxRetries:  1,
+			PageRetryBase:   time.Second,
+			ChunkWords:      2,
+		})
+		if got, want := runner.artist.styleMode, styleModeComic; got != want {
+			t.Fatalf("styleMode = %q, want %q when ultra=false overrides weight 1", got, want)
+		}
+	})
+}
+
+func TestRunnerPropagatesRenderFailures(t *testing.T) {
 	runner := NewRunner(&RunnerConfig{
 		TextProvider: &scriptedTextProvider{responses: []string{
 			strings.Join([]string{"история", storyBibleSeparator, "библия", storyTitleSeparator, "Заглавие", storyPanelSeparator, "P1-A: а", "P1-B: б", "P1-C: в", "P1-D: г", "P2-A: д", "P2-B: е", "P2-C: ж", "P2-D: з", "P3-A: и", "P3-B: й", "P3-C: к", "P3-D: л", "P4-A: м", "P4-B: н", "P4-C: о", "P4-D: п", "P5-A: р", "P5-B: с", "P5-C: т", "P5-D: у"}, "\n"),
@@ -751,11 +784,13 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 		OutputDir:             t.TempDir(),
 		Slug:                  "forced-slug",
 		NarrateEnabled:        false,
+		PDFAssembler: funcPDFAssembler{fn: func(context.Context, string, string, []string, PDFAssembleOptions) (string, error) {
+			t.Fatal("PDFAssembler.Assemble should not be called on render failure")
+			return "", nil
+		}},
 	})
-	runner.assemblePDF = func(string, string, []string, PDFAssembleOptions) (string, error) {
-		t.Fatal("assemblePDF should not be called on render failure")
-		return "", nil
-	}
+	runner.artist.sleep = func(time.Duration) {}
+	runner.artist.validateImage = func(context.Context, string, string, string) error { return nil }
 
 	vocabFile := filepath.Join(t.TempDir(), "vocab.txt")
 	if err := os.WriteFile(vocabFile, []byte("ябълка = apple\n"), 0o644); err != nil {
@@ -768,12 +803,6 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 }
 
 func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	})
-
 	renderer := &recordingPromptRenderer{}
 	artist := NewArtist(&ArtistConfig{
 		ImageProvider:  fakeImageProvider{t: t},
@@ -782,6 +811,7 @@ func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
 		UltraRealistic: false,
 		PanelsPerPage:  2,
 	})
+	stubArtistSeams(artist)
 
 	if _, err := artist.DrawComicPages(context.Background(), "история", "библия", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
 		t.Fatalf("DrawComicPages() error = %v", err)
@@ -834,12 +864,6 @@ func TestDrawComicPagesUsesOneStyleAcrossTheWholePDF(t *testing.T) {
 }
 
 func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	})
-
 	tests := []struct {
 		name      string
 		styleMode string
@@ -863,26 +887,29 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := &recordingPromptRenderer{}
 			artist := NewArtist(&ArtistConfig{
-				ImageProvider:    fakeImageProvider{t: t},
-				Prompts:          renderer,
-				OutputDir:        t.TempDir(),
-				StyleMode:        tt.styleMode,
-				ComicStyles:      []string{"comic-ink"},
-				RealisticStyles:  []string{"photo-real"},
-				CartoonStyles:    []string{"cartoon-ink"},
-				Action90sStyles:  []string{"action-ink"},
-				MangaStyles:      []string{"manga-ink"},
-				HorrorStyles:     []string{"horror-ink"},
-				WatercolorStyles: []string{"watercolor-ink"},
-				PulpStyles:       []string{"pulp-ink"},
-				MechaStyles:      []string{"mecha-ink"},
-				PixelArtStyles:   []string{"pixel-ink"},
-				InkWashStyles:    []string{"inkwash-ink"},
-				ClayStyles:       []string{"clay-ink"},
-				Language:         "English",
-				Script:           "Latin",
-				PanelsPerPage:    2,
+				ImageProvider: fakeImageProvider{t: t},
+				Prompts:       renderer,
+				OutputDir:     t.TempDir(),
+				StyleMode:     tt.styleMode,
+				Styles: map[string][]string{
+					styleModeComic:      {"comic-ink"},
+					styleModeRealistic:  {"photo-real"},
+					styleModeCartoon:    {"cartoon-ink"},
+					styleModeAction90s:  {"action-ink"},
+					styleModeManga:      {"manga-ink"},
+					styleModeHorror:     {"horror-ink"},
+					styleModeWatercolor: {"watercolor-ink"},
+					styleModePulp:       {"pulp-ink"},
+					styleModeMecha:      {"mecha-ink"},
+					styleModePixelArt:   {"pixel-ink"},
+					styleModeInkWash:    {"inkwash-ink"},
+					styleModeClay:       {"clay-ink"},
+				},
+				Language:      "English",
+				Script:        "Latin",
+				PanelsPerPage: 2,
 			})
+			stubArtistSeams(artist)
 
 			if _, err := artist.DrawComicPages(context.Background(), "story", "bible", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
 				t.Fatalf("DrawComicPages() error = %v", err)
@@ -904,12 +931,6 @@ func TestDrawComicPagesUsesConfiguredStylePools(t *testing.T) {
 }
 
 func TestDrawComicPagesChainsReferenceImages(t *testing.T) {
-	originalLeakValidation := validateImagePromptLeakageFn
-	validateImagePromptLeakageFn = func(context.Context, string, string, string) error { return nil }
-	t.Cleanup(func() {
-		validateImagePromptLeakageFn = originalLeakValidation
-	})
-
 	provider := &refTrackingImageProvider{t: t}
 	artist := NewArtist(&ArtistConfig{
 		ImageProvider:  provider,
@@ -917,6 +938,7 @@ func TestDrawComicPagesChainsReferenceImages(t *testing.T) {
 		OutputDir:      t.TempDir(),
 		UltraRealistic: false,
 	})
+	stubArtistSeams(artist)
 
 	if _, err := artist.DrawComicPages(context.Background(), "история", "библия", "slug", []WordEntry{{Word: "ябълка"}}, nil); err != nil {
 		t.Fatalf("DrawComicPages() error = %v", err)
@@ -936,15 +958,7 @@ func TestDrawComicPagesChainsReferenceImages(t *testing.T) {
 }
 
 func TestGenerateWithRetryUsesConfiguredRetriesAndBackoff(t *testing.T) {
-	originalSleep := sleep
 	var pauses []time.Duration
-	sleep = func(d time.Duration) {
-		pauses = append(pauses, d)
-	}
-	t.Cleanup(func() {
-		sleep = originalSleep
-	})
-
 	artist := NewArtist(&ArtistConfig{
 		ImageProvider:  failingImageProvider{},
 		Prompts:        fakePromptRenderer{},
@@ -953,6 +967,10 @@ func TestGenerateWithRetryUsesConfiguredRetriesAndBackoff(t *testing.T) {
 		PageMaxRetries: 3,
 		PageRetryBase:  2 * time.Second,
 	})
+	artist.sleep = func(d time.Duration) {
+		pauses = append(pauses, d)
+	}
+	artist.validateImage = func(context.Context, string, string, string) error { return nil }
 
 	err := artist.generateWithRetry(context.Background(), "prompt", filepath.Join(t.TempDir(), "out.png"), "cover page", nil)
 	if err == nil {
@@ -967,13 +985,10 @@ func TestGenerateWithRetryUsesConfiguredRetriesAndBackoff(t *testing.T) {
 }
 
 func TestConvertToStereoFallsBackToCopyWhenFFmpegMissing(t *testing.T) {
-	originalLookPath := lookPath
-	lookPath = func(string) (string, error) {
+	restore := ffmpegutil.OverrideLookPath(func(string) (string, error) {
 		return "", errors.New("missing ffmpeg")
-	}
-	t.Cleanup(func() {
-		lookPath = originalLookPath
 	})
+	t.Cleanup(restore)
 
 	tmpDir := t.TempDir()
 	inputFile := filepath.Join(tmpDir, "input.mp3")
@@ -985,26 +1000,23 @@ func TestConvertToStereoFallsBackToCopyWhenFFmpegMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := convertToStereo(inputFile, outputFile); err != nil {
-		t.Fatalf("convertToStereo() error = %v", err)
+	if err := NewFFmpegAudioMixer().ConvertToStereo(context.Background(), inputFile, outputFile); err != nil {
+		t.Fatalf("ConvertToStereo() error = %v", err)
 	}
 	got, err := os.ReadFile(outputFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != "audio-bytes" {
-		t.Fatalf("convertToStereo() copied %q, want %q", got, "audio-bytes")
+		t.Fatalf("ConvertToStereo() copied %q, want %q", got, "audio-bytes")
 	}
 }
 
 func TestNarrateConclusionDoesNotAcceptPartialConcatFallback(t *testing.T) {
-	originalLookPath := lookPath
-	lookPath = func(string) (string, error) {
+	restore := ffmpegutil.OverrideLookPath(func(string) (string, error) {
 		return "", errors.New("missing ffmpeg")
-	}
-	t.Cleanup(func() {
-		lookPath = originalLookPath
 	})
+	t.Cleanup(restore)
 
 	provider := &recordingTTSProvider{}
 	n := NewNarrator(&NarratorConfig{
@@ -1131,7 +1143,7 @@ func renderManualPromptForTest(data any) string {
 	}
 	var sb strings.Builder
 	sb.WriteString("Create a single image based on this prompt:\n\n")
-	sb.WriteString(fmt.Sprint(m["Prompt"]))
+	fmt.Fprint(&sb, m["Prompt"])
 	sb.WriteString("\n\n")
 	if style, _ := m["Style"].(string); strings.TrimSpace(style) != "" {
 		fmt.Fprintf(&sb, "Visual style: %s.\n", style)
@@ -1186,6 +1198,14 @@ func (f fakeImageProvider) GenerateImage(_ context.Context, _ string, outputFile
 		f.t.Fatal(err)
 	}
 	return nil
+}
+
+type funcPDFAssembler struct {
+	fn func(ctx context.Context, outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
+}
+
+func (f funcPDFAssembler) Assemble(ctx context.Context, outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error) {
+	return f.fn(ctx, outputDir, titleSlug, imagePaths, opts)
 }
 
 type capturingImageProvider struct {

@@ -45,11 +45,16 @@ graph TB
         TTS["internal/tts<br/>TTS providers"]
         VOC["internal/vocab<br/>Vocabulary parsing"]
         HTP["internal/httpctx<br/>HTTP/GenAI clients"]
+        FF["internal/ffmpegutil<br/>ffmpeg lookup/flags"]
+        SG["internal/stylegrid<br/>Style montage helper"]
+        CIR["internal/apicircuit<br/>Circuit breakers"]
     end
 
     subgraph External["External Services"]
         GEMINI["Google Gemini API<br/>(Text, Image, TTS)"]
         FS["Local Filesystem<br/>(Output, PDFs, Audio)"]
+        IM["ImageMagick convert/montage"]
+        FFMPEG["ffmpeg"]
     end
 
     CMD --> CLI_GO
@@ -63,11 +68,20 @@ graph TB
     COM --> IMG
     COM --> TTS
     COM --> VOC
+    COM --> FF
     TXT --> HTP
     IMG --> HTP
     TTS --> HTP
+    TTS --> FF
     HTP --> GEMINI
     COM --> FS
+    COM --> IM
+    COM --> FFMPEG
+    SG --> IMG
+    SG --> IM
+    TXT --> CIR
+    IMG --> CIR
+    TTS --> CIR
 ```
 
 ---
@@ -101,6 +115,9 @@ graph LR
         GEN[generator.go]
         ART[artist.go]
         NAR[narrator.go]
+        STORE[asset_store.go]
+        PDFA[pdf_assembler.go]
+        STY[styles.go]
         TYP[types.go]
     end
 
@@ -108,6 +125,8 @@ graph LR
         VOC[vocab/reader.go]
         HTP[httpctx/httpctx.go]
         CIR[apicircuit/apicircuit.go]
+        FF[ffmpegutil]
+        SG[stylegrid]
     end
 
     M --> C
@@ -119,18 +138,26 @@ graph LR
     RUN --> GEN
     RUN --> ART
     RUN --> NAR
+    RUN --> STORE
+    RUN --> PDFA
     RUN --> VOC
+    ART --> STY
     GEN --> TG
     ART --> IG
     ART --> TG
     NAR --> TTG
     NAR --> TG
+    NAR --> FF
+    PDFA --> FF
     TR --> P
     IR --> P
     TTR --> P
     TG --> HTP
     IG --> HTP
     TTG --> HTP
+    TG --> CIR
+    IG --> CIR
+    TTG --> CIR
 ```
 
 ---
@@ -301,12 +328,14 @@ graph LR
 
 ## Configuration System
 
-Configuration is loaded via **Viper** with a three-layer priority:
+Configuration is loaded via **Viper** with layered priority:
 
-1. **Defaults** (code-defined)
-2. **Config file** (`config.yaml`)
+1. **Defaults** (code-defined, including style catalogs from `comic.DefaultStyleLines()`)
+2. **Config file** (`config.yaml` and search paths)
 3. **Environment variables** (`COMICFORGE_*`)
 4. **CLI flags** (highest priority)
+
+Provider **name** validation does not import `image`/`text`/`tts` into `config`. The CLI (and stylegrid) inject lightweight `NameCheck` callbacks via `config.WithProviderNameChecks` so `config` stays a leaf package.
 
 ```mermaid
 graph TD
@@ -314,6 +343,7 @@ graph TD
     C[config.yaml] --> D[Viper ReadInConfig]
     E[COMICFORGE_API_GOOGLE_API_KEY] --> F[Viper AutomaticEnv]
     G[CLI Flags<br/>--text-model, --style] --> H[Apply Overrides]
+    N[WithProviderNameChecks<br/>registry.Has from CLI] --> J
 
     B --> I[Loaded Config]
     D --> I
@@ -427,7 +457,7 @@ graph LR
 
 ### Circuit Breaker
 
-The `internal/apicircuit` package provides circuit breaker protection for API calls to prevent cascading failures when AI providers are unavailable.
+The `internal/apicircuit` package provides circuit breaker protection for Gemini **image, text, and TTS** `GenerateContent` calls so repeated provider failures fail fast instead of piling up unbounded work.
 
 ### Defensive Defaults
 
@@ -474,20 +504,22 @@ comics/
 
 | Component | Technology |
 |-----------|------------|
-| Language | Go 1.23+ |
+| Language | Go 1.25+ (see `go.mod`) |
 | CLI Framework | Cobra |
 | Configuration | Viper |
 | AI Provider SDK | `google.golang.org/genai` |
-| PDF Generation | Custom assembly via `internal/comic/pdf.go` |
-| Audio Processing | `ffmpeg` (external dependency) |
-| Testing | Go standard testing + test tables |
+| PDF Generation | ImageMagick `convert` via injectable `PDFAssembler` (`pdf_assembler.go` / presentation helpers in `pdf.go`) |
+| Audio Processing | `ffmpeg` via injectable `AudioMixer` and `internal/ffmpegutil` |
+| Asset I/O | Injectable `AssetStore` (`FSAssetStore` default) |
+| Lint | golangci-lint (`.golangci.yml`, `mage lint`) |
+| Testing | Go standard testing + race detector (`mage test`) |
 | Module Path | `github.com/snonux/comicforge` |
 
 ---
 
 ## Future Extension Points
 
-- **New AI Providers**: Implement `TextProvider`/`ImageProvider`/`TTSProvider` and register in the respective registries
-- **New Style Modes**: Add to `StyleConfig` and update `pickStyle()` in `types.go`
-- **Custom Output Formats**: The `assemblePDF` field in `Runner` is injectable for alternative exporters; the default implementation takes `PDFAssembleOptions` (density, JPEG quality, print-style matting)
-- **Additional Languages**: Extend `localization.go` with new script/language mappings
+- **New AI Providers**: Implement `TextProvider`/`ImageProvider`/`TTSProvider` and register in the respective registries (OpenAI names are registered but return “not implemented”)
+- **New Style Modes**: Add a key under `styles` in config (map of category → prompt lines) and optional localized pairs in `internal/comic/styles.go`; `pickStyle()` / stylegrid pick new categories up automatically
+- **Custom Output Formats**: The `PDFAssembler` field on `Runner` / `RunnerConfig` is injectable for alternative exporters; the default `ImageMagickPDFAssembler` takes `PDFAssembleOptions` (density, JPEG quality, print/book presentation). Narration post-processing uses an injectable `AudioMixer` (default `FFmpegAudioMixer`), with shared ffmpeg flags/lookup in `internal/ffmpegutil`. File writes go through injectable `AssetStore`.
+- **Additional Languages**: Extend the co-located `English`/`Localized` style catalog and related localization helpers rather than a separate string-matched switch

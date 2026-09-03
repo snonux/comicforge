@@ -69,9 +69,10 @@ func TestFindEnglishLeakWord(t *testing.T) {
 func TestComicStylesStayComic(t *testing.T) {
 	t.Parallel()
 
-	for _, style := range comicStyles {
-		if strings.Contains(strings.ToLower(style), "ultra realistic") || strings.Contains(strings.ToLower(style), "photograph") {
-			t.Fatalf("comicStyles contains hybrid or photorealistic style: %q", style)
+	for _, style := range defaultStyles[styleModeComic] {
+		lower := strings.ToLower(style.English)
+		if strings.Contains(lower, "ultra realistic") || strings.Contains(lower, "photograph") {
+			t.Fatalf("comic styles contain hybrid or photorealistic style: %q", style.English)
 		}
 	}
 }
@@ -96,5 +97,91 @@ func TestLocalizedStylePrompt(t *testing.T) {
 	}
 	if got == "" {
 		t.Fatal("localizedStylePrompt() returned empty string")
+	}
+}
+
+func TestLocalizedStylePromptAllDefaults(t *testing.T) {
+	t.Parallel()
+
+	for mode, prompts := range defaultStyles {
+		for _, p := range prompts {
+			got := localizedStylePrompt(p.English, "Bulgarian", "Cyrillic")
+			if got != p.Localized {
+				t.Fatalf("mode %s style %q: got %q, want Localized field", mode, p.English, got)
+			}
+			if containsLatinLetters(got) {
+				t.Fatalf("mode %s style Localized has Latin letters: %q", mode, got)
+			}
+			if !containsCyrillicLetters(got) {
+				t.Fatalf("mode %s style Localized has no Cyrillic letters: %q", mode, got)
+			}
+		}
+	}
+}
+
+func TestLocalizedStylePromptLatinPassthrough(t *testing.T) {
+	t.Parallel()
+
+	style := "custom neon noir with glowing alleys"
+	if got := localizedStylePrompt(style, "English", "Latin"); got != style {
+		t.Fatalf("Latin passthrough = %q, want %q", got, style)
+	}
+}
+
+func TestLocalizedStylePromptMissingPanics(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("localizedStylePrompt() did not panic for missing Cyrillic localization")
+		}
+		msg, ok := r.(string)
+		if !ok || !strings.Contains(msg, "no Cyrillic localization") {
+			t.Fatalf("panic = %#v, want missing-localization message", r)
+		}
+	}()
+	_ = localizedStylePrompt("totally unknown custom style line", "Bulgarian", "Cyrillic")
+}
+
+func TestDefaultStylesHaveLocalizations(t *testing.T) {
+	t.Parallel()
+
+	if len(defaultStyles) == 0 {
+		t.Fatal("defaultStyles empty")
+	}
+	if len(cyrillicStyleByEnglish) == 0 {
+		t.Fatal("cyrillicStyleByEnglish empty")
+	}
+	total := 0
+	for mode, prompts := range defaultStyles {
+		if len(prompts) == 0 {
+			t.Fatalf("mode %s has no style prompts", mode)
+		}
+		for _, p := range prompts {
+			total++
+			if p.English == "" || p.Localized == "" {
+				t.Fatalf("mode %s has empty English or Localized", mode)
+			}
+			if got, ok := cyrillicStyleByEnglish[p.English]; !ok || got != p.Localized {
+				t.Fatalf("lookup missing or mismatched for %q", p.English)
+			}
+		}
+	}
+	if total < 30 {
+		t.Fatalf("expected 30+ built-in styles, got %d", total)
+	}
+}
+
+func TestConfigDefaultStylesLocalize(t *testing.T) {
+	t.Parallel()
+
+	for mode, lines := range DefaultStyleLines() {
+		for _, line := range lines {
+			got := localizedStylePrompt(line, "Bulgarian", "Cyrillic")
+			if containsLatinLetters(got) {
+				t.Fatalf("config default mode %s leaked Latin: %q", mode, got)
+			}
+		}
 	}
 }

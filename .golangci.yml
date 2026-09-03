@@ -1,0 +1,87 @@
+# golangci-lint configuration for comicforge (v2 schema).
+# Requires golangci-lint: https://golangci-lint.run/welcome/install/
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - errorlint
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+    - gosec
+
+  settings:
+    errcheck:
+      check-blank: false
+    govet:
+      enable:
+        - nilness
+        - shadow
+    misspell:
+      locale: US
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    gosec:
+      excludes:
+        # Path traversal / command-injection heuristics are noisy for a CLI that
+        # intentionally takes user paths and shells out to ImageMagick.
+        - G204
+        - G304
+        # Comic/gallery assets are meant to be world-readable on disk.
+        - G306
+        # Story genre / style picks use math/rand, not cryptography.
+        - G404
+
+  exclusions:
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)_test\.go
+        linters:
+          - gosec
+          - errcheck
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - codeberg.org/snonux/comicforge

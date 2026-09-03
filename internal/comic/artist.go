@@ -2,6 +2,7 @@ package comic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,73 +15,53 @@ import (
 
 // ArtistConfig configures comic page generation.
 type ArtistConfig struct {
-	ImageProvider    provider.ImageProvider
-	TextProvider     provider.TextProvider
-	Prompts          PromptRenderer
-	OutputDir        string
-	Style            string
-	StyleMode        string
-	ComicStyles      []string
-	RealisticStyles  []string
-	CartoonStyles    []string
-	Action90sStyles  []string
-	MangaStyles      []string
-	HorrorStyles     []string
-	WatercolorStyles []string
-	PulpStyles       []string
-	MechaStyles      []string
-	PixelArtStyles   []string
-	InkWashStyles    []string
-	ClayStyles       []string
-	Theme            string
-	AspectRatio      string
-	Language         string
-	Script           string
-	UltraRealistic   bool
-	StoryPages       int
-	GalleryPages     int
-	PanelsPerPage    int
-	PromptMaxChars   int
-	PageMaxRetries   int
-	PageRetryBase    time.Duration
+	ImageProvider  provider.ImageProvider
+	TextProvider   provider.TextProvider
+	Prompts        PromptRenderer
+	OutputDir      string
+	Style          string
+	StyleMode      string
+	Styles         map[string][]string
+	Theme          string
+	AspectRatio    string
+	Language       string
+	Script         string
+	UltraRealistic bool
+	StoryPages     int
+	GalleryPages   int
+	PanelsPerPage  int
+	PromptMaxChars int
+	PageMaxRetries int
+	PageRetryBase  time.Duration
 	// DINA4PDF is true when pdf.presentation is print or book (ISO A4 portrait PDF pages).
 	DINA4PDF bool
 }
 
 // Artist generates comic-book pages.
 type Artist struct {
-	imageProvider    provider.ImageProvider
-	textProvider     provider.TextProvider
-	prompts          PromptRenderer
-	outputDir        string
-	style            string
-	styleMode        string
-	comicStyles      []string
-	realisticStyles  []string
-	cartoonStyles    []string
-	action90sStyles  []string
-	mangaStyles      []string
-	horrorStyles     []string
-	watercolorStyles []string
-	pulpStyles       []string
-	mechaStyles      []string
-	pixelArtStyles   []string
-	inkWashStyles    []string
-	clayStyles       []string
-	theme            string
-	aspectRatio      string
-	pageFrame        string
-	language         string
-	script           string
-	ultraRealistic   bool
-	storyPages       int
-	galleryPages     int
-	panelsPerPage    int
-	promptMaxChars   int
-	pageMaxRetries   int
-	pageRetryBase    time.Duration
-	dina4PDF         bool
-	initErr          error
+	imageProvider  provider.ImageProvider
+	textProvider   provider.TextProvider
+	prompts        PromptRenderer
+	outputDir      string
+	style          string
+	styleMode      string
+	styles         map[string][]string
+	theme          string
+	aspectRatio    string
+	pageFrame      string
+	language       string
+	script         string
+	ultraRealistic bool
+	storyPages     int
+	galleryPages   int
+	panelsPerPage  int
+	promptMaxChars int
+	pageMaxRetries int
+	pageRetryBase  time.Duration
+	dina4PDF       bool
+	sleep          func(time.Duration)
+	validateImage  imageOutputValidator
+	initErr        error
 }
 
 type referenceImageGenerator interface {
@@ -91,7 +72,7 @@ type referenceAspectRatioImageGenerator interface {
 	GenerateImageWithReferencesAndAspectRatio(context.Context, string, string, [][]byte, string) error
 }
 
-var sleep = time.Sleep
+type imageOutputValidator func(context.Context, string, string, string) error
 
 // NewArtist creates an Artist.
 func NewArtist(cfg *ArtistConfig) *Artist {
@@ -103,6 +84,8 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 		galleryPages:   5,
 		panelsPerPage:  defaultStoryPanelsPerPage,
 		ultraRealistic: true,
+		sleep:          time.Sleep,
+		validateImage:  validateImagePromptLeakage,
 	}
 	if cfg == nil {
 		a.initErr = fmt.Errorf("artist config is required")
@@ -115,18 +98,7 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 	a.outputDir = orDefault(cfg.OutputDir, a.outputDir)
 	a.style = cfg.Style
 	a.styleMode = orDefault(cfg.StyleMode, styleModeComic)
-	a.comicStyles = append([]string(nil), cfg.ComicStyles...)
-	a.realisticStyles = append([]string(nil), cfg.RealisticStyles...)
-	a.cartoonStyles = append([]string(nil), cfg.CartoonStyles...)
-	a.action90sStyles = append([]string(nil), cfg.Action90sStyles...)
-	a.mangaStyles = append([]string(nil), cfg.MangaStyles...)
-	a.horrorStyles = append([]string(nil), cfg.HorrorStyles...)
-	a.watercolorStyles = append([]string(nil), cfg.WatercolorStyles...)
-	a.pulpStyles = append([]string(nil), cfg.PulpStyles...)
-	a.mechaStyles = append([]string(nil), cfg.MechaStyles...)
-	a.pixelArtStyles = append([]string(nil), cfg.PixelArtStyles...)
-	a.inkWashStyles = append([]string(nil), cfg.InkWashStyles...)
-	a.clayStyles = append([]string(nil), cfg.ClayStyles...)
+	a.styles = cloneStyleMap(cfg.Styles)
 	a.theme = cfg.Theme
 	a.aspectRatio = orDefault(cfg.AspectRatio, comicPageAspectRatio)
 	a.pageFrame = DescribePageFrame(a.aspectRatio)
@@ -167,21 +139,7 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 	}
 	style := a.style
 	if style == "" {
-		style = pickStyle(
-			a.comicStyles,
-			a.realisticStyles,
-			a.cartoonStyles,
-			a.action90sStyles,
-			a.mangaStyles,
-			a.horrorStyles,
-			a.watercolorStyles,
-			a.pulpStyles,
-			a.mechaStyles,
-			a.pixelArtStyles,
-			a.inkWashStyles,
-			a.clayStyles,
-			a.styleMode,
-		)
+		style = pickStyle(a.styles, a.styleMode)
 	}
 	fmt.Printf("  Comic style: %s\n", style)
 
@@ -192,48 +150,53 @@ func (a *Artist) DrawComicPages(ctx context.Context, storyText, bible, titleSlug
 
 	var paths []string
 	var recentRefs [][]byte
-	if p, err := a.renderPage(ctx, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page", nil); err != nil {
+	paths, recentRefs, err = a.renderAndCollect(ctx, paths, recentRefs, titleSlug+"_cover", coverPromptTemplate, a.coverPromptData(storyText, style, resolvedBible), "cover page", true)
+	if err != nil {
 		return nil, err
-	} else if p != "" {
-		paths = append(paths, p)
-		if coverBytes, readErr := os.ReadFile(p); readErr == nil {
-			recentRefs = appendRef(recentRefs, coverBytes)
-		}
 	}
 
 	sections := splitIntoSections(storyText, a.storyPages)
 	for i, section := range sections {
 		pageNum := i + 1
 		data := a.storyPagePromptData(section, pageNum, style, resolvedBible, entries, panelScript)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum), recentRefs); err != nil {
+		paths, recentRefs, err = a.renderAndCollect(ctx, paths, recentRefs, fmt.Sprintf("%s_page_%d", titleSlug, pageNum), storyPagePromptTemplate, data, fmt.Sprintf("story page %d", pageNum), true)
+		if err != nil {
 			return nil, err
-		} else if p != "" {
-			paths = append(paths, p)
-			if pageBytes, readErr := os.ReadFile(p); readErr == nil {
-				recentRefs = appendRef(recentRefs, pageBytes)
-			}
 		}
 	}
 
 	for i := 0; i < a.galleryPages; i++ {
 		galleryNum := i + 1
 		data := a.galleryPromptData(style, resolvedBible, galleryNum)
-		if p, err := a.renderPage(ctx, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages), recentRefs); err != nil {
+		paths, recentRefs, err = a.renderAndCollect(ctx, paths, recentRefs, fmt.Sprintf("%s_gallery_%d", titleSlug, galleryNum), galleryPagePromptTemplate, data, fmt.Sprintf("gallery page %d/%d", galleryNum, a.galleryPages), true)
+		if err != nil {
 			return nil, err
-		} else if p != "" {
-			paths = append(paths, p)
-			if galleryBytes, readErr := os.ReadFile(p); readErr == nil {
-				recentRefs = appendRef(recentRefs, galleryBytes)
-			}
 		}
 	}
 
-	if p, err := a.renderPage(ctx, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover", recentRefs); err != nil {
+	paths, _, err = a.renderAndCollect(ctx, paths, recentRefs, titleSlug+"_back", backCoverPromptTemplate, a.backPromptData(storyText, style, resolvedBible, blurb), "back cover", false)
+	if err != nil {
 		return nil, err
-	} else if p != "" {
-		paths = append(paths, p)
 	}
 	return paths, nil
+}
+
+// renderAndCollect renders one page, appends its path, and optionally tracks bytes as a reference.
+func (a *Artist) renderAndCollect(ctx context.Context, paths []string, recentRefs [][]byte, fileName, templateName string, data map[string]any, label string, trackRefs bool) ([]string, [][]byte, error) {
+	p, err := a.renderPage(ctx, fileName, templateName, data, label, recentRefs)
+	if err != nil {
+		return paths, recentRefs, err
+	}
+	if p == "" {
+		return paths, recentRefs, nil
+	}
+	paths = append(paths, p)
+	if trackRefs {
+		if pageBytes, readErr := os.ReadFile(p); readErr == nil {
+			recentRefs = appendRef(recentRefs, pageBytes)
+		}
+	}
+	return paths, recentRefs, nil
 }
 
 func (a *Artist) ready() error {
@@ -263,7 +226,7 @@ func (a *Artist) renderPage(ctx context.Context, fileName, templateName string, 
 }
 
 func (a *Artist) generateWithRetry(ctx context.Context, prompt, outputFile, label string, refs [][]byte) error {
-	return a.generateWithRetryAndValidation(ctx, prompt, outputFile, label, refs, validateImagePromptLeakageFn)
+	return a.generateWithRetryAndValidation(ctx, prompt, outputFile, label, refs, a.validateImage)
 }
 
 func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile string) error {
@@ -271,13 +234,15 @@ func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile str
 	if err != nil {
 		return fmt.Errorf("render manual prompt: %w", err)
 	}
-	return a.generateWithRetryAndValidation(ctx, renderedPrompt, outputFile, "manual prompt image", nil, validateImagePromptLeakageFn)
+	return a.generateWithRetryAndValidation(ctx, renderedPrompt, outputFile, "manual prompt image", nil, a.validateImage)
 }
-
-type imageOutputValidator func(context.Context, string, string, string) error
 
 func (a *Artist) generateWithRetryAndValidation(ctx context.Context, prompt, outputFile, label string, refs [][]byte, validator imageOutputValidator) error {
 	attempts := a.pageMaxRetries
+	sleeper := a.sleep
+	if sleeper == nil {
+		sleeper = time.Sleep
+	}
 	for attempt := 1; attempt <= attempts; attempt++ {
 		callCtx, cancel := withTimeout(ctx, helperTimeout)
 		err := a.generateImage(callCtx, prompt, outputFile, refs)
@@ -294,7 +259,7 @@ func (a *Artist) generateWithRetryAndValidation(ctx context.Context, prompt, out
 		if attempt < attempts {
 			pause := a.pageRetryBase * time.Duration(attempt)
 			fmt.Printf("  Warning: %s attempt %d/%d failed (%v), retrying in %s...\n", label, attempt, attempts, err, pause)
-			sleep(pause)
+			sleeper(pause)
 			continue
 		}
 		return fmt.Errorf("%s failed after %d attempts: %w", label, attempts, err)
@@ -551,12 +516,5 @@ func errorsJoin(errs ...error) error {
 			filtered = append(filtered, err)
 		}
 	}
-	switch len(filtered) {
-	case 0:
-		return nil
-	case 1:
-		return filtered[0]
-	default:
-		return fmt.Errorf("%v; %w", filtered[0], filtered[1])
-	}
+	return errors.Join(filtered...)
 }

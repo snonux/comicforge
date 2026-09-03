@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -108,47 +109,84 @@ narration:
 	if got, want := cfg.Story.RealisticWeight, 0.8; got != want {
 		t.Fatalf("Story.RealisticWeight = %v, want %v", got, want)
 	}
-	if got, want := len(cfg.Styles.Comic), 1; got != want || cfg.Styles.Comic[0] != "custom comic" {
-		t.Fatalf("Styles.Comic = %#v, want %q", cfg.Styles.Comic, "custom comic")
+	if got, want := len(cfg.Styles["comic"]), 1; got != want || cfg.Styles["comic"][0] != "custom comic" {
+		t.Fatalf("Styles[comic] = %#v, want %q", cfg.Styles["comic"], "custom comic")
 	}
-	if got, want := len(cfg.Styles.Realistic), 1; got != want || cfg.Styles.Realistic[0] != "custom realistic" {
-		t.Fatalf("Styles.Realistic = %#v, want %q", cfg.Styles.Realistic, "custom realistic")
+	if got, want := len(cfg.Styles["realistic"]), 1; got != want || cfg.Styles["realistic"][0] != "custom realistic" {
+		t.Fatalf("Styles[realistic] = %#v, want %q", cfg.Styles["realistic"], "custom realistic")
 	}
-	if got, want := len(cfg.Styles.Cartoon), 1; got != want || cfg.Styles.Cartoon[0] != "custom cartoon" {
-		t.Fatalf("Styles.Cartoon = %#v, want %q", cfg.Styles.Cartoon, "custom cartoon")
+	if got, want := len(cfg.Styles["cartoon"]), 1; got != want || cfg.Styles["cartoon"][0] != "custom cartoon" {
+		t.Fatalf("Styles[cartoon] = %#v, want %q", cfg.Styles["cartoon"], "custom cartoon")
 	}
-	if got, want := len(cfg.Styles.Action90s), 1; got != want || cfg.Styles.Action90s[0] != "custom 90s action" {
-		t.Fatalf("Styles.Action90s = %#v, want %q", cfg.Styles.Action90s, "custom 90s action")
+	if got, want := len(cfg.Styles["action_90s"]), 1; got != want || cfg.Styles["action_90s"][0] != "custom 90s action" {
+		t.Fatalf("Styles[action_90s] = %#v, want %q", cfg.Styles["action_90s"], "custom 90s action")
 	}
-	if got, want := len(cfg.Styles.Manga), 1; got != want || cfg.Styles.Manga[0] != "custom manga" {
-		t.Fatalf("Styles.Manga = %#v, want %q", cfg.Styles.Manga, "custom manga")
+	if got, want := len(cfg.Styles["manga"]), 1; got != want || cfg.Styles["manga"][0] != "custom manga" {
+		t.Fatalf("Styles[manga] = %#v, want %q", cfg.Styles["manga"], "custom manga")
 	}
-	if got, want := len(cfg.Styles.Horror), 1; got != want || cfg.Styles.Horror[0] != "custom horror" {
-		t.Fatalf("Styles.Horror = %#v, want %q", cfg.Styles.Horror, "custom horror")
+	if got, want := len(cfg.Styles["horror"]), 1; got != want || cfg.Styles["horror"][0] != "custom horror" {
+		t.Fatalf("Styles[horror] = %#v, want %q", cfg.Styles["horror"], "custom horror")
 	}
-	if got, want := len(cfg.Styles.Watercolor), 1; got != want || cfg.Styles.Watercolor[0] != "custom watercolor" {
-		t.Fatalf("Styles.Watercolor = %#v, want %q", cfg.Styles.Watercolor, "custom watercolor")
+	if got, want := len(cfg.Styles["watercolor"]), 1; got != want || cfg.Styles["watercolor"][0] != "custom watercolor" {
+		t.Fatalf("Styles[watercolor] = %#v, want %q", cfg.Styles["watercolor"], "custom watercolor")
 	}
-	if got, want := len(cfg.Styles.Pulp), 1; got != want || cfg.Styles.Pulp[0] != "custom pulp" {
-		t.Fatalf("Styles.Pulp = %#v, want %q", cfg.Styles.Pulp, "custom pulp")
+	if got, want := len(cfg.Styles["pulp"]), 1; got != want || cfg.Styles["pulp"][0] != "custom pulp" {
+		t.Fatalf("Styles[pulp] = %#v, want %q", cfg.Styles["pulp"], "custom pulp")
 	}
-	if got, want := len(cfg.Styles.Mecha), 1; got != want || cfg.Styles.Mecha[0] != "custom mecha" {
-		t.Fatalf("Styles.Mecha = %#v, want %q", cfg.Styles.Mecha, "custom mecha")
+	if got, want := len(cfg.Styles["mecha"]), 1; got != want || cfg.Styles["mecha"][0] != "custom mecha" {
+		t.Fatalf("Styles[mecha] = %#v, want %q", cfg.Styles["mecha"], "custom mecha")
 	}
-	if got, want := len(cfg.Styles.PixelArt), 1; got != want || cfg.Styles.PixelArt[0] != "custom pixel art" {
-		t.Fatalf("Styles.PixelArt = %#v, want %q", cfg.Styles.PixelArt, "custom pixel art")
+	if got, want := len(cfg.Styles["pixel_art"]), 1; got != want || cfg.Styles["pixel_art"][0] != "custom pixel art" {
+		t.Fatalf("Styles[pixel_art] = %#v, want %q", cfg.Styles["pixel_art"], "custom pixel art")
 	}
-	if got, want := len(cfg.Styles.InkWash), 1; got != want || cfg.Styles.InkWash[0] != "custom ink wash" {
-		t.Fatalf("Styles.InkWash = %#v, want %q", cfg.Styles.InkWash, "custom ink wash")
+	if got, want := len(cfg.Styles["ink_wash"]), 1; got != want || cfg.Styles["ink_wash"][0] != "custom ink wash" {
+		t.Fatalf("Styles[ink_wash] = %#v, want %q", cfg.Styles["ink_wash"], "custom ink wash")
 	}
-	if got, want := len(cfg.Styles.Clay), 1; got != want || cfg.Styles.Clay[0] != "custom clay" {
-		t.Fatalf("Styles.Clay = %#v, want %q", cfg.Styles.Clay, "custom clay")
+	if got, want := len(cfg.Styles["clay"]), 1; got != want || cfg.Styles["clay"][0] != "custom clay" {
+		t.Fatalf("Styles[clay] = %#v, want %q", cfg.Styles["clay"], "custom clay")
 	}
 	if got, want := cfg.Narration.ChunkWords, 42; got != want {
 		t.Fatalf("Narration.ChunkWords = %d, want %d", got, want)
 	}
 	if got, want := cfg.PromptsDir, "./custom-prompts"; got != want {
 		t.Fatalf("PromptsDir = %q, want %q", got, want)
+	}
+}
+
+func TestLoadAcceptsCustomStyleCategory(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+styles:
+  comic:
+    - custom comic
+  neon_noir:
+    - neon glow noir
+`)), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got, want := cfg.Styles["neon_noir"], []string{"neon glow noir"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Styles[neon_noir] = %#v, want %#v", got, want)
+	}
+	if got, want := cfg.Styles["comic"], []string{"custom comic"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Styles[comic] = %#v, want %#v", got, want)
+	}
+	// Built-in categories not listed in YAML should still come from defaults.
+	if len(cfg.Styles["manga"]) == 0 {
+		t.Fatal("Styles[manga] empty, want default merge")
+	}
+}
+
+func TestDefaultConfigStylesMatchComicCatalog(t *testing.T) {
+	cfg := DefaultConfig()
+	want := comic.DefaultStyleLines()
+	if !reflect.DeepEqual(map[string][]string(cfg.Styles), want) {
+		t.Fatalf("DefaultConfig Styles drifted from comic.DefaultStyleLines()\ngot %#v\nwant %#v", cfg.Styles, want)
 	}
 }
 
@@ -341,6 +379,93 @@ func TestRenderPromptMissingTemplateReturnsError(t *testing.T) {
 }
 
 func TestLoadRejectsUnknownProvider(t *testing.T) {
+	known := func(name string) bool {
+		return name == provider.Gemini || name == provider.OpenAI
+	}
+	checks := WithProviderNameChecks(known, known, known)
+
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "unknown text",
+			yaml: `
+provider:
+  text: mystery
+`,
+			wantErr: "unknown text provider",
+		},
+		{
+			name: "unknown image",
+			yaml: `
+provider:
+  image: mystery
+`,
+			wantErr: "unknown image provider",
+		},
+		{
+			name: "unknown tts",
+			yaml: `
+provider:
+  tts: mystery
+`,
+			wantErr: "unknown TTS provider",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yaml")
+			if err := os.WriteFile(configPath, []byte(strings.TrimSpace(tc.yaml)), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+
+			_, err := Load(configPath, checks)
+			if err == nil {
+				t.Fatal("Load() error = nil, want error")
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("Load() error = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadAcceptsKnownProvidersWhenChecksInjected(t *testing.T) {
+	known := func(name string) bool {
+		return name == provider.Gemini || name == provider.OpenAI
+	}
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
+provider:
+  text: openai
+  image: gemini
+  tts: openai
+`)), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(configPath, WithProviderNameChecks(known, known, known))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got, want := cfg.Provider.Text, provider.OpenAI; got != want {
+		t.Fatalf("Provider.Text = %q, want %q", got, want)
+	}
+	if got, want := cfg.Provider.Image, provider.Gemini; got != want {
+		t.Fatalf("Provider.Image = %q, want %q", got, want)
+	}
+	if got, want := cfg.Provider.TTS, provider.OpenAI; got != want {
+		t.Fatalf("Provider.TTS = %q, want %q", got, want)
+	}
+}
+
+func TestLoadSkipsProviderChecksWhenNotInjected(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(strings.TrimSpace(`
@@ -350,30 +475,23 @@ provider:
 		t.Fatalf("write config: %v", err)
 	}
 
-	_, err := Load(configPath)
-	if err == nil {
-		t.Fatal("Load() error = nil, want error")
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil when checks are not injected", err)
 	}
-	if !strings.Contains(err.Error(), "unknown text provider") {
-		t.Fatalf("Load() error = %v, want unknown provider error", err)
+	if got, want := cfg.Provider.Text, "mystery"; got != want {
+		t.Fatalf("Provider.Text = %q, want %q", got, want)
 	}
 }
 
 func TestHomeDirReturnsFallbackWhenResolutionFails(t *testing.T) {
-	oldUserHomeDir := userHomeDir
-	t.Cleanup(func() {
-		userHomeDir = oldUserHomeDir
-	})
-
-	userHomeDir = func() (string, error) {
+	homeDir, err := resolveHomeDir(func() (string, error) {
 		return "", errors.New("boom")
-	}
-
-	homeDir, err := HomeDir()
+	})
 	if err == nil {
-		t.Fatal("HomeDir() error = nil, want error")
+		t.Fatal("resolveHomeDir() error = nil, want error")
 	}
 	if homeDir != "." {
-		t.Fatalf("HomeDir() homeDir = %q, want %q", homeDir, ".")
+		t.Fatalf("resolveHomeDir() homeDir = %q, want %q", homeDir, ".")
 	}
 }

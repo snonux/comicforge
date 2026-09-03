@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -60,7 +61,9 @@ prompts_dir: ./config-prompts
 	runner := &recordingRunner{}
 
 	cmd := newRootCommandWithDeps(commandDeps{
-		loadConfig: config.Load,
+		loadConfig: func(path string) (*config.Config, error) {
+			return config.Load(path)
+		},
 		newTextProvider: func(cfg *config.Config) (provider.TextProvider, error) {
 			gotTextCfg = cfg
 			return noopProvider{}, nil
@@ -643,6 +646,218 @@ func TestRootCommandRejectsEmptyPromptFlag(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--prompt is required when set") {
 		t.Fatalf("ExecuteContext() error = %v, want empty prompt error", err)
+	}
+}
+
+func TestBuildRunnerConfigMapsSharedFields(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Language.Story = "Bulgarian"
+	cfg.Language.Script = "Cyrillic"
+	cfg.Comic.StoryPages = 7
+	cfg.Comic.GalleryPages = 3
+	cfg.Comic.PanelsPerPage = 2
+	cfg.Comic.AspectRatio = "2:3"
+	cfg.Comic.PromptMaxChars = 900
+	cfg.Comic.PageMaxRetries = 4
+	cfg.Comic.PageRetryBaseSeconds = 3
+	cfg.Narration.ChunkWords = 42
+	cfg.Story.RealisticWeight = 0.25
+	cfg.PDF.Density = 150
+	cfg.PDF.JPEGQuality = 85
+	cfg.PDF.Presentation = "print"
+	cfg.Styles = config.StyleConfig{"noir": {"high contrast"}}
+
+	flags := cliFlags{
+		outputDir:      "/tmp/out",
+		style:          "noir",
+		theme:          "mystery",
+		slug:           "forced-slug",
+		ultraRealistic: true,
+		narrateEnabled: true,
+		narratorVoice:  "Aoede",
+	}
+	textProv := noopProvider{}
+	imageProv := noopProvider{}
+
+	got := buildRunnerConfig(cfg, flags, textProv, imageProv)
+	if got == nil {
+		t.Fatal("buildRunnerConfig returned nil")
+	}
+	if got.TextProvider != textProv {
+		t.Fatalf("TextProvider = %#v, want injected text provider", got.TextProvider)
+	}
+	if got.ImageProvider != imageProv {
+		t.Fatalf("ImageProvider = %#v, want injected image provider", got.ImageProvider)
+	}
+	if got.Prompts != cfg {
+		t.Fatalf("Prompts = %#v, want cfg", got.Prompts)
+	}
+	if got, want := got.OutputDir, flags.outputDir; got != want {
+		t.Fatalf("OutputDir = %q, want %q", got, want)
+	}
+	if got, want := got.Style, flags.style; got != want {
+		t.Fatalf("Style = %q, want %q", got, want)
+	}
+	if got, want := got.Theme, flags.theme; got != want {
+		t.Fatalf("Theme = %q, want %q", got, want)
+	}
+	if got, want := got.Slug, flags.slug; got != want {
+		t.Fatalf("Slug = %q, want %q", got, want)
+	}
+	if got, want := got.Language, "Bulgarian"; got != want {
+		t.Fatalf("Language = %q, want %q", got, want)
+	}
+	if got, want := got.Script, "Cyrillic"; got != want {
+		t.Fatalf("Script = %q, want %q", got, want)
+	}
+	if got, want := got.StoryPages, 7; got != want {
+		t.Fatalf("StoryPages = %d, want %d", got, want)
+	}
+	if got, want := got.GalleryPages, 3; got != want {
+		t.Fatalf("GalleryPages = %d, want %d", got, want)
+	}
+	if got, want := got.PanelsPerPage, 2; got != want {
+		t.Fatalf("PanelsPerPage = %d, want %d", got, want)
+	}
+	if got, want := got.ChunkWords, 42; got != want {
+		t.Fatalf("ChunkWords = %d, want %d", got, want)
+	}
+	if got, want := got.AspectRatio, "2:3"; got != want {
+		t.Fatalf("AspectRatio = %q, want %q", got, want)
+	}
+	if got, want := got.PromptMaxChars, 900; got != want {
+		t.Fatalf("PromptMaxChars = %d, want %d", got, want)
+	}
+	if got, want := got.PageMaxRetries, 4; got != want {
+		t.Fatalf("PageMaxRetries = %d, want %d", got, want)
+	}
+	if got, want := got.PageRetryBase, 3*time.Second; got != want {
+		t.Fatalf("PageRetryBase = %v, want %v", got, want)
+	}
+	if got, want := got.RealisticWeight, 0.25; got != want {
+		t.Fatalf("RealisticWeight = %v, want %v", got, want)
+	}
+	if got.UltraRealistic == nil || !*got.UltraRealistic {
+		t.Fatalf("UltraRealistic = %#v, want true", got.UltraRealistic)
+	}
+	if got, want := got.PDF.Density, 150; got != want {
+		t.Fatalf("PDF.Density = %d, want %d", got, want)
+	}
+	if got, want := got.PDF.JPEGQuality, 85; got != want {
+		t.Fatalf("PDF.JPEGQuality = %d, want %d", got, want)
+	}
+	if got, want := got.PDF.Presentation, "print"; got != want {
+		t.Fatalf("PDF.Presentation = %q, want %q", got, want)
+	}
+	if got, want := len(got.Styles["noir"]), 1; got != want {
+		t.Fatalf("Styles[noir] len = %d, want %d", got, want)
+	}
+}
+
+func TestBuildRunnerConfigLeavesNarrationFieldsUnset(t *testing.T) {
+	cfg := config.DefaultConfig()
+	flags := cliFlags{narrateEnabled: true, narratorVoice: "Aoede"}
+
+	got := buildRunnerConfig(cfg, flags, noopProvider{}, noopProvider{})
+	if got.NarrateEnabled {
+		t.Fatal("NarrateEnabled = true, want false (caller must set)")
+	}
+	if got.NarratorVoice != "" {
+		t.Fatalf("NarratorVoice = %q, want empty (caller must set)", got.NarratorVoice)
+	}
+	if got.MainTTSProvider != nil || got.ConclusionTTSProvider != nil {
+		t.Fatalf("TTS providers = %#v / %#v, want nil / nil (caller must set)", got.MainTTSProvider, got.ConclusionTTSProvider)
+	}
+}
+
+func TestBuildRunnerConfigNilConfigUsesZeroValues(t *testing.T) {
+	flags := cliFlags{
+		outputDir:        "/out",
+		style:            "ink",
+		theme:            "quiet",
+		slug:             "nil-cfg",
+		noUltraRealistic: true,
+	}
+
+	got := buildRunnerConfig(nil, flags, noopProvider{}, noopProvider{})
+	if got == nil {
+		t.Fatal("buildRunnerConfig(nil, ...) returned nil")
+	}
+	if got, want := got.OutputDir, "/out"; got != want {
+		t.Fatalf("OutputDir = %q, want %q", got, want)
+	}
+	if got, want := got.Style, "ink"; got != want {
+		t.Fatalf("Style = %q, want %q", got, want)
+	}
+	if got, want := got.Theme, "quiet"; got != want {
+		t.Fatalf("Theme = %q, want %q", got, want)
+	}
+	if got, want := got.Slug, "nil-cfg"; got != want {
+		t.Fatalf("Slug = %q, want %q", got, want)
+	}
+	if got.Language != "" || got.Script != "" {
+		t.Fatalf("Language/Script = %q/%q, want empty for nil cfg", got.Language, got.Script)
+	}
+	if got.StoryPages != 0 || got.ChunkWords != 0 {
+		t.Fatalf("StoryPages/ChunkWords = %d/%d, want 0/0 for nil cfg", got.StoryPages, got.ChunkWords)
+	}
+	if got.UltraRealistic == nil || *got.UltraRealistic {
+		t.Fatalf("UltraRealistic = %#v, want false", got.UltraRealistic)
+	}
+	if got.Prompts == nil {
+		t.Fatal("Prompts = nil, want non-nil empty config substitute")
+	}
+}
+
+func TestRootCommandPromptModeGetsSharedComicFields(t *testing.T) {
+	tmpDir := t.TempDir()
+	var gotRunnerCfg *comic.RunnerConfig
+
+	cmd := newRootCommandWithDeps(commandDeps{
+		loadConfig: func(string) (*config.Config, error) {
+			cfg := config.DefaultConfig()
+			cfg.Comic.StoryPages = 9
+			cfg.Comic.GalleryPages = 4
+			cfg.Comic.PanelsPerPage = 3
+			cfg.Narration.ChunkWords = 55
+			return cfg, nil
+		},
+		newTextProvider:  func(*config.Config) (provider.TextProvider, error) { return noopProvider{}, nil },
+		newImageProvider: func(*config.Config) (provider.ImageProvider, error) { return noopProvider{}, nil },
+		newTTSProvider: func(*config.Config, string) (provider.TTSProvider, error) {
+			t.Fatal("TTS should not be built in prompt mode")
+			return nil, nil
+		},
+		newRunner: func(cfg *comic.RunnerConfig) comic.StoryRunner {
+			gotRunnerCfg = cfg
+			return &recordingRunner{}
+		},
+	})
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.SetArgs([]string{"--prompt", "shared fields check", "--output", tmpDir})
+
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext() error = %v\n%s", err, buf.String())
+	}
+	if gotRunnerCfg == nil {
+		t.Fatal("runner config was not captured")
+	}
+	if got, want := gotRunnerCfg.StoryPages, 9; got != want {
+		t.Fatalf("StoryPages = %d, want %d (shared via buildRunnerConfig)", got, want)
+	}
+	if got, want := gotRunnerCfg.GalleryPages, 4; got != want {
+		t.Fatalf("GalleryPages = %d, want %d", got, want)
+	}
+	if got, want := gotRunnerCfg.PanelsPerPage, 3; got != want {
+		t.Fatalf("PanelsPerPage = %d, want %d", got, want)
+	}
+	if got, want := gotRunnerCfg.ChunkWords, 55; got != want {
+		t.Fatalf("ChunkWords = %d, want %d", got, want)
+	}
+	if gotRunnerCfg.NarrateEnabled || gotRunnerCfg.NarratorVoice != "" {
+		t.Fatalf("narration fields set in prompt mode: enabled=%t voice=%q", gotRunnerCfg.NarrateEnabled, gotRunnerCfg.NarratorVoice)
 	}
 }
 

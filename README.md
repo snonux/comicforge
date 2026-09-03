@@ -6,7 +6,7 @@ ComicForge turns a vocabulary file into a generated comic package. It uses Gemin
 
 ## What It Does
 
-ComicForge reads a vocabulary list, generates a story from those words, renders comic pages, and saves supporting files alongside the comic. By default it uses Gemini for text, image, and text-to-speech generation. When no explicit style is provided, it randomly chooses between photorealistic, classic comic, rubber-hose cartoon, 90s action, manga, horror, and watercolor storybook style families.
+ComicForge reads a vocabulary list, generates a story from those words, renders comic pages, and saves supporting files alongside the comic. By default it uses Gemini for text, image, and text-to-speech generation. When no explicit style is provided, it picks a style family using `story.realistic_weight` (see [Style selection](#style-selection)): photorealistic, classic comic, rubber-hose cartoon, 90s action, manga, horror, watercolor, pulp, mecha, pixel art, ink wash, or clay.
 
 It also supports a manual prompt mode for generating a single image directly from a prompt, without the vocabulary/story pipeline.
 
@@ -17,8 +17,23 @@ Generated output includes:
 - theme file in `comics/assets/<slug>/`
 - comic page PNGs in `comics/assets/<slug>/`
 - gallery PNG copies in `comics/gallery/`
-- PDF output in `comics/PDF/` when page rendering succeeds
-- narration MP3 in `comics/assets/<slug>/` when narration is enabled and a TTS provider is available
+- PDF output in `comics/PDF/` when page rendering succeeds **and** ImageMagick `convert` is on `PATH` (otherwise ComicForge prints a warning and continues without a PDF)
+- narration MP3 in `comics/assets/<slug>/` when narration is enabled and a TTS provider is available (requires `ffmpeg` on `PATH`)
+
+Architecture notes live in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Prerequisites
+
+| Dependency | Needed for |
+|------------|------------|
+| Go (see `go.mod`) | Build and tests |
+| Gemini API key (`api.google_api_key`, `COMICFORGE_API_GOOGLE_API_KEY`, or `GOOGLE_API_KEY`) | Text, image, and TTS generation |
+| [ImageMagick](https://imagemagick.org/) `convert` | Assembling `comics/PDF/*.pdf` |
+| ImageMagick `montage` | `mage stylegrid` / `cmd/stylegrid` montages |
+| `ffmpeg` | Narration MP3 encoding and ambient/audio mixing |
+| [golangci-lint](https://golangci-lint.run/) | `mage lint` only |
+
+Without ImageMagick, page PNGs and story files are still written; PDF assembly is skipped with a warning. Without `ffmpeg`, narration fails when `--narrate` is enabled.
 
 ## Installation
 
@@ -27,8 +42,13 @@ Build and test with Mage:
 ```bash
 mage build
 mage test
+mage lint
 mage install
+mage stylegrid   # optional; needs Gemini + ImageMagick montage
+mage clean
 ```
+
+`mage lint` runs [golangci-lint](https://golangci-lint.run/) using `.golangci.yml` (install the tool separately if it is not already on your `PATH`).
 
 Or build directly:
 
@@ -99,7 +119,13 @@ pdf:
   # none = full-bleed; print/book = ISO A4 portrait PDF pages (print = matte; book = aged + tilt + shadow + thick edge).
   presentation: none
 
+language:
+  story_language: English
+  script: Latin
+
 story:
+  # Probability of picking the photorealistic style family when --ultra-realistic
+  # / --no-ultra-realistic are unset (0.0–1.0; values outside that range are clamped).
   realistic_weight: 0.4
 
 styles:
@@ -109,14 +135,29 @@ styles:
   realistic:
     - ultra-realistic DSLR photography, cinematic 35mm lens
     - cinematic realism with natural light
+  # Also supported (see config.yaml.example): cartoon, action_90s, manga, horror,
+  # watercolor, pulp, mecha, pixel_art, ink_wash, clay.
 
 narration:
+  voices:
+    - Charon
+    - Fenrir
   chunk_words: 100
 
 prompts_dir: ./prompts
 ```
 
 `provider.*` currently supports Gemini in this codebase. Set `api.google_api_key`, `COMICFORGE_API_GOOGLE_API_KEY`, or fallback `GOOGLE_API_KEY` for Gemini-backed generation.
+
+### Style selection
+
+When neither `--ultra-realistic` nor `--no-ultra-realistic` is set:
+
+1. With probability `story.realistic_weight`, ComicForge picks the **realistic** (photorealistic) style family.
+2. Otherwise it picks uniformly among the **non-realistic** configured families (comic, cartoon, manga, …).
+3. Within the chosen family, it picks one style line at random (with a mild comic-family bias when that family is selected).
+
+`--ultra-realistic` forces the realistic family; `--no-ultra-realistic` forces classic comic. `--style` overrides the concrete style line for story and prompt mode.
 
 ### Page shape and PDF export
 
@@ -130,7 +171,7 @@ prompts_dir: ./prompts
 | `--page-format comic` | Sets aspect ratio to `2:3` under the same conditions as `screen` (not applied for `print` / `book` unless you override with `--aspect-ratio`). |
 | `--aspect-ratio <W:H>` | Explicit ratio (e.g. `16:9`, `2:3`, `3:4`, `21:9`). **Highest precedence** over `--page-format` and `pdf.presentation`. |
 
-**PDF assembly** (`pdf` in YAML or the flags below) only affects the multi-page comic PDF produced after all PNGs are rendered. It does not apply to manual `--prompt` mode (single PNG, no PDF). ImageMagick’s `convert` must be available to build the PDF.
+**PDF assembly** (`pdf` in YAML or the flags below) only affects the multi-page comic PDF produced after all PNGs are rendered. It does not apply to manual `--prompt` mode (single PNG, no PDF). ImageMagick’s `convert` must be available to build the PDF; if it is missing, ComicForge warns on stderr and exits successfully without writing a PDF.
 
 | Key / flag | Meaning |
 |------------|---------|
@@ -177,7 +218,7 @@ Useful flags:
 - `--narrator-voice` picks the Gemini narration voice
 - `--text-provider`, `--image-provider`, `--tts-provider` override provider names
 - `--text-model`, `--image-model`, `--image-text-model`, `--tts-model` override model IDs
-- `--ultra-realistic` and `--no-ultra-realistic` force photorealistic or classic comic rendering; without either flag ComicForge randomly chooses from the configured style families
+- `--ultra-realistic` and `--no-ultra-realistic` force photorealistic or classic comic rendering; without either flag ComicForge uses `story.realistic_weight` (see [Style selection](#style-selection))
 - `--version` prints the application version
 
 Example (default PDF: full-bleed, aspect ratio from config):

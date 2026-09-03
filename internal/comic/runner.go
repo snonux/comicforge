@@ -3,7 +3,6 @@ package comic
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,14 +12,6 @@ import (
 	"github.com/snonux/comicforge/internal/vocab"
 )
 
-const ttsTodoContent = `# Story Narration - Fallback Placeholder
-#
-# Comic narration was not produced (missing provider or generation error).
-#
-# To generate narration manually, run again with a configured TTS provider, or
-# use a text-to-speech backend of your choice and save the result as story_narration.mp3.
-`
-
 // RunnerConfig holds orchestration settings for the comic pipeline.
 type RunnerConfig struct {
 	TextProvider          provider.TextProvider
@@ -28,6 +19,9 @@ type RunnerConfig struct {
 	MainTTSProvider       provider.TTSProvider
 	ConclusionTTSProvider provider.TTSProvider
 	Prompts               PromptRenderer
+	PDFAssembler          PDFAssembler
+	AudioMixer            AudioMixer
+	AssetStore            AssetStore
 	OutputDir             string
 	Style                 string
 	StyleMode             string
@@ -39,18 +33,7 @@ type RunnerConfig struct {
 	NarrateEnabled        bool
 	UltraRealistic        *bool
 	RealisticWeight       float64
-	ComicStyles           []string
-	RealisticStyles       []string
-	CartoonStyles         []string
-	Action90sStyles       []string
-	MangaStyles           []string
-	HorrorStyles          []string
-	WatercolorStyles      []string
-	PulpStyles            []string
-	MechaStyles           []string
-	PixelArtStyles        []string
-	InkWashStyles         []string
-	ClayStyles            []string
+	Styles                map[string][]string
 	AspectRatio           string
 	PromptMaxChars        int
 	PageMaxRetries        int
@@ -64,24 +47,34 @@ type RunnerConfig struct {
 
 // Runner orchestrates the full pipeline.
 type Runner struct {
-	config      *RunnerConfig
-	generator   *Generator
-	artist      *Artist
-	narrator    *Narrator
-	assemblePDF func(outputDir, titleSlug string, imagePaths []string, opts PDFAssembleOptions) (string, error)
+	config       *RunnerConfig
+	generator    *Generator
+	artist       *Artist
+	narrator     *Narrator
+	pdfAssembler PDFAssembler
+	assetStore   AssetStore
 }
+
+var _ StoryRunner = (*Runner)(nil)
 
 // NewRunner wires together the generator, artist, and narrator.
 func NewRunner(cfg *RunnerConfig) *Runner {
 	r := &Runner{config: cfg}
-	r.assemblePDF = AssembleComicPDF
+	r.pdfAssembler = NewImageMagickPDFAssembler()
+	r.assetStore = NewFSAssetStore()
 	if cfg == nil {
 		return r
+	}
+	if cfg.PDFAssembler != nil {
+		r.pdfAssembler = cfg.PDFAssembler
+	}
+	if cfg.AssetStore != nil {
+		r.assetStore = cfg.AssetStore
 	}
 
 	styleMode := strings.TrimSpace(cfg.StyleMode)
 	if styleMode == "" {
-		styleMode = pickStyleMode(cfg.UltraRealistic)
+		styleMode = pickStyleMode(cfg.UltraRealistic, cfg.Styles, cfg.RealisticWeight)
 	}
 	ultra := styleMode == styleModeRealistic
 
@@ -95,42 +88,32 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		PanelsPerPage: cfg.PanelsPerPage,
 	})
 	r.artist = NewArtist(&ArtistConfig{
-		ImageProvider:    cfg.ImageProvider,
-		TextProvider:     cfg.TextProvider,
-		Prompts:          cfg.Prompts,
-		OutputDir:        cfg.OutputDir,
-		Style:            cfg.Style,
-		StyleMode:        styleMode,
-		ComicStyles:      cfg.ComicStyles,
-		RealisticStyles:  cfg.RealisticStyles,
-		CartoonStyles:    cfg.CartoonStyles,
-		Action90sStyles:  cfg.Action90sStyles,
-		MangaStyles:      cfg.MangaStyles,
-		HorrorStyles:     cfg.HorrorStyles,
-		WatercolorStyles: cfg.WatercolorStyles,
-		PulpStyles:       cfg.PulpStyles,
-		MechaStyles:      cfg.MechaStyles,
-		PixelArtStyles:   cfg.PixelArtStyles,
-		InkWashStyles:    cfg.InkWashStyles,
-		ClayStyles:       cfg.ClayStyles,
-		Theme:            cfg.Theme,
-		AspectRatio:      cfg.AspectRatio,
-		Language:         cfg.Language,
-		Script:           cfg.Script,
-		UltraRealistic:   ultra,
-		PromptMaxChars:   cfg.PromptMaxChars,
-		PageMaxRetries:   cfg.PageMaxRetries,
-		PageRetryBase:    cfg.PageRetryBase,
-		StoryPages:       cfg.StoryPages,
-		GalleryPages:     cfg.GalleryPages,
-		PanelsPerPage:    cfg.PanelsPerPage,
-		DINA4PDF:         IsDINA4ClassPDFPresentation(cfg.PDF.Presentation),
+		ImageProvider:  cfg.ImageProvider,
+		TextProvider:   cfg.TextProvider,
+		Prompts:        cfg.Prompts,
+		OutputDir:      cfg.OutputDir,
+		Style:          cfg.Style,
+		StyleMode:      styleMode,
+		Styles:         cfg.Styles,
+		Theme:          cfg.Theme,
+		AspectRatio:    cfg.AspectRatio,
+		Language:       cfg.Language,
+		Script:         cfg.Script,
+		UltraRealistic: ultra,
+		PromptMaxChars: cfg.PromptMaxChars,
+		PageMaxRetries: cfg.PageMaxRetries,
+		PageRetryBase:  cfg.PageRetryBase,
+		StoryPages:     cfg.StoryPages,
+		GalleryPages:   cfg.GalleryPages,
+		PanelsPerPage:  cfg.PanelsPerPage,
+		DINA4PDF:       IsDINA4ClassPDFPresentation(cfg.PDF.Presentation),
 	})
 	r.narrator = NewNarrator(&NarratorConfig{
 		TextProvider:       cfg.TextProvider,
 		MainProvider:       cfg.MainTTSProvider,
 		ConclusionProvider: cfg.ConclusionTTSProvider,
 		Prompts:            cfg.Prompts,
+		AudioMixer:         cfg.AudioMixer,
 		VoiceName:          cfg.NarratorVoice,
 		Language:           cfg.Language,
 		Script:             cfg.Script,
@@ -149,65 +132,22 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 	}
 
 	dir := orDefault(r.config.OutputDir, ".")
-	entries, err := vocab.ReadVocabularyFile(batchFile)
+	entries, result, err := r.loadBatchAndGenerate(ctx, batchFile)
 	if err != nil {
-		return fmt.Errorf("failed to read batch file: %w", err)
-	}
-	if len(entries) == 0 {
-		return fmt.Errorf("batch file %q contains no words", batchFile)
-	}
-
-	fmt.Printf("Generating story for %d words...\n", len(entries))
-	result, err := r.generator.GenerateFull(ctx, entries)
-	if err != nil {
-		return fmt.Errorf("story generation failed: %w", err)
-	}
-
-	slug := slugify(result.Title)
-	if strings.TrimSpace(r.config.Slug) != "" {
-		slug = r.config.Slug
-		fmt.Printf("  Comic title: %q (slug forced: %s)\n", result.Title, slug)
-	} else if result.Title != "" {
-		fmt.Printf("  Comic title: %q (slug: %s)\n", result.Title, slug)
-	}
-
-	assetsDir := comicAssetsDir(dir, slug)
-	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
-		return fmt.Errorf("create comics assets dir %s: %w", assetsDir, err)
-	}
-	if err := os.MkdirAll(comicsPDFDir(dir), 0o755); err != nil {
-		return fmt.Errorf("create comics pdf dir %s: %w", comicsPDFDir(dir), err)
-	}
-	r.artist.outputDir = assetsDir
-
-	if err := r.saveStoryText(result.StoryText, slug, assetsDir); err != nil {
 		return err
 	}
-	if err := r.saveVocabularyFile(result.StoryText, entries, slug, assetsDir); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not write vocabulary file: %v\n", err)
-	}
-	if err := r.saveThemeFile(slug, assetsDir); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not write theme file: %v\n", err)
-	}
+	slug := resolveComicSlug(result.Title, r.config.Slug)
 
-	paths, err := r.artist.DrawComicPages(ctx, result.StoryText, result.Bible, slug, entries, result.PanelScript)
+	assetsDir, err := r.assetStore.PrepareOutputDirs(dir, slug)
 	if err != nil {
-		return fmt.Errorf("comic page generation failed: %w", err)
+		return err
 	}
-	for _, path := range paths {
-		fmt.Printf("Comic page saved: %s\n", path)
+	r.artist.outputDir = assetsDir
+	if err := r.persistTextArtifacts(result.StoryText, entries, slug, assetsDir); err != nil {
+		return err
 	}
-	rootDir := comicsRootDir(dir)
-	if err := copyGalleryPNGsToComicsGallery(rootDir, r.artist.outputDir); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
-	}
-	if len(paths) > 0 {
-		pdfPath, err := r.assemblePDF(comicsPDFDir(dir), slug, paths, r.config.PDF)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
-		} else {
-			fmt.Printf("Comic PDF saved: %s\n", pdfPath)
-		}
+	if err := r.renderPagesAndPDF(ctx, dir, slug, result, entries); err != nil {
+		return err
 	}
 
 	if !r.config.NarrateEnabled {
@@ -215,6 +155,57 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 		return nil
 	}
 	return r.handleNarration(ctx, result.StoryText, slug, assetsDir)
+}
+
+func (r *Runner) loadBatchAndGenerate(ctx context.Context, batchFile string) ([]vocab.WordEntry, GenerateResult, error) {
+	entries, err := vocab.ReadVocabularyFile(batchFile)
+	if err != nil {
+		return nil, GenerateResult{}, fmt.Errorf("failed to read batch file: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, GenerateResult{}, fmt.Errorf("batch file %q contains no words", batchFile)
+	}
+
+	fmt.Printf("Generating story for %d words...\n", len(entries))
+	result, err := r.generator.GenerateFull(ctx, entries)
+	if err != nil {
+		return nil, GenerateResult{}, fmt.Errorf("story generation failed: %w", err)
+	}
+	return entries, result, nil
+}
+
+func resolveComicSlug(title, forcedSlug string) string {
+	slug := slugify(title)
+	if strings.TrimSpace(forcedSlug) != "" {
+		slug = forcedSlug
+		fmt.Printf("  Comic title: %q (slug forced: %s)\n", title, slug)
+	} else if title != "" {
+		fmt.Printf("  Comic title: %q (slug: %s)\n", title, slug)
+	}
+	return slug
+}
+
+func (r *Runner) renderPagesAndPDF(ctx context.Context, dir, slug string, result GenerateResult, entries []vocab.WordEntry) error {
+	paths, err := r.artist.DrawComicPages(ctx, result.StoryText, result.Bible, slug, entries, result.PanelScript)
+	if err != nil {
+		return fmt.Errorf("comic page generation failed: %w", err)
+	}
+	for _, path := range paths {
+		fmt.Printf("Comic page saved: %s\n", path)
+	}
+	if err = r.assetStore.CopyGalleryPNGs(comicsRootDir(dir), r.artist.outputDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not copy gallery images to comics/gallery: %v\n", err)
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	pdfPath, err := r.pdfAssembler.Assemble(ctx, comicsPDFDir(dir), slug, paths, r.config.PDF)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: PDF assembly failed: %v\n", err)
+		return nil
+	}
+	fmt.Printf("Comic PDF saved: %s\n", pdfPath)
+	return nil
 }
 
 // RunPrompt renders a single image from a direct user prompt.
@@ -242,9 +233,9 @@ func (r *Runner) RunPrompt(ctx context.Context, prompt string) error {
 		fmt.Fprintf(os.Stderr, "Warning: could not generate prompt title: %v\n", err)
 	}
 
-	assetsDir := comicAssetsDir(dir, slug)
-	if err := os.MkdirAll(assetsDir, 0o755); err != nil {
-		return fmt.Errorf("create comics assets dir %s: %w", assetsDir, err)
+	assetsDir, err := r.assetStore.EnsureAssetsDir(dir, slug)
+	if err != nil {
+		return err
 	}
 
 	r.artist.outputDir = assetsDir
@@ -324,114 +315,31 @@ func comicsPDFDir(outputRoot string) string {
 	return filepath.Join(comicsRootDir(outputRoot), "PDF")
 }
 
-var _ StoryRunner = (*Runner)(nil)
+// persistTextArtifacts writes story/vocab/theme via AssetStore. Story failure is fatal;
+// vocabulary and theme failures are warnings.
+func (r *Runner) persistTextArtifacts(storyText string, entries []vocab.WordEntry, slug, assetsDir string) error {
+	if err := r.assetStore.SaveStoryText(storyText, slug, assetsDir); err != nil {
+		return err
+	}
+	if err := r.assetStore.SaveVocabularyFile(storyText, entries, slug, assetsDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not write vocabulary file: %v\n", err)
+	}
+	if err := r.assetStore.SaveThemeFile(r.config.Theme, slug, assetsDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not write theme file: %v\n", err)
+	}
+	return nil
+}
 
 func (r *Runner) handleNarration(ctx context.Context, storyText, titleSlug, dir string) error {
 	if r.narrator == nil || r.narrator.mainProvider == nil || r.narrator.initErr != nil {
-		return r.saveTTSPlaceholder(titleSlug, dir)
+		return r.assetStore.SaveTTSPlaceholder(titleSlug, dir)
 	}
 	mp3Path := filepath.Join(dir, titleSlug+"_narration.mp3")
 	fmt.Printf("Generating cinematic narration (voice: %s)...\n", r.narrator.voiceName)
 	if err := r.narrator.Narrate(ctx, storyText, mp3Path); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: narration failed: %v\n", err)
-		return r.saveTTSPlaceholder(titleSlug, dir)
+		return r.assetStore.SaveTTSPlaceholder(titleSlug, dir)
 	}
 	fmt.Printf("Narration saved: %s\n", mp3Path)
 	return nil
-}
-
-func (r *Runner) saveStoryText(text, titleSlug, dir string) error {
-	path := filepath.Join(dir, titleSlug+"_story.txt")
-	if err := os.WriteFile(path, []byte(text+"\n"), 0o644); err != nil {
-		return fmt.Errorf("failed to write story file: %w", err)
-	}
-	fmt.Printf("Story saved: %s\n", path)
-	return nil
-}
-
-func (r *Runner) saveVocabularyFile(storyText string, entries []vocab.WordEntry, titleSlug, dir string) error {
-	path := filepath.Join(dir, titleSlug+"_comic_vocabulary.txt")
-	var sb strings.Builder
-	sb.WriteString("# Vocabulary Words\n\n")
-	for _, entry := range entries {
-		word := strings.TrimSpace(entry.Word)
-		if word == "" {
-			word = strings.TrimSpace(entry.Translation)
-		}
-		if entry.Translation != "" && entry.Word != "" {
-			fmt.Fprintf(&sb, "  %s - %s\n", entry.Word, entry.Translation)
-			continue
-		}
-		fmt.Fprintf(&sb, "  %s\n", word)
-	}
-	sb.WriteString("\n# Story Text\n\n")
-	sb.WriteString(strings.TrimSpace(storyText))
-	sb.WriteString("\n")
-	if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
-		return fmt.Errorf("failed to write vocabulary file: %w", err)
-	}
-	fmt.Printf("Vocabulary saved: %s\n", path)
-	return nil
-}
-
-func (r *Runner) saveThemeFile(titleSlug, dir string) error {
-	path := filepath.Join(dir, titleSlug+"_theme.txt")
-	theme := ""
-	if r.config != nil {
-		theme = r.config.Theme
-	}
-	if err := os.WriteFile(path, []byte(theme+"\n"), 0o644); err != nil {
-		return fmt.Errorf("failed to write theme file: %w", err)
-	}
-	fmt.Printf("Theme saved: %s\n", path)
-	return nil
-}
-
-func (r *Runner) saveTTSPlaceholder(titleSlug, dir string) error {
-	path := filepath.Join(dir, titleSlug+"_tts_todo.txt")
-	if err := os.WriteFile(path, []byte(ttsTodoContent), 0o644); err != nil {
-		return fmt.Errorf("failed to write TTS placeholder: %w", err)
-	}
-	fmt.Printf("TTS placeholder saved: %s\n", path)
-	return nil
-}
-
-func copyGalleryPNGsToComicsGallery(outputRoot, comicDir string) error {
-	destDir := filepath.Join(outputRoot, "gallery")
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return fmt.Errorf("mkdir gallery: %w", err)
-	}
-	matches, err := filepath.Glob(filepath.Join(comicDir, "*_gallery_*.png"))
-	if err != nil {
-		return err
-	}
-	for _, src := range matches {
-		dst := filepath.Join(destDir, filepath.Base(src))
-		if err := copyFile(src, dst); err != nil {
-			return fmt.Errorf("%s -> %s: %w", src, dst, err)
-		}
-	}
-	if len(matches) > 0 {
-		fmt.Printf("Gallery images copied to %s (%d files)\n", destDir, len(matches))
-	}
-	return nil
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = in.Close()
-	}()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = out.Close()
-	}()
-	_, err = io.Copy(out, in)
-	return err
 }

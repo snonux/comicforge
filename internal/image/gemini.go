@@ -2,6 +2,7 @@ package image
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,40 +33,63 @@ type GeminiConfig struct {
 	Model       string
 	TextModel   string
 	AspectRatio string
+
+	// newClient overrides the GenAI client factory; nil uses httpctx.NewGenAIClient.
+	newClient func(context.Context, *genai.ClientConfig) (*genai.Client, error)
 }
 
-// GeminiProvider implements ImageProvider for Google Gemini image generation.
+// GeminiProvider implements Provider for Google Gemini image generation.
 type GeminiProvider struct {
 	client     *genai.Client
 	initErr    error
 	config     *GeminiConfig
 	lastPrompt string
 
+	httpClient    httpDoer
+	generateText  geminiTextGenerator
+	generateImage geminiImageGenerator
+
 	// PromptCallback runs after the prompt is generated and before image creation.
 	PromptCallback func(prompt string)
 }
 
-var _ ImageProvider = (*GeminiProvider)(nil)
-
-var imageHTTPClient = httpctx.ImageDownloadHTTPClient()
-var newGeminiClient = httpctx.NewGenAIClient
-var geminiGenerateText = func(ctx context.Context, c *GeminiProvider, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
-	return c.generateText(ctx, model, systemPrompt, userPrompt, temperature, maxOutputTokens)
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
 }
-var geminiGenerateImage = func(ctx context.Context, c *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error) {
-	return c.generateImage(ctx, prompt, aspectRatio)
+
+type geminiTextGenerator func(ctx context.Context, c *GeminiProvider, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error)
+
+type geminiImageGenerator func(ctx context.Context, c *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error)
+
+var _ Provider = (*GeminiProvider)(nil)
+
+func defaultGeminiGenerateText(ctx context.Context, c *GeminiProvider, model, systemPrompt, userPrompt string, temperature float32, maxOutputTokens int32) (string, error) {
+	return c.generateTextImpl(ctx, model, systemPrompt, userPrompt, temperature, maxOutputTokens)
+}
+
+func defaultGeminiGenerateImage(ctx context.Context, c *GeminiProvider, prompt, aspectRatio string) ([]byte, string, error) {
+	return c.generateImageImpl(ctx, prompt, aspectRatio)
 }
 
 // NewGeminiProvider creates a new Gemini image provider.
 func NewGeminiProvider(config *GeminiConfig) *GeminiProvider {
 	normalized := normalizeGeminiConfig(config)
-	client := &GeminiProvider{config: normalized}
+	client := &GeminiProvider{
+		config:        normalized,
+		httpClient:    httpctx.ImageDownloadHTTPClient(),
+		generateText:  defaultGeminiGenerateText,
+		generateImage: defaultGeminiGenerateImage,
+	}
 
 	if normalized.APIKey == "" {
 		return client
 	}
 
-	genaiClient, err := newGeminiClient(context.Background(), &genai.ClientConfig{
+	newClient := httpctx.NewGenAIClient
+	if normalized.newClient != nil {
+		newClient = normalized.newClient
+	}
+	genaiClient, err := newClient(context.Background(), &genai.ClientConfig{
 		APIKey:  normalized.APIKey,
 		Backend: genai.BackendGeminiAPI,
 	})
@@ -98,41 +122,61 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 	if err != nil {
 		return nil, err
 	}
-
 	c.lastPrompt = prompt
 	if c.PromptCallback != nil {
 		c.PromptCallback(prompt)
 	}
 
+	aspectRatio := c.resolveSearchAspectRatio(opts)
+	fmt.Printf("Gemini Image Generation Prompt (%d chars): %s\n", len(prompt), prompt)
+	fmt.Printf("Gemini Image Generation: Using model %q with aspect ratio %q\n", c.modelName(), aspectRatio)
+
+	imageBytes, mimeType, err := c.generateSearchImage(ctx, prompt, aspectRatio, opts.ReferenceImages)
+	if err != nil {
+		return nil, err
+	}
+	return c.assembleSearchResult(opts.Query, translatedWord, prompt, imageBytes, mimeType)
+}
+
+func (c *GeminiProvider) resolveSearchAspectRatio(opts *SearchOptions) string {
 	aspectRatio := geminiAspectRatio
 	if c.config != nil && strings.TrimSpace(c.config.AspectRatio) != "" {
 		aspectRatio = strings.TrimSpace(c.config.AspectRatio)
 	}
-	if opts.AspectRatio != "" {
+	if opts != nil && opts.AspectRatio != "" {
 		aspectRatio = opts.AspectRatio
 	}
+	return aspectRatio
+}
 
-	fmt.Printf("Gemini Image Generation Prompt (%d chars): %s\n", len(prompt), prompt)
-	fmt.Printf("Gemini Image Generation: Using model %q with aspect ratio %q\n", c.modelName(), aspectRatio)
-
+func (c *GeminiProvider) generateSearchImage(ctx context.Context, prompt, aspectRatio string, refs [][]byte) ([]byte, string, error) {
 	var imageBytes []byte
 	var mimeType string
-	if len(opts.ReferenceImages) > 0 {
-		imageBytes, mimeType, err = c.generateImageWithRefs(ctx, prompt, aspectRatio, opts.ReferenceImages)
+	var err error
+	if len(refs) > 0 {
+		imageBytes, mimeType, err = c.generateImageWithRefs(ctx, prompt, aspectRatio, refs)
 	} else {
-		imageBytes, mimeType, err = geminiGenerateImage(ctx, c, prompt, aspectRatio)
+		genImage := c.generateImage
+		if genImage == nil {
+			genImage = defaultGeminiGenerateImage
+		}
+		imageBytes, mimeType, err = genImage(ctx, c, prompt, aspectRatio)
 	}
 	if err != nil {
-		if searchErr, ok := err.(*SearchError); ok {
-			return nil, searchErr
+		var searchErr *SearchError
+		if errors.As(err, &searchErr) {
+			return nil, "", searchErr
 		}
-		return nil, &SearchError{
+		return nil, "", &SearchError{
 			Provider: geminiSource,
 			Code:     "API_ERROR",
 			Message:  fmt.Sprintf("failed to generate image: %v", err),
 		}
 	}
+	return imageBytes, mimeType, nil
+}
 
+func (c *GeminiProvider) assembleSearchResult(query, translatedWord, prompt string, imageBytes []byte, mimeType string) ([]SearchResult, error) {
 	dataURL, err := encodeDataURL(imageBytes, mimeType)
 	if err != nil {
 		return nil, err
@@ -142,13 +186,13 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 		return nil, err
 	}
 
-	description := fmt.Sprintf("Generated educational image for %s", opts.Query)
+	description := fmt.Sprintf("Generated educational image for %s", query)
 	if translatedWord != "" {
 		description = fmt.Sprintf("%s (%s)", description, translatedWord)
 	}
 
 	result := SearchResult{
-		ID:           c.generateImageID(opts.Query),
+		ID:           c.generateImageID(query),
 		URL:          dataURL,
 		ThumbnailURL: dataURL,
 		Width:        width,
@@ -157,7 +201,6 @@ func (c *GeminiProvider) Search(ctx context.Context, opts *SearchOptions) ([]Sea
 		Source:       geminiSource,
 	}
 	result.Attribution = c.buildAttribution(&result, prompt)
-
 	return []SearchResult{result}, nil
 }
 
@@ -242,14 +285,18 @@ func (c *GeminiProvider) Download(ctx context.Context, url string) (io.ReadClose
 		return nil, err
 	}
 
-	resp, err := imageHTTPClient.Do(req)
+	httpClient := c.httpClient
+	if httpClient == nil {
+		httpClient = httpctx.ImageDownloadHTTPClient()
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			return nil, fmt.Errorf("HTTP %d: %s (failed to close response body: %v)", resp.StatusCode, resp.Status, closeErr)
+			return nil, fmt.Errorf("HTTP %d: %s (failed to close response body: %w)", resp.StatusCode, resp.Status, closeErr)
 		}
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	}

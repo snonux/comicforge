@@ -2,9 +2,10 @@ package image
 
 import (
 	"context"
-	"errors"
 	"io"
 	"strings"
+
+	"github.com/snonux/comicforge/internal/provider"
 )
 
 const (
@@ -15,15 +16,7 @@ const (
 	OpenAI = "openai"
 )
 
-const (
-	defaultSearchLanguage    = "bg"
-	defaultSearchPerPage     = 10
-	defaultSearchPage        = 1
-	defaultSearchImageType   = "photo"
-	defaultSearchOrientation = "all"
-)
-
-// SearchResult represents a single image result.
+// SearchResult represents a single generated image result.
 type SearchResult struct {
 	ID           string
 	URL          string
@@ -35,44 +28,31 @@ type SearchResult struct {
 	Source       string
 }
 
-// SearchOptions configures image search and generation.
+// SearchOptions configures image generation for Gemini (and compatible providers).
+// Fields are limited to what the generator consumes; stock-photo search knobs
+// (pagination, SafeSearch, orientation, etc.) are intentionally absent.
 type SearchOptions struct {
 	Query           string
 	Translation     string
-	Language        string
-	SafeSearch      bool
-	PerPage         int
-	Page            int
-	ImageType       string
-	Orientation     string
 	CustomPrompt    string
 	AspectRatio     string
 	ReferenceImages [][]byte
 }
 
-// DefaultSearchOptions returns sensible defaults for language-learning queries.
+// DefaultSearchOptions returns generation options for a language-learning query.
 func DefaultSearchOptions(query string) *SearchOptions {
 	return &SearchOptions{
-		Query:       query,
-		Language:    defaultSearchLanguage,
-		SafeSearch:  true,
-		PerPage:     defaultSearchPerPage,
-		Page:        defaultSearchPage,
-		ImageType:   defaultSearchImageType,
-		Orientation: defaultSearchOrientation,
+		Query: query,
 	}
 }
 
-// ImageProvider generates, downloads, and describes images.
-type ImageProvider interface {
+// Provider generates, downloads, and describes images.
+type Provider interface {
 	Name() string
 	Search(ctx context.Context, opts *SearchOptions) ([]SearchResult, error)
 	Download(ctx context.Context, url string) (io.ReadCloser, error)
 	GetAttribution(result *SearchResult) string
 }
-
-// ImageClient is kept as a compatibility alias for ImageProvider.
-type ImageClient = ImageProvider
 
 // SearchError represents a provider failure.
 type SearchError struct {
@@ -95,7 +75,7 @@ func (e *SearchError) Error() string {
 }
 
 // ErrUnknownProvider indicates that no provider is registered for a name.
-var ErrUnknownProvider = errors.New("unknown image provider")
+var ErrUnknownProvider = provider.ErrUnknownProvider
 
 // NormalizeName returns a canonical lower-case provider name.
 func NormalizeName(name string) string {

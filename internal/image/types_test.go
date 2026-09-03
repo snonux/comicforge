@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -31,11 +32,61 @@ func TestDefaultSearchOptions(t *testing.T) {
 	t.Parallel()
 
 	opts := DefaultSearchOptions("ябълка")
+	if opts == nil {
+		t.Fatal("DefaultSearchOptions() returned nil")
+	}
 	if opts.Query != "ябълка" {
 		t.Fatalf("Query = %q, want %q", opts.Query, "ябълка")
 	}
-	if opts.Language != defaultSearchLanguage || !opts.SafeSearch || opts.PerPage != defaultSearchPerPage || opts.Page != defaultSearchPage {
-		t.Fatalf("DefaultSearchOptions() = %+v", opts)
+	if opts.Translation != "" || opts.CustomPrompt != "" || opts.AspectRatio != "" || len(opts.ReferenceImages) != 0 {
+		t.Fatalf("DefaultSearchOptions() set unexpected fields: %+v", opts)
+	}
+}
+
+func TestDefaultSearchOptions_EmptyQuery(t *testing.T) {
+	t.Parallel()
+
+	opts := DefaultSearchOptions("")
+	if opts == nil {
+		t.Fatal("DefaultSearchOptions() returned nil")
+	}
+	if opts.Query != "" {
+		t.Fatalf("Query = %q, want empty", opts.Query)
+	}
+}
+
+func TestSearchOptions_OnlyGenerationFields(t *testing.T) {
+	t.Parallel()
+
+	// SearchOptions must stay trimmed to Gemini generation inputs.
+	// Reintroducing stock-photo knobs is a regression against task t0.
+	allowed := map[string]struct{}{
+		"Query":           {},
+		"Translation":     {},
+		"CustomPrompt":    {},
+		"AspectRatio":     {},
+		"ReferenceImages": {},
+	}
+	typ := reflect.TypeOf(SearchOptions{})
+	for i := 0; i < typ.NumField(); i++ {
+		name := typ.Field(i).Name
+		if _, ok := allowed[name]; !ok {
+			t.Errorf("unexpected SearchOptions field %q (stock-photo search fields must stay removed)", name)
+		}
+	}
+	for name := range allowed {
+		if _, ok := typ.FieldByName(name); !ok {
+			t.Errorf("missing expected SearchOptions field %q", name)
+		}
+	}
+
+	forbidden := []string{
+		"SafeSearch", "PerPage", "Page", "ImageType", "Orientation", "Language",
+	}
+	for _, name := range forbidden {
+		if _, ok := typ.FieldByName(name); ok {
+			t.Errorf("SearchOptions still has stock-photo field %q", name)
+		}
 	}
 }
 
@@ -51,11 +102,12 @@ func TestSearchError(t *testing.T) {
 func TestRegistryNewFromConfig(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[fakeConfig]()
-	registry.Register(Gemini, func(cfg fakeConfig) (ImageProvider, error) {
+	registry := NewRegistry()
+	registry.Register(Gemini, func(cfg Config) (Provider, error) {
+		fc := cfg.(fakeConfig)
 		return fakeProvider{
-			name:  cfg.name,
-			token: cfg.token,
+			name:  fc.name,
+			token: fc.token,
 		}, nil
 	})
 
@@ -74,30 +126,13 @@ func TestRegistryNewFromConfig(t *testing.T) {
 func TestRegistryNewFromConfigNilRegistry(t *testing.T) {
 	t.Parallel()
 
-	var registry *Registry[fakeConfig]
+	var registry *Registry
 	_, err := registry.NewFromConfig(fakeConfig{name: Gemini})
 	if err == nil {
 		t.Fatal("expected nil registry error")
 	}
 	if !strings.Contains(err.Error(), "image registry is required") {
 		t.Fatalf("error = %v, want nil registry error", err)
-	}
-}
-
-func TestRegistrySupportsCustomConfigWithoutGeminiFields(t *testing.T) {
-	t.Parallel()
-
-	registry := NewRegistry[customConfig]()
-	registry.Register(Gemini, func(cfg customConfig) (ImageProvider, error) {
-		return fakeProvider{name: cfg.name}, nil
-	})
-
-	gotProvider, err := registry.NewFromConfig(customConfig{name: Gemini})
-	if err != nil {
-		t.Fatalf("NewFromConfig() error = %v", err)
-	}
-	if got, want := gotProvider.Name(), Gemini; got != want {
-		t.Fatalf("provider.Name() = %q, want %q", got, want)
 	}
 }
 
@@ -140,7 +175,7 @@ func TestDefaultRegistryUnsupportedProvider(t *testing.T) {
 func TestRegistryUnknownProvider(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[fakeConfig]()
+	registry := NewRegistry()
 	_, err := registry.New("missing", fakeConfig{})
 	if err == nil {
 		t.Fatal("expected unknown provider error")
@@ -163,12 +198,6 @@ func (f fakeConfig) GoogleAPIKey() string      { return f.apiKey }
 func (f fakeConfig) ImageModel() string        { return f.model }
 func (f fakeConfig) ImageTextModel() string    { return f.textModel }
 func (f fakeConfig) ComicAspectRatio() string  { return "" }
-
-type customConfig struct {
-	name string
-}
-
-func (f customConfig) ImageProviderName() string { return f.name }
 
 type fakeProvider struct {
 	name  string

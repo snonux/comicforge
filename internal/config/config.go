@@ -8,15 +8,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
 	"github.com/spf13/viper"
 
-	"github.com/snonux/comicforge/internal/image"
+	"github.com/snonux/comicforge/internal/comic"
 	"github.com/snonux/comicforge/internal/provider"
-	"github.com/snonux/comicforge/internal/text"
-	"github.com/snonux/comicforge/internal/tts"
 	"github.com/snonux/comicforge/prompts"
 )
 
@@ -44,10 +43,30 @@ var (
 	_ provider.TextConfig  = (*Config)(nil)
 	_ provider.ImageConfig = (*Config)(nil)
 	_ provider.TTSConfig   = (*Config)(nil)
-	_ text.Config          = (*Config)(nil)
-	_ image.Config         = (*Config)(nil)
-	_ tts.Config           = (*Config)(nil)
 )
+
+// NameCheck reports whether a provider name is known for a capability.
+type NameCheck func(name string) bool
+
+// LoadOption customizes configuration loading.
+type LoadOption func(*loadOptions)
+
+type loadOptions struct {
+	textKnown  NameCheck
+	imageKnown NameCheck
+	ttsKnown   NameCheck
+}
+
+// WithProviderNameChecks injects validators used to reject unknown provider names.
+// A nil check skips validation for that capability so config stays free of
+// concrete provider-package dependencies.
+func WithProviderNameChecks(text, image, tts NameCheck) LoadOption {
+	return func(o *loadOptions) {
+		o.textKnown = text
+		o.imageKnown = image
+		o.ttsKnown = tts
+	}
+}
 
 // ProviderConfig stores the selected provider name for each capability.
 type ProviderConfig struct {
@@ -94,20 +113,84 @@ type StoryConfig struct {
 	RealisticWeight float64  `mapstructure:"realistic_weight" yaml:"realistic_weight"`
 }
 
-// StyleConfig stores prompt style pools.
-type StyleConfig struct {
-	Comic      []string `mapstructure:"comic" yaml:"comic"`
-	Realistic  []string `mapstructure:"realistic" yaml:"realistic"`
-	Cartoon    []string `mapstructure:"cartoon" yaml:"cartoon"`
-	Action90s  []string `mapstructure:"action_90s" yaml:"action_90s"`
-	Manga      []string `mapstructure:"manga" yaml:"manga"`
-	Horror     []string `mapstructure:"horror" yaml:"horror"`
-	Watercolor []string `mapstructure:"watercolor" yaml:"watercolor"`
-	Pulp       []string `mapstructure:"pulp" yaml:"pulp"`
-	Mecha      []string `mapstructure:"mecha" yaml:"mecha"`
-	PixelArt   []string `mapstructure:"pixel_art" yaml:"pixel_art"`
-	InkWash    []string `mapstructure:"ink_wash" yaml:"ink_wash"`
-	Clay       []string `mapstructure:"clay" yaml:"clay"`
+// StyleConfig maps style category keys (YAML keys under styles:) to prompt line pools.
+// Known keys include comic, realistic, cartoon, action_90s, manga, horror,
+// watercolor, pulp, mecha, pixel_art, ink_wash, and clay; extra keys are allowed.
+type StyleConfig map[string][]string
+
+// StyleCategoryOrder is the stable display order for built-in style categories.
+var StyleCategoryOrder = []string{
+	"comic",
+	"realistic",
+	"cartoon",
+	"action_90s",
+	"manga",
+	"horror",
+	"watercolor",
+	"pulp",
+	"mecha",
+	"pixel_art",
+	"ink_wash",
+	"clay",
+}
+
+// StyleCategoryTitle returns a human-readable label for a style category key.
+func StyleCategoryTitle(key string) string {
+	switch key {
+	case "action_90s":
+		return "Action 90s"
+	case "pixel_art":
+		return "Pixel Art"
+	case "ink_wash":
+		return "Ink Wash"
+	default:
+		if key == "" {
+			return ""
+		}
+		parts := strings.Split(key, "_")
+		for i, p := range parts {
+			if p == "" {
+				continue
+			}
+			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		}
+		return strings.Join(parts, " ")
+	}
+}
+
+// Clone returns a copy of the style map with copied line slices.
+func (s StyleConfig) Clone() StyleConfig {
+	if s == nil {
+		return nil
+	}
+	out := make(StyleConfig, len(s))
+	for k, v := range s {
+		out[k] = append([]string(nil), v...)
+	}
+	return out
+}
+
+// Keys returns category keys in StyleCategoryOrder first, then any extras sorted.
+func (s StyleConfig) Keys() []string {
+	if len(s) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(s))
+	keys := make([]string, 0, len(s))
+	for _, key := range StyleCategoryOrder {
+		if _, ok := s[key]; ok {
+			keys = append(keys, key)
+			seen[key] = true
+		}
+	}
+	var extras []string
+	for key := range s {
+		if !seen[key] {
+			extras = append(extras, key)
+		}
+	}
+	sort.Strings(extras)
+	return append(keys, extras...)
 }
 
 // NarrationConfig stores narration prompt knobs.
@@ -164,56 +247,7 @@ func DefaultConfig() *Config {
 			},
 			RealisticWeight: 0.4,
 		},
-		Styles: StyleConfig{
-			Comic: []string{
-				"classic comic book with bold ink outlines",
-				"graphic novel with dramatic shadows",
-			},
-			Realistic: []string{
-				"ultra-realistic DSLR photography, cinematic 35mm lens",
-				"cinematic realism with natural light",
-			},
-			Cartoon: []string{
-				"extremely cartoonish 1930s rubber-hose funny-animal comic style, original mouse-and-duck-era mascot energy, pie-cut eyes, button noses or beaks, white gloves, oversized shoes, noodle arms, squash-and-stretch bodies, round heads, huge expressions, flat candy colors, simple gag staging, absolutely no realism",
-				"vintage theatrical funny-animal cartoon comic style, redesign people as original anthropomorphic mascot characters with beaks or round snouts, pie-cut eyes, white gloves, oversized shoes, elastic limbs, cheerful slapstick poses, bold clean outlines, bright flat backgrounds, no realistic anatomy",
-			},
-			Action90s: []string{
-				"1990s superhero comic splash-page style like a bold caped hero punching a masked villain in a city, huge muscles, spandex costumes, flowing cape, explosive impact burst, speed lines, smoke, rubble, halftone print texture, heavy black inks, saturated primary colors",
-				"classic 90s action superhero cover style, oversized yellow masthead energy, caped spandex hero, armored villain, clenched fists, dramatic foreshortening, city skyline, explosions, speech balloons, thick ink outlines, Ben-Day dots",
-			},
-			Manga: []string{
-				"true monochrome Japanese shonen manga page, black ink only with grey screentone, no western color rendering, large expressive anime eyes, sharp spiky hair silhouettes, sweat drops, impact bursts, speed-line backgrounds, exaggerated emotion close-ups, dynamic diagonal manga panel language",
-				"authentic serialized manga action art, crisp black linework, dense screentone gradients, white paper highlights, hand-drawn Japanese comic energy, chibi reaction inset where appropriate, dramatic sound-effect shapes, cinematic close-ups, no painterly western comic coloring",
-			},
-			Horror: []string{
-				"vintage horror comic style, eerie shadows, gothic atmosphere, unsettling monsters, dramatic candlelit contrast, suspenseful panel staging",
-				"creepy supernatural horror comic style, fog, haunted architecture, anxious expressions, heavy inks, sickly green and crimson accents",
-			},
-			Watercolor: []string{
-				"pure transparent watercolor storybook comic style, visible cold-press paper grain, watery pigment blooms, uneven wash edges, granulation, soft bleeding colors, pale layered washes, loose pencil underdrawing, no digital airbrush, no oil-paint texture, no glossy comic coloring",
-				"hand-painted watercolor children's adventure style, translucent pastel washes, wet-on-wet skies, dry-brush texture, white paper highlights, delicate ink-and-pencil outlines, puddled pigment edges, airy negative space, gentle low-contrast rendering",
-			},
-			Pulp: []string{
-				"retro pulp adventure cover style, painted poster energy, dramatic rim light, saturated inks, worn paper grain, bold composition, vintage print imperfections",
-				"mid-century pulp sci-fi comic style, chromatic airbrushed highlights, atomic-age props, bold diagonals, distressed halftone texture, high adventure mood",
-			},
-			Mecha: []string{
-				"high-detail mecha comic style, hard-surface armor plates, mechanical joints, cockpit glass reflections, technical line art, industrial lighting",
-				"anime mecha action page style, towering robots, dynamic perspective, panel-like motion energy, sparks and smoke, crisp cel-shaded rendering",
-			},
-			PixelArt: []string{
-				"16-bit pixel-art comic scene, limited palette, clean pixel clusters, deliberate dithering, retro game-era perspective, sharp pixel edges",
-				"retro pixel-art storyboard style, chunky sprites, high-contrast palette ramps, tiled-environment texture, no anti-aliasing, classic console look",
-			},
-			InkWash: []string{
-				"ink-wash brush painting style, sumi-e inspired strokes, expressive black ink gradients, controlled bleed on paper, minimal but dramatic composition",
-				"monochrome ink-and-wash comic style, calligraphic brush lines, soft gray washes, negative-space storytelling, textured rice-paper feel",
-			},
-			Clay: []string{
-				"stop-motion clay diorama style, hand-sculpted clay characters, thumbprint texture, miniature set lighting, tactile handcrafted look",
-				"plasticine comic tableau style, sculpted figures, soft studio shadows, practical miniature props, playful clay surface detail",
-			},
-		},
+		Styles: StyleConfig(comic.DefaultStyleLines()),
 		Narration: NarrationConfig{
 			Voices: []string{
 				"Charon",
@@ -231,8 +265,15 @@ func DefaultConfig() *Config {
 }
 
 // Load reads configuration from YAML, environment variables, and defaults.
-func Load(configPath string) (*Config, error) {
+func Load(configPath string, opts ...LoadOption) (*Config, error) {
 	cfg := DefaultConfig()
+
+	options := loadOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
 
 	v := viper.New()
 	v.SetEnvPrefix("COMICFORGE")
@@ -265,7 +306,7 @@ func Load(configPath string) (*Config, error) {
 
 	applyEnvFallbacks(cfg)
 	cfg.normalize()
-	if err := cfg.validate(); err != nil {
+	if err := cfg.validate(options); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -424,14 +465,14 @@ func (c *Config) normalize() {
 	}
 }
 
-func (c *Config) validate() error {
-	if !text.DefaultRegistry().Has(c.Provider.Text) {
+func (c *Config) validate(opts loadOptions) error {
+	if opts.textKnown != nil && !opts.textKnown(c.Provider.Text) {
 		return fmt.Errorf("unknown text provider: %s", c.Provider.Text)
 	}
-	if !image.DefaultRegistry().Has(c.Provider.Image) {
+	if opts.imageKnown != nil && !opts.imageKnown(c.Provider.Image) {
 		return fmt.Errorf("unknown image provider: %s", c.Provider.Image)
 	}
-	if !tts.DefaultRegistry().Has(c.Provider.TTS) {
+	if opts.ttsKnown != nil && !opts.ttsKnown(c.Provider.TTS) {
 		return fmt.Errorf("unknown TTS provider: %s", c.Provider.TTS)
 	}
 
@@ -472,18 +513,9 @@ func setDefaults(v *viper.Viper, cfg *Config) {
 	v.SetDefault("story.genres", cfg.Story.Genres)
 	v.SetDefault("story.realistic_weight", cfg.Story.RealisticWeight)
 
-	v.SetDefault("styles.comic", cfg.Styles.Comic)
-	v.SetDefault("styles.realistic", cfg.Styles.Realistic)
-	v.SetDefault("styles.cartoon", cfg.Styles.Cartoon)
-	v.SetDefault("styles.action_90s", cfg.Styles.Action90s)
-	v.SetDefault("styles.manga", cfg.Styles.Manga)
-	v.SetDefault("styles.horror", cfg.Styles.Horror)
-	v.SetDefault("styles.watercolor", cfg.Styles.Watercolor)
-	v.SetDefault("styles.pulp", cfg.Styles.Pulp)
-	v.SetDefault("styles.mecha", cfg.Styles.Mecha)
-	v.SetDefault("styles.pixel_art", cfg.Styles.PixelArt)
-	v.SetDefault("styles.ink_wash", cfg.Styles.InkWash)
-	v.SetDefault("styles.clay", cfg.Styles.Clay)
+	for key, lines := range cfg.Styles {
+		v.SetDefault("styles."+key, lines)
+	}
 
 	v.SetDefault("narration.voices", cfg.Narration.Voices)
 	v.SetDefault("narration.chunk_words", cfg.Narration.ChunkWords)

@@ -1,16 +1,16 @@
 package image
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"strings"
 	"time"
 )
 
 func (c *GeminiProvider) generateImageID(word string) string {
-	hash := md5.Sum([]byte(word))
-	return hex.EncodeToString(hash[:])[:8]
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(word))
+	return fmt.Sprintf("%08x", h.Sum32())
 }
 
 func (c *GeminiProvider) buildAttribution(result *SearchResult, prompt string) string {

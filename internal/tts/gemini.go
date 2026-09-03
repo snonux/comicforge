@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"google.golang.org/genai"
 
+	"github.com/snonux/comicforge/internal/apicircuit"
+	"github.com/snonux/comicforge/internal/ffmpegutil"
+	"github.com/snonux/comicforge/internal/httpctx"
 	"github.com/snonux/comicforge/internal/provider"
 )
 
@@ -36,6 +38,14 @@ type GeminiProvider struct {
 
 var _ provider.TTSProvider = (*GeminiProvider)(nil)
 
+var newGeminiClient = httpctx.NewGenAIClient
+var geminiGenerateContent = func(ctx context.Context, client *genai.Client, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	return client.Models.GenerateContent(ctx, model, contents, cfg)
+}
+
+// circuitRegistry overrides the breaker registry in tests; nil uses apicircuit.DefaultRegistry.
+var circuitRegistry *apicircuit.Registry
+
 // NewGeminiProvider creates a Gemini TTS provider.
 func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 	g := &GeminiProvider{model: DefaultModel}
@@ -49,7 +59,7 @@ func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 		g.err = fmt.Errorf("google API key is required for TTS")
 		return g
 	}
-	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
+	client, err := newGeminiClient(context.Background(), &genai.ClientConfig{
 		APIKey:  cfg.APIKey,
 		Backend: genai.BackendGeminiAPI,
 	})
@@ -100,9 +110,11 @@ func (g *GeminiProvider) GenerateAudio(ctx context.Context, text, outputFile str
 		},
 		LanguageCode: "bg-BG",
 	}
-	resp, err := g.client.Models.GenerateContent(ctx, g.model, genai.Text(text), &genai.GenerateContentConfig{
-		ResponseModalities: []string{"AUDIO"},
-		SpeechConfig:       speechCfg,
+	resp, err := apicircuit.Execute(circuitRegistry, g.Name(), apicircuit.CapabilityTTS, func() (*genai.GenerateContentResponse, error) {
+		return geminiGenerateContent(ctx, g.client, g.model, genai.Text(text), &genai.GenerateContentConfig{
+			ResponseModalities: []string{"AUDIO"},
+			SpeechConfig:       speechCfg,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("generate audio: %w", err)
@@ -111,10 +123,7 @@ func (g *GeminiProvider) GenerateAudio(ctx context.Context, text, outputFile str
 	if err != nil {
 		return err
 	}
-	if err := writeAudioFile(data, mimeType, outputFile); err != nil {
-		return err
-	}
-	return nil
+	return writeAudioFile(data, mimeType, outputFile)
 }
 
 func extractAudio(resp *genai.GenerateContentResponse) ([]byte, string, error) {
@@ -148,46 +157,62 @@ func writeAudioFile(data []byte, mimeType, outputFile string) error {
 }
 
 func encodePCMToMP3(data []byte, mimeType, outputFile string) error {
-	ffmpegPath, err := exec.LookPath("ffmpeg")
+	ffmpegPath, err := ffmpegutil.LookPath()
 	if err != nil {
 		return fmt.Errorf("ffmpeg not found for audio conversion: %w", err)
 	}
 
-	rate := 24000
-	if idx := strings.Index(mimeType, "rate="); idx >= 0 {
-		value := mimeType[idx+len("rate="):]
-		for i, r := range value {
-			if r < '0' || r > '9' {
-				value = value[:i]
-				break
-			}
-		}
-		if parsed, parseErr := strconv.Atoi(value); parseErr == nil && parsed > 0 {
-			rate = parsed
-		}
-	}
-
-	tmpDir := filepath.Dir(outputFile)
-	rawFile, err := os.CreateTemp(tmpDir, "comicforge-tts-*.pcm")
+	rawPath, err := writeTempPCM(data, outputFile)
 	if err != nil {
-		return fmt.Errorf("create temporary audio file: %w", err)
-	}
-	rawPath := rawFile.Name()
-	if _, err := rawFile.Write(data); err != nil {
-		_ = rawFile.Close()
-		_ = os.Remove(rawPath)
-		return fmt.Errorf("write temporary audio file: %w", err)
-	}
-	if err := rawFile.Close(); err != nil {
-		_ = os.Remove(rawPath)
-		return fmt.Errorf("close temporary audio file: %w", err)
+		return err
 	}
 	defer func() {
 		_ = os.Remove(rawPath)
 	}()
 
-	cmd := exec.Command(ffmpegPath,
-		"-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+	return convertPCMFileToMP3(ffmpegPath, rawPath, pcmSampleRate(mimeType), outputFile)
+}
+
+func pcmSampleRate(mimeType string) int {
+	rate := 24000
+	idx := strings.Index(mimeType, "rate=")
+	if idx < 0 {
+		return rate
+	}
+	value := mimeType[idx+len("rate="):]
+	for i, r := range value {
+		if r < '0' || r > '9' {
+			value = value[:i]
+			break
+		}
+	}
+	if parsed, parseErr := strconv.Atoi(value); parseErr == nil && parsed > 0 {
+		return parsed
+	}
+	return rate
+}
+
+func writeTempPCM(data []byte, outputFile string) (string, error) {
+	rawFile, err := os.CreateTemp(filepath.Dir(outputFile), "comicforge-tts-*.pcm")
+	if err != nil {
+		return "", fmt.Errorf("create temporary audio file: %w", err)
+	}
+	rawPath := rawFile.Name()
+	if _, err := rawFile.Write(data); err != nil {
+		_ = rawFile.Close()
+		_ = os.Remove(rawPath)
+		return "", fmt.Errorf("write temporary audio file: %w", err)
+	}
+	if err := rawFile.Close(); err != nil {
+		_ = os.Remove(rawPath)
+		return "", fmt.Errorf("close temporary audio file: %w", err)
+	}
+	return rawPath, nil
+}
+
+func convertPCMFileToMP3(ffmpegPath, rawPath string, rate int, outputFile string) error {
+	cmd := ffmpegutil.Command(ffmpegPath,
+		"-y",
 		"-f", "s16le",
 		"-ar", fmt.Sprintf("%d", rate),
 		"-ac", "1",
