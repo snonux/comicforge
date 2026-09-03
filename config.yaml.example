@@ -35,9 +35,9 @@ language:
   input: Vocabulary
   output: Story
   # Language used for story and narration prompts. Must match the script of visible text
-  # (e.g. English story + Latin script for English vocab; Cyrillic for Bulgarian).
+  # (e.g. English story + Latin script for English vocab; Bulgarian + Cyrillic).
   # Env: COMICFORGE_LANGUAGE_STORY_LANGUAGE, COMICFORGE_LANGUAGE_SCRIPT
-  story_language: Bulgarian
+  story_language: English
   script: Latin
 
 story:
