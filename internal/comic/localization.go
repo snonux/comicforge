@@ -1,9 +1,6 @@
 package comic
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
 // localizedBrandName returns the comic's subtitle/series name in the selected script.
 func localizedBrandName(language, script string) string {
@@ -44,9 +41,9 @@ func needsCyrillicStyle(language, script string) bool {
 	return strings.EqualFold(script, "Cyrillic") || strings.EqualFold(language, "Bulgarian")
 }
 
-// localizedStylePrompt returns the style prompt in the active script.
-// In Cyrillic/Bulgarian mode every style must have a co-located localization;
-// missing entries panic so English cannot silently leak into Cyrillic output.
+// localizedStylePrompt localizes built-in style instructions when available.
+// Custom styles remain prompt instructions; the image templates separately
+// constrain visible text to the requested language and script.
 func localizedStylePrompt(style, language, script string) string {
 	if !needsCyrillicStyle(language, script) {
 		return style
@@ -54,9 +51,8 @@ func localizedStylePrompt(style, language, script string) string {
 	if style == "" {
 		return style
 	}
-	localized, ok := cyrillicStyleByEnglish[style]
-	if !ok {
-		panic(fmt.Sprintf("comic: no Cyrillic localization for style %q", style))
+	if localized, ok := cyrillicStyleByEnglish[style]; ok {
+		return localized
 	}
-	return localized
+	return style
 }

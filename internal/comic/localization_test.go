@@ -128,20 +128,16 @@ func TestLocalizedStylePromptLatinPassthrough(t *testing.T) {
 	}
 }
 
-func TestLocalizedStylePromptMissingPanics(t *testing.T) {
+func TestLocalizedStylePromptCustomPassthrough(t *testing.T) {
 	t.Parallel()
 
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("localizedStylePrompt() did not panic for missing Cyrillic localization")
-		}
-		msg, ok := r.(string)
-		if !ok || !strings.Contains(msg, "no Cyrillic localization") {
-			t.Fatalf("panic = %#v, want missing-localization message", r)
-		}
-	}()
-	_ = localizedStylePrompt("totally unknown custom style line", "Bulgarian", "Cyrillic")
+	for _, style := range []string{"watercolor", "акварел с меки линии", "mixed акварел", ""} {
+		t.Run(style, func(t *testing.T) {
+			if got := localizedStylePrompt(style, "Bulgarian", "Cyrillic"); got != style {
+				t.Fatalf("custom style = %q, want %q", got, style)
+			}
+		})
+	}
 }
 
 func TestDefaultStylesHaveLocalizations(t *testing.T) {
