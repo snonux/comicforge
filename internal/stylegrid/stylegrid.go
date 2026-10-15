@@ -139,20 +139,26 @@ func validateMontageInputs(img provider.ImageProvider, jobs []Job) (provider.Asp
 
 func renderMontageTiles(ctx context.Context, arImg provider.AspectRatioImageProvider, aspectRatio string, jobs []Job, tmpDir string, opts MontageOptions) error {
 	for i := range jobs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		raw := filepath.Join(tmpDir, fmt.Sprintf("raw_%03d.png", i))
 		if err := arImg.GenerateImageWithAspectRatio(ctx, jobs[i].Prompt, raw, aspectRatio); err != nil {
 			return fmt.Errorf("job %d (%s): %w", i, jobs[i].Header, err)
 		}
 		norm := filepath.Join(tmpDir, fmt.Sprintf("norm_%03d.png", i))
-		if err := normalizeCell(raw, norm, opts.CellW, opts.CellH); err != nil {
+		if err := normalizeCell(ctx, raw, norm, opts.CellW, opts.CellH); err != nil {
 			return fmt.Errorf("normalize %d: %w", i, err)
+		}
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		lblPath := filepath.Join(tmpDir, fmt.Sprintf("caption_%03d.txt", i))
 		if err := os.WriteFile(lblPath, []byte(jobs[i].Header), 0o644); err != nil {
 			return err
 		}
 		labeled := filepath.Join(tmpDir, fmt.Sprintf("labeled_%03d.png", i))
-		if err := addCaptionHeader(norm, labeled, lblPath, opts.CellW, opts.HeaderH); err != nil {
+		if err := addCaptionHeader(ctx, norm, labeled, lblPath, opts.CellW, opts.HeaderH); err != nil {
 			return fmt.Errorf("header %d: %w", i, err)
 		}
 	}
@@ -182,7 +188,7 @@ func runMontageCommand(ctx context.Context, tmpDir, outPath string, opts Montage
 	return nil
 }
 
-func normalizeCell(src, dst string, w, h int) error {
+func normalizeCell(ctx context.Context, src, dst string, w, h int) error {
 	// Cover crop to exact WxH.
 	args := []string{
 		src,
@@ -191,15 +197,18 @@ func normalizeCell(src, dst string, w, h int) error {
 		"-extent", fmt.Sprintf("%dx%d", w, h),
 		dst,
 	}
-	cmd := exec.Command("convert", args...)
+	cmd := exec.CommandContext(ctx, "convert", args...)
 	out, err := cmd.CombinedOutput()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return fmt.Errorf("convert resize: %w", ctxErr)
+	}
 	if err != nil {
 		return fmt.Errorf("convert resize: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-func addCaptionHeader(imagePath, outPath, captionFile string, cellW, headerH int) error {
+func addCaptionHeader(ctx context.Context, imagePath, outPath, captionFile string, cellW, headerH int) error {
 	// caption:@file wraps text; header bar above the art.
 	args := []string{
 		"(",
@@ -212,8 +221,11 @@ func addCaptionHeader(imagePath, outPath, captionFile string, cellW, headerH int
 		"-append",
 		outPath,
 	}
-	cmd := exec.Command("convert", args...)
+	cmd := exec.CommandContext(ctx, "convert", args...)
 	out, err := cmd.CombinedOutput()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return fmt.Errorf("convert caption: %w", ctxErr)
+	}
 	if err != nil {
 		return fmt.Errorf("convert caption: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
