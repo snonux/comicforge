@@ -375,6 +375,14 @@ func (c *Config) TTSProviderName() string {
 	return provider.NormalizeName(c.Provider.TTS)
 }
 
+// StoryLanguage returns the configured story and narration language.
+func (c *Config) StoryLanguage() string {
+	if c == nil {
+		return ""
+	}
+	return c.Language.Story
+}
+
 // PromptDir returns the configured prompts directory or the default fallback.
 func (c *Config) PromptDir() string {
 	if c == nil || strings.TrimSpace(c.PromptsDir) == "" {

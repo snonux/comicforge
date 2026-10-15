@@ -64,3 +64,4 @@ type fakeConfig struct {
 func (f fakeConfig) TTSProviderName() string { return f.name }
 func (f fakeConfig) GoogleAPIKey() string    { return f.apiKey }
 func (f fakeConfig) TTSModel() string        { return f.model }
+func (f fakeConfig) StoryLanguage() string   { return "Bulgarian" }

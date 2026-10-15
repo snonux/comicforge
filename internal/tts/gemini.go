@@ -23,17 +23,19 @@ const (
 
 // GeminiConfig configures the Gemini TTS provider.
 type GeminiConfig struct {
-	APIKey string
-	Model  string
-	Voice  string
+	APIKey   string
+	Model    string
+	Voice    string
+	Language string
 }
 
 // GeminiProvider generates MP3 audio with Gemini TTS.
 type GeminiProvider struct {
-	client *genai.Client
-	model  string
-	voice  string
-	err    error
+	client       *genai.Client
+	model        string
+	voice        string
+	languageCode string
+	err          error
 }
 
 var _ provider.TTSProvider = (*GeminiProvider)(nil)
@@ -55,6 +57,7 @@ func NewGeminiProvider(cfg *GeminiConfig) *GeminiProvider {
 	}
 	g.model = defaultOr(cfg.Model, DefaultModel)
 	g.voice = cfg.Voice
+	g.languageCode = speechLanguageCode(cfg.Language)
 	if strings.TrimSpace(cfg.APIKey) == "" {
 		g.err = fmt.Errorf("google API key is required for TTS")
 		return g
@@ -108,7 +111,7 @@ func (g *GeminiProvider) GenerateAudio(ctx context.Context, text, outputFile str
 		VoiceConfig: &genai.VoiceConfig{
 			PrebuiltVoiceConfig: &genai.PrebuiltVoiceConfig{VoiceName: voiceName},
 		},
-		LanguageCode: "bg-BG",
+		LanguageCode: g.languageCode,
 	}
 	resp, err := apicircuit.Execute(circuitRegistry, g.Name(), apicircuit.CapabilityTTS, func() (*genai.GenerateContentResponse, error) {
 		return geminiGenerateContent(ctx, g.client, g.model, genai.Text(text), &genai.GenerateContentConfig{

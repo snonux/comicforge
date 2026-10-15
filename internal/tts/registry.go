@@ -12,6 +12,7 @@ type Config interface {
 	provider.TTSConfig
 	GoogleAPIKey() string
 	TTSModel() string
+	StoryLanguage() string
 }
 
 type registryConfig struct {
@@ -36,9 +37,10 @@ func DefaultRegistry() *Registry {
 	registry := NewRegistry()
 	registry.Register(provider.Gemini, func(cfg registryConfig) (provider.TTSProvider, error) {
 		geminiProvider := NewGeminiProvider(&GeminiConfig{
-			APIKey: cfg.GoogleAPIKey(),
-			Model:  cfg.TTSModel(),
-			Voice:  cfg.voice,
+			APIKey:   cfg.GoogleAPIKey(),
+			Model:    cfg.TTSModel(),
+			Voice:    cfg.voice,
+			Language: cfg.StoryLanguage(),
 		})
 		if err := geminiProvider.IsAvailable(); err != nil {
 			return nil, err
