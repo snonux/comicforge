@@ -126,7 +126,7 @@ func (g *GeminiProvider) GenerateAudio(ctx context.Context, text, outputFile str
 	if err != nil {
 		return err
 	}
-	return writeAudioFile(data, mimeType, outputFile)
+	return writeAudioFile(ctx, data, mimeType, outputFile)
 }
 
 func extractAudio(resp *genai.GenerateContentResponse) ([]byte, string, error) {
@@ -141,7 +141,10 @@ func extractAudio(resp *genai.GenerateContentResponse) ([]byte, string, error) {
 	return nil, "", fmt.Errorf("audio payload missing")
 }
 
-func writeAudioFile(data []byte, mimeType, outputFile string) error {
+func writeAudioFile(ctx context.Context, data []byte, mimeType, outputFile string) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("write audio: %w", err)
+	}
 	if strings.TrimSpace(outputFile) == "" {
 		return fmt.Errorf("output file is required")
 	}
@@ -151,15 +154,18 @@ func writeAudioFile(data []byte, mimeType, outputFile string) error {
 		if err := os.WriteFile(outputFile, data, 0o644); err != nil {
 			return fmt.Errorf("write audio: %w", err)
 		}
-		return nil
+		return ctx.Err()
 	case strings.Contains(lowerMime, "audio/l16"), strings.Contains(lowerMime, "codec=pcm"), lowerMime == "":
-		return encodePCMToMP3(data, lowerMime, outputFile)
+		return encodePCMToMP3(ctx, data, lowerMime, outputFile)
 	default:
 		return fmt.Errorf("unsupported audio mime type %q", mimeType)
 	}
 }
 
-func encodePCMToMP3(data []byte, mimeType, outputFile string) error {
+func encodePCMToMP3(ctx context.Context, data []byte, mimeType, outputFile string) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("encode PCM audio: %w", err)
+	}
 	ffmpegPath, err := ffmpegutil.LookPath()
 	if err != nil {
 		return fmt.Errorf("ffmpeg not found for audio conversion: %w", err)
@@ -173,7 +179,7 @@ func encodePCMToMP3(data []byte, mimeType, outputFile string) error {
 		_ = os.Remove(rawPath)
 	}()
 
-	return convertPCMFileToMP3(ffmpegPath, rawPath, pcmSampleRate(mimeType), outputFile)
+	return convertPCMFileToMP3(ctx, ffmpegPath, rawPath, pcmSampleRate(mimeType), outputFile)
 }
 
 func pcmSampleRate(mimeType string) int {
@@ -213,8 +219,8 @@ func writeTempPCM(data []byte, outputFile string) (string, error) {
 	return rawPath, nil
 }
 
-func convertPCMFileToMP3(ffmpegPath, rawPath string, rate int, outputFile string) error {
-	cmd := ffmpegutil.Command(ffmpegPath,
+func convertPCMFileToMP3(ctx context.Context, ffmpegPath, rawPath string, rate int, outputFile string) error {
+	cmd := ffmpegutil.CommandContext(ctx, ffmpegPath,
 		"-y",
 		"-f", "s16le",
 		"-ar", fmt.Sprintf("%d", rate),
@@ -225,6 +231,9 @@ func convertPCMFileToMP3(ffmpegPath, rawPath string, rate int, outputFile string
 		outputFile,
 	)
 	out, err := cmd.CombinedOutput()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return fmt.Errorf("convert PCM audio to mp3: %w", ctxErr)
+	}
 	if err != nil {
 		return fmt.Errorf("convert PCM audio to mp3: %w\n%s", err, strings.TrimSpace(string(out)))
 	}

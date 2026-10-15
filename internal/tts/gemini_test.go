@@ -155,7 +155,7 @@ func TestEncodePCMToMP3MissingFFmpeg(t *testing.T) {
 	})
 	t.Cleanup(restore)
 
-	err := encodePCMToMP3([]byte{0, 1, 2, 3}, "audio/l16;rate=24000", filepath.Join(t.TempDir(), "out.mp3"))
+	err := encodePCMToMP3(context.Background(), []byte{0, 1, 2, 3}, "audio/l16;rate=24000", filepath.Join(t.TempDir(), "out.mp3"))
 	if err == nil {
 		t.Fatal("encodePCMToMP3() error = nil, want missing ffmpeg")
 	}
