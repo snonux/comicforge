@@ -26,6 +26,7 @@ type RunnerConfig struct {
 	Style                 string
 	StyleMode             string
 	Theme                 string
+	Genres                []string
 	Language              string
 	Script                string
 	NarratorVoice         string
@@ -84,6 +85,7 @@ func NewRunner(cfg *RunnerConfig) *Runner {
 		Language:      cfg.Language,
 		Script:        cfg.Script,
 		Theme:         cfg.Theme,
+		Genres:        append([]string(nil), cfg.Genres...),
 		StoryPages:    cfg.StoryPages,
 		PanelsPerPage: cfg.PanelsPerPage,
 	})

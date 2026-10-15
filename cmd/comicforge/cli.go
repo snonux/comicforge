@@ -225,6 +225,7 @@ func buildRunnerConfig(cfg *config.Config, flags cliFlags, textProvider provider
 		Style:           flags.style,
 		Styles:          cfg.Styles,
 		Theme:           flags.theme,
+		Genres:          append([]string(nil), cfg.Story.Genres...),
 		Language:        cfg.Language.Story,
 		Script:          cfg.Language.Script,
 		Slug:            flags.slug,
