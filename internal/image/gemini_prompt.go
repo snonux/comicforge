@@ -6,14 +6,6 @@ import (
 	"strings"
 )
 
-func normalizeCustomPrompt(prompt string) string {
-	prompt = strings.TrimSpace(prompt)
-	if len(prompt) > maxCustomPrompt {
-		prompt = truncateToByteLimit(prompt, maxCustomPrompt)
-	}
-	return prompt
-}
-
 func (c *GeminiProvider) resolveTranslation(_ context.Context, opts *SearchOptions, translation string) (string, error) {
 	if translation != "" {
 		fmt.Printf("Using provided translation: %s -> %s\n", opts.Query, translation)
@@ -24,7 +16,7 @@ func (c *GeminiProvider) resolveTranslation(_ context.Context, opts *SearchOptio
 }
 
 func (c *GeminiProvider) resolvePrompt(ctx context.Context, opts *SearchOptions, translatedWord string) (string, error) {
-	if customPrompt := normalizeCustomPrompt(opts.CustomPrompt); customPrompt != "" {
+	if customPrompt := strings.TrimSpace(opts.CustomPrompt); customPrompt != "" {
 		fmt.Printf("Using custom prompt: %s\n", customPrompt)
 		return customPrompt, nil
 	}
@@ -42,7 +34,9 @@ func (c *GeminiProvider) buildPrompt(ctx context.Context, opts *SearchOptions) (
 	}
 
 	translation := strings.TrimSpace(opts.Translation)
-	if customPrompt := normalizeCustomPrompt(opts.CustomPrompt); customPrompt != "" {
+	// Custom prompts contain complete page instructions; preserve their content
+	// and let the configured model report any input limit instead of truncating.
+	if customPrompt := strings.TrimSpace(opts.CustomPrompt); customPrompt != "" {
 		fmt.Printf("Using custom prompt: %s\n", customPrompt)
 		return customPrompt, translation, nil
 	}

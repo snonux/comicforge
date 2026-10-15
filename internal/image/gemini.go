@@ -24,7 +24,6 @@ const (
 	geminiAspectRatio = "4:3"
 	geminiDataPrefix  = "data:image/png;base64,"
 	geminiSource      = Gemini
-	maxCustomPrompt   = 4000
 )
 
 // GeminiConfig holds the settings needed to build a Gemini-backed image provider.

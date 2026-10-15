@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"google.golang.org/genai"
 )
@@ -162,84 +161,39 @@ func TestGeminiProvider_Search_CustomPromptWithoutTranslationKeepsDescriptionSim
 	}
 }
 
-func TestGeminiProvider_Search_CustomPromptIsTruncated(t *testing.T) {
-	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
-		t.Fatal("unexpected text generation for truncated prompt")
-		return "", nil
-	}
+func TestGeminiProvider_Search_PreservesLongCustomPrompt(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		prompt string
+	}{
+		{"ASCII", strings.Repeat("story instructions ", 4000) + "FINAL STYLE LOCK"},
+		{"Cyrillic", strings.Repeat("Героят носи синя дреха.\n", 2000) + "Последен диалог: „Да тръгваме!“"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			prompt := tt.prompt
+			client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
+			client.generateText = func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
+				t.Fatal("unexpected text generation for custom prompt")
+				return "", nil
+			}
+			var gotPrompt, callbackPrompt string
+			client.generateImage = func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
+				gotPrompt = prompt
+				return mustPNGBytes(t), "image/png", nil
+			}
+			client.SetPromptCallback(func(prompt string) { callbackPrompt = prompt })
 
-	var gotPrompt string
-	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
-		gotPrompt = prompt
-		return mustJPEGBytes(t), "image/jpeg", nil
-	}
-
-	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
-	client.generateText = stubText
-	client.generateImage = stubImage
-	longPrompt := strings.Repeat("a", maxCustomPrompt+128)
-	results, err := client.Search(context.Background(), &SearchOptions{
-		Query:        "ябълка",
-		CustomPrompt: longPrompt,
-	})
-	if err != nil {
-		t.Fatalf("Search() unexpected error: %v", err)
-	}
-	if len(gotPrompt) != maxCustomPrompt {
-		t.Fatalf("prompt length = %d, want %d", len(gotPrompt), maxCustomPrompt)
-	}
-	if !strings.HasSuffix(gotPrompt, "...") {
-		t.Fatalf("prompt = %q, want ellipsis suffix", gotPrompt)
-	}
-	if client.LastPrompt() != gotPrompt {
-		t.Fatalf("LastPrompt() = %q, want %q", client.LastPrompt(), gotPrompt)
-	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-}
-
-func TestGeminiProvider_Search_CustomPromptTruncatesUTF8Safely(t *testing.T) {
-	stubText := func(context.Context, *GeminiProvider, string, string, string, float32, int32) (string, error) {
-		t.Fatal("unexpected text generation for truncated custom prompt")
-		return "", nil
-	}
-
-	var gotPrompt string
-	stubImage := func(_ context.Context, _ *GeminiProvider, prompt, _ string) ([]byte, string, error) {
-		gotPrompt = prompt
-		return mustJPEGBytes(t), "image/jpeg", nil
-	}
-
-	client := NewGeminiProvider(&GeminiConfig{APIKey: "test-key"})
-	client.generateText = stubText
-	client.generateImage = stubImage
-	longPrompt := strings.Repeat("яa", 2500)
-	if len(longPrompt) <= maxCustomPrompt {
-		t.Fatal("test prompt did not exceed truncation limit")
-	}
-
-	results, err := client.Search(context.Background(), &SearchOptions{
-		Query:        "ябълка",
-		CustomPrompt: longPrompt,
-	})
-	if err != nil {
-		t.Fatalf("Search() unexpected error: %v", err)
-	}
-	if !utf8.ValidString(gotPrompt) {
-		t.Fatalf("Search() returned invalid UTF-8 prompt: %q", gotPrompt)
-	}
-	if len(gotPrompt) > maxCustomPrompt {
-		t.Fatalf("prompt length = %d, want <= %d", len(gotPrompt), maxCustomPrompt)
-	}
-	if !strings.HasSuffix(gotPrompt, "...") {
-		t.Fatalf("prompt = %q, want ellipsis suffix", gotPrompt)
-	}
-	if client.LastPrompt() != gotPrompt {
-		t.Fatalf("LastPrompt() = %q, want %q", client.LastPrompt(), gotPrompt)
-	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
+			results, err := client.Search(context.Background(), &SearchOptions{CustomPrompt: " \n" + prompt + "\n "})
+			if err != nil {
+				t.Fatalf("Search() error = %v", err)
+			}
+			if gotPrompt != prompt || client.LastPrompt() != prompt || callbackPrompt != prompt {
+				t.Fatalf("custom prompt changed: sent %d bytes, want %d", len(gotPrompt), len(prompt))
+			}
+			if len(results) != 1 {
+				t.Fatalf("got %d results, want 1", len(results))
+			}
+		})
 	}
 }
 
