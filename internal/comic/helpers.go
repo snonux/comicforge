@@ -1,10 +1,17 @@
 package comic
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
-const maxPromptSlugLength = 48
+const (
+	maxPromptSlugLength = 48
+	maxComicSlugLength  = 96
+)
 
 // slugify converts a comic title into a safe file-name component.
 func slugify(title string) string {
@@ -13,7 +20,7 @@ func slugify(title string) string {
 	prevHyphen := false
 	for _, r := range title {
 		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+		case unicode.IsLetter(r), unicode.IsDigit(r), unicode.IsMark(r) && b.Len() > 0:
 			b.WriteRune(r)
 			prevHyphen = false
 		case r == ' ' || r == '-' || r == '_':
@@ -27,6 +34,10 @@ func slugify(title string) string {
 	slug := strings.TrimRight(b.String(), "-")
 	if slug == "" {
 		return "comic"
+	}
+	if len(slug) > maxComicSlugLength {
+		suffix := fmt.Sprintf("-%x", sha256.Sum256([]byte(title)))[:17]
+		slug = strings.TrimRight(truncateUTF8(slug, maxComicSlugLength-len(suffix)), "-") + suffix
 	}
 	return slug
 }
@@ -46,11 +57,21 @@ func shortSlug(title, fallback string) string {
 	if cut < 12 {
 		cut = maxPromptSlugLength
 	}
-	slug = strings.TrimRight(slug[:cut], "-")
+	slug = strings.TrimRight(truncateUTF8(slug, cut), "-")
 	if slug == "" {
 		return fallback
 	}
 	return slug
+}
+
+func truncateUTF8(text string, maxBytes int) string {
+	if len(text) <= maxBytes {
+		return text
+	}
+	for !utf8.RuneStart(text[maxBytes]) {
+		maxBytes--
+	}
+	return text[:maxBytes]
 }
 
 func shortPromptSlugFromText(text string) string {

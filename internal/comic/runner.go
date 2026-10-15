@@ -142,6 +142,16 @@ func (r *Runner) Run(ctx context.Context, batchFile string) error {
 	if err != nil {
 		return err
 	}
+	if r.artist.style == "" {
+		r.artist.style = pickStyle(r.artist.styles, r.artist.styleMode)
+	}
+	identity, err := r.comicIdentity(result, entries)
+	if err != nil {
+		return err
+	}
+	if err := r.assetStore.ClaimComicIdentity(dir, slug, identity); err != nil {
+		return err
+	}
 	r.artist.outputDir = assetsDir
 	if err := r.persistTextArtifacts(result.StoryText, entries, slug, assetsDir); err != nil {
 		return err

@@ -24,6 +24,7 @@ const ttsTodoContent = `# Story Narration - Fallback Placeholder
 type AssetStore interface {
 	PrepareOutputDirs(outputRoot, slug string) (assetsDir string, err error)
 	EnsureAssetsDir(outputRoot, slug string) (assetsDir string, err error)
+	ClaimComicIdentity(outputRoot, slug, identity string) error
 	SaveStoryText(text, titleSlug, dir string) error
 	SaveVocabularyFile(storyText string, entries []vocab.WordEntry, titleSlug, dir string) error
 	SaveThemeFile(theme, titleSlug, dir string) error

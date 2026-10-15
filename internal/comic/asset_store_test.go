@@ -367,6 +367,8 @@ func (s *stubAssetStore) EnsureAssetsDir(string, string) (string, error) {
 	return s.assetsDir, nil
 }
 
+func (s *stubAssetStore) ClaimComicIdentity(string, string, string) error { return nil }
+
 func (s *stubAssetStore) SaveStoryText(string, string, string) error {
 	return s.storyErr
 }

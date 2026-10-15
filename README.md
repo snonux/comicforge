@@ -221,6 +221,18 @@ Useful flags:
 - `--ultra-realistic` and `--no-ultra-realistic` force photorealistic or classic comic rendering; without either flag ComicForge uses `story.realistic_weight` (see [Style selection](#style-selection))
 - `--version` prints the application version
 
+Generated folder names retain Unicode letters, including Cyrillic titles. A
+generation identity in each comic assets folder protects existing packages:
+reruns reuse page images only when the complete generated story bundle,
+vocabulary, and artwork settings match. A new story with the same title or
+`--slug` stops before replacing existing artifacts; choose a different `--slug`
+or output directory. Existing assets, PDFs, or gallery files without an identity
+also require a different destination. Story generation still runs on each
+invocation, so a new model response may prevent a resume. Use an explicit `--style` for a stable
+style when retrying an interrupted generation.
+Template overrides and provider/model changes are outside this identity check;
+choose a new destination when changing those inputs.
+
 Example (default PDF: full-bleed, aspect ratio from config):
 
 ```bash
