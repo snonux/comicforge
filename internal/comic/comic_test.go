@@ -15,7 +15,7 @@ import (
 )
 
 func stubArtistSeams(a *Artist) {
-	a.sleep = func(time.Duration) {}
+	a.sleep = func(context.Context, time.Duration) error { return nil }
 	a.validateImage = func(context.Context, string, string, string) error { return nil }
 }
 
@@ -370,7 +370,7 @@ func TestDrawComicPagesReturnsErrorWhenRenderFails(t *testing.T) {
 		OutputDir:      t.TempDir(),
 		UltraRealistic: false,
 	})
-	artist.sleep = func(time.Duration) {}
+	artist.sleep = func(context.Context, time.Duration) error { return nil }
 
 	_, err := artist.DrawComicPages(context.Background(), "story", "bible", "slug", []WordEntry{{Word: "ябълка"}}, nil)
 	if err == nil {
@@ -514,7 +514,7 @@ func TestRunnerRunPromptValidatesImageOutput(t *testing.T) {
 		PageMaxRetries: 1,
 		PageRetryBase:  time.Second,
 	})
-	runner.artist.sleep = func(time.Duration) {}
+	runner.artist.sleep = func(context.Context, time.Duration) error { return nil }
 	runner.artist.validateImage = func(_ context.Context, outputFile, label, script string) error {
 		calls++
 		if outputFile == "" {
@@ -789,7 +789,7 @@ func TestRunnerPropagatesRenderFailures(t *testing.T) {
 			return "", nil
 		}},
 	})
-	runner.artist.sleep = func(time.Duration) {}
+	runner.artist.sleep = func(context.Context, time.Duration) error { return nil }
 	runner.artist.validateImage = func(context.Context, string, string, string) error { return nil }
 
 	vocabFile := filepath.Join(t.TempDir(), "vocab.txt")
@@ -967,8 +967,9 @@ func TestGenerateWithRetryUsesConfiguredRetriesAndBackoff(t *testing.T) {
 		PageMaxRetries: 3,
 		PageRetryBase:  2 * time.Second,
 	})
-	artist.sleep = func(d time.Duration) {
+	artist.sleep = func(_ context.Context, d time.Duration) error {
 		pauses = append(pauses, d)
+		return nil
 	}
 	artist.validateImage = func(context.Context, string, string, string) error { return nil }
 

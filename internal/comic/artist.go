@@ -59,7 +59,7 @@ type Artist struct {
 	pageMaxRetries int
 	pageRetryBase  time.Duration
 	dina4PDF       bool
-	sleep          func(time.Duration)
+	sleep          func(context.Context, time.Duration) error
 	validateImage  imageOutputValidator
 	initErr        error
 }
@@ -84,7 +84,7 @@ func NewArtist(cfg *ArtistConfig) *Artist {
 		galleryPages:   5,
 		panelsPerPage:  defaultStoryPanelsPerPage,
 		ultraRealistic: true,
-		sleep:          time.Sleep,
+		sleep:          waitForImageRetry,
 		validateImage:  validateImagePromptLeakage,
 	}
 	if cfg == nil {
@@ -238,14 +238,28 @@ func (a *Artist) generatePromptImage(ctx context.Context, prompt, outputFile str
 }
 
 func (a *Artist) generateWithRetryAndValidation(ctx context.Context, prompt, outputFile, label string, refs [][]byte, validator imageOutputValidator) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	attempts := a.pageMaxRetries
 	sleeper := a.sleep
 	if sleeper == nil {
-		sleeper = time.Sleep
+		sleeper = waitForImageRetry
 	}
 	for attempt := 1; attempt <= attempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("%s canceled: %w", label, err)
+		}
 		callCtx, cancel := withTimeout(ctx, helperTimeout)
 		err := a.generateImage(callCtx, prompt, outputFile, refs)
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			cancel()
+			if validator != nil {
+				// Resumed renders skip existing files, so discard unvalidated output.
+				_ = os.Remove(outputFile)
+			}
+			return fmt.Errorf("%s canceled: %w", label, ctxErr)
+		}
 		if err == nil && validator != nil {
 			if leakErr := validator(callCtx, outputFile, label, a.script); leakErr != nil {
 				_ = os.Remove(outputFile)
@@ -253,18 +267,34 @@ func (a *Artist) generateWithRetryAndValidation(ctx context.Context, prompt, out
 			}
 		}
 		cancel()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("%s canceled: %w", label, ctxErr)
+		}
 		if err == nil {
 			return nil
 		}
 		if attempt < attempts {
 			pause := a.pageRetryBase * time.Duration(attempt)
 			fmt.Printf("  Warning: %s attempt %d/%d failed (%v), retrying in %s...\n", label, attempt, attempts, err, pause)
-			sleeper(pause)
+			if waitErr := sleeper(ctx, pause); waitErr != nil {
+				return fmt.Errorf("%s retry wait: %w", label, waitErr)
+			}
 			continue
 		}
 		return fmt.Errorf("%s failed after %d attempts: %w", label, attempts, err)
 	}
 	return nil
+}
+
+func waitForImageRetry(ctx context.Context, pause time.Duration) error {
+	timer := time.NewTimer(pause)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (a *Artist) generateImage(ctx context.Context, prompt, outputFile string, refs [][]byte) error {
