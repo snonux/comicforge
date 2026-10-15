@@ -21,11 +21,11 @@ func localizedScriptName(script string) string {
 	}
 }
 
-func localizedLanguageName(language, script string) string {
-	if strings.EqualFold(script, "Cyrillic") || strings.EqualFold(language, "Bulgarian") {
-		return "български"
-	}
+// localizedLanguageName names the requested language independently of its script.
+func localizedLanguageName(language, _ string) string {
 	switch {
+	case strings.EqualFold(language, "Bulgarian"):
+		return "български"
 	case strings.EqualFold(language, "English"):
 		return "English"
 	case strings.EqualFold(language, "German"):
